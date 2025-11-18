@@ -23,17 +23,17 @@ function App() {
     ]},
 
     { 
-      type:"qs",
+      type:"ch",
       question: "Who is the author of this website?",
       answer: "Abderrahmane Aarab"
     },
     {
-      type:"qs",
+      type:"ch",
       question: "How can I generate a short summary of my chat history?",
       answer: "Simply type your question and the AI will summarize the previous messages."
     },
     {
-      type:"qs",
+      type:"ch",
       question: "Can I ask multiple questions at once?",
       answer: "Yes, but it’s best to ask one question at a time for precise answers."
     },
@@ -46,7 +46,7 @@ function App() {
 
 
   let historySummary = chats
-  .filter(c => c.type === "qs")
+  .filter(c => c.type === "ch")
   .slice(-50)  // last 10 messages
   .map(obj => `question: ${obj.question}, your answer: ${obj.answer}`)
   .join('\n');
@@ -66,7 +66,7 @@ function App() {
       })
       const data = await response.json();
       setLoading(false)
-      setChats(prev=>prev.map(obj=>obj.type==="qs" && obj.id===id ? {...obj,answer:data.response} : obj ))
+      setChats(prev=>prev.map(obj=> obj.id===id ? {...obj,type:data.type==="res" ? "ch" : "error",answer:data.response} : obj ))
 
   }
 
@@ -76,7 +76,7 @@ function App() {
         const newId = new Date()
         const query = e.target.value.trim() 
 
-        setChats(prev=>[...prev,{type:"qs",id:newId,question:query}])
+        setChats(prev=>[...prev,{id:newId,question:query}])
 
 
         query.trim().length> 0 && askAI(query , newId)

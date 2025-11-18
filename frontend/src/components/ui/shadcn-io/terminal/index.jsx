@@ -93,7 +93,7 @@ export const Terminal = ({
     } else {
       return [
         <AnimatedSpan key={`${index}-q`} className="neon-text" delay={0}>{obj.question}</AnimatedSpan>,
-        <AnimatedSpan key={`${index}-a`} delay={0}>{obj.answer}</AnimatedSpan>
+        <AnimatedSpan key={`${index}-a`} delay={0} className={`${obj.type==="error" ? "text-red-500" : ""}`} >{obj.answer}</AnimatedSpan>
       ];
     }
   });
@@ -117,26 +117,32 @@ export const Terminal = ({
   return (
     <div
       className={cn(
-        "z-0 flex flex-col  custom-scroll rounded-xl border border-green-500 bg-background h-[90vh] md:max-h-[500px] xl:max-h-[800px] w-[95vw] md:max-w-[800px]  overflow-hidden  ",
+        "z-0 flex flex-col  custom-scroll rounded-xl border border-green-500 bg-background h-[95vh] md:max-h-[600px] xl:max-h-[800px] w-[95vw] md:w-[70vw] md:max-w-[1000px]  overflow-hidden  ",
         className
       )}>
 
-      <div className="sticky  w-full flex flex-col gap-y-2 border-b border-green-500 bg-[#111927] p-4">
+      <div className="sticky drop-shadow-[0_50px_10px_rgba(0,0,0,0.8)]  w-full flex items-center gap-4 gap-y-2 border-b border-green-500 bg-[#111927] p-4">
         <div className="flex flex-row gap-x-2 ">
           <div className="h-2 w-2 md:w-3 md:h-3 rounded-full bg-red-500"></div>
           <div className="h-2 w-2 md:w-3 md:h-3 rounded-full bg-yellow-500"></div>
           <div className="h-2 w-2 md:w-3 md:h-3 rounded-full bg-green-500"></div>
         </div>
+        <div className="text-white">
+          {">_"}chatforge-terminal
+        </div>
       </div>
 
 
-      <pre className="p-4   h-full overflow-y-scroll">
-        <code className="grid gap-y-1   p-2 ">
+      <pre className="   h-full overflow-y-scroll">
+        <code className="grid gap-y-1    ">
+          <div className=" p-6 mt-4">
           {Content}
-          <div className="flex gap-2 items-center">
+
+          </div>
+          <div className="flex gap-2 items-center sticky bottom-0 p-4 bg-gradient-to-t from-black/100 via-black/100 to-black/70">
           {!loading && (
             <>
-            <span className="inline-block  h-full">{">"}</span> <textarea rows={3}  onKeyDown={handlekeyDown} autoFocus  value={query} onChange={(e)=>setQuery(e.target.value)}   className=" outline-none border-none w-full"></textarea>
+            <span className="inline-block  h-full">{">"}</span> <textarea   onKeyDown={handlekeyDown} autoFocus  value={query} onChange={(e)=>setQuery(e.target.value)}   className=" outline-none border-none w-full"></textarea>
             </>
           )}
 

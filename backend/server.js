@@ -19,7 +19,7 @@ async function askAI(question,historySummary) {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer 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`,
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
@@ -57,11 +57,27 @@ app.post("/", async (req, res) => {
     const answer = await askAI(req.body.question,req.body.history);
 
     let content = ""; 
-    answer.error ? content = "⚠️ AI service is currently unavailable. Please try again later."   : ""
-    answer ? content = answer.choices?.[0]?.message?.content || "something went wrong"  : ""
+    let mesType = "";
+    if(answer.error){
+        content = "⚠️ AI service is currently unavailable. Please try again later."
+        mesType="error"
+    }else{
+
+      content = answer.choices?.[0]?.message?.content 
+      
+      if(content){
+          mesType="res"
+      }else{
+        content = "something went wrong ,Check your internet / firewall" 
+        mesType = "error"
+      }
+
+    }
 
     res.json({
-      response: content   
+      response: content ,
+      type : mesType
+
     });
   
 
