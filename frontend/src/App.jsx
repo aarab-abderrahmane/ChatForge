@@ -56,7 +56,7 @@ function App() {
 
   async function askAI(query,id){
       setLoading(true)
-      const response = await fetch('https://chat-forge-api.vercel.app',{
+      const response = await fetch('http://localhost:5000/',{
 
           method:"POST",
           headers : {
