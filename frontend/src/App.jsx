@@ -1,4 +1,4 @@
-import { useEffect ,useState,useRef} from "react"
+import { useEffect ,useState,useRef,useContext} from "react"
 import './index.css'
 
 import {
@@ -7,38 +7,18 @@ import {
   AnimatedSpan,
 } from './components/ui/shadcn-io/terminal';
 
+import {chatsContext}  from './chatsContext'
+
 
 function App() {
 
   const [query , setQuery] = useState("")
 
+  const  {chats,setChats,loading,setLoading}  = useContext(chatsContext)
 
-  const [loading, setLoading] = useState(false)
   const messagesEndRef = useRef(null);
-  const [chats, setChats] = useState([
-    {type:"ms",content:[
-    "👋 Welcome to ChatForge! Here’s how you can get started" ,
-    "💡 Try asking questions like these to see the AI in action",
-
-    ]},
-
-    { 
-      type:"ch",
-      question: "Who is the author of this website?",
-      answer: "Abderrahmane Aarab"
-    },
-    {
-      type:"ch",
-      question: "How can I generate a short summary of my chat history?",
-      answer: "Simply type your question and the AI will summarize the previous messages."
-    },
-    {
-      type:"ch",
-      question: "Can I ask multiple questions at once?",
-      answer: "Yes, but it’s best to ask one question at a time for precise answers."
-    },
-
-  ])
+  
+  const [isCopied, setIsCopied] = useState({idMes:0,state:false})
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -56,7 +36,7 @@ function App() {
 
   async function askAI(query,id){
       setLoading(true)
-      const response = await fetch('http://localhost:5000/',{
+      const response = await fetch('http://localhost:5000/api/chat',{
 
           method:"POST",
           headers : {
@@ -84,13 +64,41 @@ function App() {
   }
 
 
+  const copyToClipboard = async (idMes)=>{
+
+      const targetMes = chats.find(ch=>ch.type==="ch" && ch.id===idMes)
+      console.log(targetMes.answer)
+      if(typeof window === "undefined" || !navigator.clipboard.writeText ){
+        
+        console.error(new Error('Clipboard API not available'));
+
+        return
+      }
+
+      try {
+
+          await navigator.clipboard.writeText(targetMes.answer);
+          setIsCopied({idMes:idMes,state:true})
+          setTimeout(()=>setIsCopied(prev=>({...prev,state:false})),2000)
+
+
+      }catch (error){
+        console.error(error)
+      }
+
+  }
+
+
+
+
+
 
 
   return (
     <>
 
       <div className="bg-black scan-lines min-h-screen flex justify-center items-center w-screen ">
-      <Terminal chats={chats} handleSend={handleSend} loading={loading} query={query} setQuery={setQuery} messagesEndRef={messagesEndRef} >
+      <Terminal copyToClipboard={copyToClipboard} isCopied={isCopied} chats={chats} handleSend={handleSend} loading={loading} query={query} setQuery={setQuery} messagesEndRef={messagesEndRef} >
           {/* <AnimatedSpan delay={0}>$ npm install shadcn-ui</AnimatedSpan>
           <TypingAnimation delay={1000} duration={100}>
             Installing dependencies...

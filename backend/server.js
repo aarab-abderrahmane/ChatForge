@@ -18,15 +18,11 @@ async function askAI(question,historySummary) {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-<<<<<<< HEAD
-        "Authorization": `Bearer ${process.env.OPENROUTER_KEY}`,
-=======
-        "Authorization": `Bearer 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`,
->>>>>>> 09defc4a94d7e6093ea717c1d45b4e1b235563ef
+        "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "kwaipilot/kat-coder-pro:free",
+        model: "openrouter/sherlock-dash-alpha",
         messages: [{ 
           role: "user", 
           content: `
