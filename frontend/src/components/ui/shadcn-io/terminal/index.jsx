@@ -1,7 +1,29 @@
 "use client";;
 import { cn } from "../../../../lib/utils";
 import { motion } from "motion/react";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState ,useContext} from "react";
+
+
+// code block 
+import { Response } from "../ai/response";
+
+//guidePage
+import { GuidePage } from "../../../../guidePage";
+
+import { Action, Actions } from '../ai/actions';
+import {
+  CheckIcon, CopyIcon ,
+  RefreshCcwIcon,
+  ShareIcon,
+  ThumbsDownIcon,
+  ThumbsUpIcon,
+} from 'lucide-react';
+
+
+//context
+import {chatsContext} from '../../../../chatsContext'
+
+
 
 export const AnimatedSpan = ({
   children,
@@ -76,14 +98,20 @@ export const TypingAnimation = ({
 
 export const Terminal = ({
   chats,
+  copyToClipboard,
   handleSend,
   loading,
+  isCopied,
   query,
   setQuery,
   messagesEndRef, 
   className
 }) => {
 
+
+  const {preferences} = useContext(chatsContext)
+
+  const lastMes = chats[chats.length-1]
 
   const Content = chats.flatMap((obj, index) => {
     if (obj.type === "ms") {
@@ -92,8 +120,33 @@ export const Terminal = ({
       ));
     } else {
       return [
-        <AnimatedSpan key={`${index}-q`} className="neon-text" delay={0}>{obj.question}</AnimatedSpan>,
-        <AnimatedSpan key={`${index}-a`} delay={0} className={`${obj.type==="error" ? "text-red-500" : ""}`} >{obj.answer}</AnimatedSpan>
+        <div className="group">
+
+        <AnimatedSpan key={`${index}-q`} className="neon-text my-4" delay={0}>{obj.question}</AnimatedSpan>
+        <div >
+        <Response key={`${index}-a`}  className={` ${obj.type==="error" ? "text-red-500" : ""}  `} >{obj.answer}</Response>
+
+            {
+              obj.answer && (
+              isCopied.state && isCopied.idMes === obj.id ? 
+                <div className="p-1.5">
+                <CheckIcon className="size-4 " />
+
+                </div>
+              :
+                <div className={`size-9 p-1.5 cursor-pointer ${lastMes.id === obj.id ? "" : "hidden group-hover:block"}`}   onClick={()=>copyToClipboard(obj.id)}>
+                  <CopyIcon className="size-4 " />
+                </div>
+
+              )
+
+            }
+            
+
+        </div>
+
+        </div>
+
       ];
     }
   });
@@ -117,7 +170,7 @@ export const Terminal = ({
   return (
     <div
       className={cn(
-        "z-0 flex flex-col  custom-scroll rounded-xl border border-green-500 bg-background h-[95vh] md:max-h-[600px] xl:max-h-[800px] w-[95vw] md:w-[70vw] md:max-w-[1000px]  overflow-hidden  ",
+        "z-0 flex flex-col  custom-scroll rounded-xl border border-green-500 bg-background h-[85vh] md:max-h-[600px] xl:max-h-[800px] w-[95vw] md:w-[70vw] md:max-w-[1000px]  overflow-hidden  ",
         className
       )}>
 
@@ -133,28 +186,45 @@ export const Terminal = ({
       </div>
 
 
-      <pre className="   h-full overflow-y-scroll">
-        <code className="grid gap-y-1    ">
-          <div className=" p-6 mt-4">
-          {Content}
 
-          </div>
-          <div className="flex gap-2 items-center sticky bottom-0 p-4 bg-gradient-to-t from-black/100 via-black/100 to-black/70">
-          {!loading && (
-            <>
-            <span className="inline-block  h-full">{">"}</span> <textarea   onKeyDown={handlekeyDown} autoFocus  value={query} onChange={(e)=>setQuery(e.target.value)}   className=" outline-none border-none w-full"></textarea>
-            </>
-          )}
+      {
 
-          {loading&& <span className="loading inline-block ">/</span>}
+        preferences.isVisited
+        ? (
 
-          </div>
+            <pre className="   h-full overflow-y-scroll  overflow-x-hidden">
+              <code >
+                <div className=" p-6 mt-6">
+                  
+                {Content}
 
-          <div ref={messagesEndRef} />
+                </div>
+                
+                <div className="flex gap-2 items-center sticky bottom-0 p-4 bg-gradient-to-t from-black/100 via-black/100 to-black/70">
+                {!loading && (
+                  <div className="flex items-start w-full gap-2">
+                  <span className="inline-block  h-full ">{">"}</span> <textarea   onKeyDown={handlekeyDown} autoFocus  value={query} onChange={(e)=>setQuery(e.target.value)}   className=" outline-none border-none w-full "></textarea>
+                  </div>
+                )}
 
-          </code>
-          
-      </pre>
+                {loading&& <span className="loading inline-block ">/</span>}
+
+                </div>
+
+                <div ref={messagesEndRef} />
+
+                </code>
+                
+            </pre>
+
+        ):(
+
+            <GuidePage/>
+
+        )
+      }
+
+
 
 
     </div>
