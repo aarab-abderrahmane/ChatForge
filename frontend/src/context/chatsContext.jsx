@@ -1,25 +1,14 @@
 import { createContext, useState, useEffect } from "react";
-import { GuidePage } from "./guidePage";
+import {api} from "../services/api"
 
-export async function keyCheckExists() {
-  try {
-    const response = await fetch("http://localhost:5000/api/key-check");
-    const data = await response.json();
 
-    return { valid: data.exists };
-  } catch (error) {
-    console.error(error);
-    return {
-      valid: false,
-      res: "❌ Connection error: Could not reach the server.",
-    };
-  }
-}
 
 export const chatsContext = createContext();
 
 export function ChatsProvider({ children }) {
   const [loading, setLoading] = useState(false);
+
+
 
   const [chats, setChats] = useState([
     {
@@ -80,7 +69,7 @@ export function ChatsProvider({ children }) {
   useEffect(()=>{
     const checkKey = async ()=>{
 
-        const result = await keyCheckExists()
+        const result = await api.checkKey()
         if(result){
             setPreferences(prev=>({...prev,pages:{...prev.pages,guide:{keyValid:true}}}))
         }else{

@@ -1,16 +1,15 @@
 "use client";;
-import { cn } from "../../../../lib/utils";
+import { cn } from "../../lib/utils";
 import { motion } from "motion/react";
 import { useEffect, useRef, useState ,useContext} from "react";
 
 
 // code block 
-import { Response } from "../ai/response";
+import { Response } from "../ui/shadcn-io/ai/response";
 
 //guidePage
-import { GuidePage } from "../../../../guidePage";
+import { GuidePage } from '../../pages/guidePage'
 
-import { Action, Actions } from '../ai/actions';
 import {
   CheckIcon, CopyIcon ,
   RefreshCcwIcon,
@@ -21,10 +20,9 @@ import {
 
 
 //context
-import {chatsContext} from '../../../../chatsContext'
+import {chatsContext} from '../../context/chatsContext'
 
 
-import {DashboardPage}  from '../../../../Dashboard'
 
 export const AnimatedSpan = ({
   children,
@@ -164,7 +162,6 @@ export const Terminal = ({
           
           setQuery('')
           handleSend(e)
-          console.log("send")
 
         }
   }
@@ -208,7 +205,7 @@ export const Terminal = ({
 
       {
 
-        !preferences.pages.guide.keyValid 
+        preferences.currentPage==="chat"
         ? (
 
             <pre className="   h-full overflow-y-scroll  overflow-x-hidden">

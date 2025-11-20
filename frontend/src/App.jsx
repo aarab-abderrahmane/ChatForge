@@ -1,41 +1,31 @@
 import { useEffect, useState, useRef, useContext } from "react";
 import "./index.css";
 
-import {
-  Terminal,
-  TypingAnimation,
-  AnimatedSpan,
-} from "./components/ui/shadcn-io/terminal";
+import { Terminal } from "./components/features/Terminal";
 
-import { chatsContext } from "./chatsContext";
+import { chatsContext } from "./context/chatsContext";
 
 import { MultiStepLoader as Loader } from "./components/ui/multi-step-loader";
 
-
-
-
+import { api } from "./services/api";
 
 function App() {
-
-
-
-
   const loadingStates = [
-  { text: "Initializing ChatForge AI..." },
-  { text: "Warming up neural networks..." },
-  { text: "Scanning your query..." },
-  { text: "Generating insights..." },
-  { text: "Synthesizing answers..." },
-  { text: "Polishing responses..." },
-  { text: "Almost ready..." },
-  { text: "ChatForge AI is online!" },
-];
+    { text: "Initializing ChatForge AI..." },
+    { text: "Warming up neural networks..." },
+    { text: "Scanning your query..." },
+    { text: "Generating insights..." },
+    { text: "Synthesizing answers..." },
+    { text: "Polishing responses..." },
+    { text: "Almost ready..." },
+    { text: "ChatForge AI is online!" },
+  ];
 
   const [showCmdMenu, setShowCmdMenu] = useState(false);
 
   const [query, setQuery] = useState("");
 
-  const [stepLoader,setStepLoader] = useState(true)
+  const [stepLoader, setStepLoader] = useState(true);
 
   const { chats, setChats, loading, setLoading } = useContext(chatsContext);
 
@@ -53,17 +43,10 @@ function App() {
     .map((obj) => `question: ${obj.question}, your answer: ${obj.answer}`)
     .join("\n");
 
-
   async function askAI(query, id) {
     setLoading(true);
-    const response = await fetch("http://localhost:5000/api/chat", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ question: query, history: historySummary }),
-    });
-    const data = await response.json();
+
+    const data = await api.chat(query,historySummary);
     setLoading(false);
     setChats((prev) =>
       prev.map((obj) =>
