@@ -2,7 +2,7 @@ import { useState ,useContext} from "react";
 
 import { chatsContext } from "./chatsContext";
 
-export async function KeyTest(setWelcomeMessages,key,setPreferences) {
+export async function KeyTest(setWelcomeMessages,key,setPreferences,setLoading) {
 
   try {
     const res = await fetch("http://localhost:5000/api/test", {
@@ -18,14 +18,14 @@ export async function KeyTest(setWelcomeMessages,key,setPreferences) {
 
 
     if (data.mesType === "error"  || data.type=== "error") {
-      setWelcomeMessages(prev => [...prev, "Key doesn't work!"]);
-   console.log("invalid")
+      setWelcomeMessages(prev => [...prev,{type:"error",content:data.response} ]);
+      console.log("invalid")
    
     }else{
 
         console.log("valid")
-      setWelcomeMessages(prev => [...prev, "Key is valid."]) 
-      setPreferences(prev=>({...prev,isVisited:true}))
+        setWelcomeMessages(prev => [...prev, {type:"succ",content:"[✓] API Key authenticated. Full access granted."} ]) 
+      // setPreferences(prev=>({...prev,isVisited:true}))
     
     }
 
@@ -35,6 +35,10 @@ export async function KeyTest(setWelcomeMessages,key,setPreferences) {
   catch (err) {
     setWelcomeMessages(prev => [...prev, "Connection error"]);
   }
+
+
+  setLoading(false)
+  
 }
 
 
@@ -42,36 +46,48 @@ export async function KeyTest(setWelcomeMessages,key,setPreferences) {
 
 export const GuidePage = () => {
 
+
+    const [loading,setLoading] =  useState(false)
+
     const[ welcomeMessages,setWelcomeMessages] = useState([
-  "root@chatforge-terminal:~# ./start_chatforge.sh",
-  "[✓] Verifying ChatForge environment",
-  "[✓] Loading AI modules...",
-  "[!] OpenRouter API key not detected",
-  "→ Please create your key at https://openrouter.ai",
-  "→ Copy it here to enable full access",
-  "System ready for authentication.",
-  "Limited access until API key is provided."
-]);
+          
+      { type: "mes", content: "root@chatforge-terminal:~# ./start_chatforge.sh" },
+      { type: "mes", content: "[✓] Verifying ChatForge environment" },
+      { type: "mes", content: "[✓] Loading AI modules..." },
+      { type: "mes", content: "[!] OpenRouter API key not detected" },
+      { type: "mes", content: "→ Please create your key at https://openrouter.ai" },
+      { type: "mes", content: "→ Copy it here to enable full access" },
+      { type: "mes", content: "System ready for authentication." },
+      { type: "mes", content: "Limited access until API key is provided." }
+        
+  ]);
 
 const {setPreferences} = useContext(chatsContext)
 
 async function handlekeyDown(e){
 
         if(e.key === "Enter"){
-            await KeyTest(setWelcomeMessages,e.target.value.trim(),setPreferences)
+            setLoading(true)
+            await KeyTest(setWelcomeMessages,e.target.value.trim(),setPreferences,setLoading)
         }
 }
 
 
-  return (<div className="p-6 mt-6">
+  return (<div className="p-6 mt-6 overflow-y-scroll">
     <div >
 
-        {welcomeMessages.map(txt=><pre>{txt}</pre>)}
+        {welcomeMessages.map(obj=><pre  className={`text-wrap ${obj.type==="error" ? "text-red-600" : "" }  ${obj.type==="succ" ? "text-green-200" : ""}`}>{obj.content}</pre>)}
 
     </div>
+
+    <div className="">
+    <span className={`inline-block loading ${loading ? "" : "hidden"}`}>{"|"}</span>
     <input 
     onKeyDown={handlekeyDown}
-    type="text" placeholder="place you key here" className="outline-none placeholder-green-600 text-white  mt-2  p-2 border-t  border-green-400 border-dashed w-[80%] md:w-[50%]" ></input>
+    type="text" placeholder="place you key here" disabled={loading} className="outline-none placeholder-green-600 text-white  mt-2  p-2 border-t  border-green-400 border-dashed w-[80%] md:w-[50%]" ></input>
+    </div>
+  
+  
   </div>)
 
 };

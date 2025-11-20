@@ -152,8 +152,8 @@
 
 
 *::selection{
-  background-color: rgba(0, 128, 0, 0.533);
-  color:white
+  background-color: rgb(33, 205, 33);
+  color:rgb(0, 0, 0)
 }
 
 
