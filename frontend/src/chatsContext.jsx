@@ -1,4 +1,4 @@
-import { createContext , useState } from "react";
+import { createContext , useState,useEffect } from "react";
 
 
 export const chatsContext = createContext()
@@ -35,8 +35,31 @@ export function ChatsProvider({children}){
     
       ])
 
+
+        const defaultPreferences = {
+          isVisited : false
+        }
+      
+        const [preferences, setPreferences] = useState(()=>{
+      
+              const latestPreferences = localStorage.getItem('Preferences')
+              return latestPreferences && latestPreferences!==null && latestPreferences!== undefined 
+              ? JSON.parse(latestPreferences)
+              : defaultPreferences
+      
+        }
+      
+        )
+      
+        useEffect(()=>{
+      
+              localStorage.setItem('Preferences',JSON.stringify(preferences))
+      
+        },[preferences])
+      
+
     return (
-        <chatsContext.Provider value={{chats,setChats,loading,setLoading}} >
+        <chatsContext.Provider value={{chats,setChats,loading,setLoading,preferences,setPreferences}} >
             {children}
         </chatsContext.Provider>
     )
