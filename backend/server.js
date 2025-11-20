@@ -166,8 +166,24 @@ app.post('/api/test',async (req,res)=>{
 
 
 app.get('/',(_,res)=>{
-    res.json({message:"hello to my chat boot "})
+    res.json({message:"Welcome to chatForge "})
 })
 
+
+app.get("/api/key-check",(_,res)=>{
+  
+  const key = getUserKey()
+
+  if(key && key.length>0){
+    res.json({
+      exists : true
+    })
+  }else{
+    res.json({
+      exists : false 
+    })
+  }
+
+})
 
 app.listen(5000, () => console.log("Server running on port 5000"));

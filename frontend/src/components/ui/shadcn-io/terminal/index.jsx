@@ -189,7 +189,7 @@ export const Terminal = ({
 
       {
 
-        preferences.isVisited
+        preferences.pages.guide.keyValid 
         ? (
 
             <pre className="   h-full overflow-y-scroll  overflow-x-hidden">
