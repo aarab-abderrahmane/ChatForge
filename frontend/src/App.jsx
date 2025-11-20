@@ -31,6 +31,7 @@ function App() {
   { text: "ChatForge AI is online!" },
 ];
 
+  const [showCmdMenu, setShowCmdMenu] = useState(false);
 
   const [query, setQuery] = useState("");
 
@@ -125,6 +126,8 @@ function App() {
           query={query}
           setQuery={setQuery}
           messagesEndRef={messagesEndRef}
+          setShowCmdMenu={setShowCmdMenu}
+          showCmdMenu={showCmdMenu}
         ></Terminal>
       </div>
     </>

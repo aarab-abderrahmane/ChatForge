@@ -76,7 +76,8 @@ async function handlekeyDown(e){
   return (<div className="p-6 mt-6 overflow-y-scroll">
     <div >
 
-        {welcomeMessages.map(obj=><pre  className={`text-wrap ${obj.type==="error" ? "text-red-600" : "" }  ${obj.type==="succ" ? "text-green-200" : ""}`}>{obj.content}</pre>)}
+
+        {welcomeMessages.map(obj=><pre  className={`text-wrap my-2 ${obj.type==="error" ? "text-red-600" : "" }  ${obj.type==="succ" ? "text-green-200" : ""}`}>{obj.content}</pre>)}
 
     </div>
 

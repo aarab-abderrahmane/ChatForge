@@ -53,6 +53,7 @@ export function ChatsProvider({ children }) {
   ]);
 
   const defaultPreferences = {
+    currentPage : "guide",
     pages: {
       guide: { keyValid: false },
       dashboard: { isVisited: false },
