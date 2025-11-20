@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dotenv from "dotenv";
+import fs from "fs";
 
 dotenv.config();
 
@@ -9,8 +10,32 @@ app.use(cors());
 app.use(express.json());
 
 
+function encrypt(text){
 
-async function askAI(question,historySummary) {
+  return Buffer.from(text).toString('base64')
+}
+
+function decrypt(text){
+  return Buffer.from(text,"base64").toString('utf8')
+}
+
+export function saveUserKey(encryptedKey) {
+  fs.writeFileSync(
+    "keys.json",
+    JSON.stringify({ key: encryptedKey }, null, 2)
+  );
+}
+
+export function getUserKey() {
+  if (!fs.existsSync("keys.json")) return "";
+
+  const data = JSON.parse(fs.readFileSync("keys.json"));
+  return decrypt(data.key);
+}
+
+
+async function askAI(question,key,historySummary="") {
+
 
 
 
@@ -18,11 +43,12 @@ async function askAI(question,historySummary) {
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-        "Authorization": `Bearer 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`,
+
+        "Authorization": `Bearer ${key}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "nvidia/nemotron-nano-12b-v2-vl:free",
+        model: "kwaipilot/kat-coder-pro:free",
         messages: [{ 
           role: "user", 
           content: `
@@ -52,8 +78,12 @@ async function askAI(question,historySummary) {
 
 app.post("/api/chat", async (req, res) => {
 
+  const key = getUserKey()
+
+  console.log(key)
+
   try {
-    const answer = await askAI(req.body.question,req.body.history);
+    const answer = await askAI(req.body.question,key,req.body.history);
 
     let content = ""; 
     let mesType = "";
@@ -81,13 +111,58 @@ app.post("/api/chat", async (req, res) => {
   
 
   } catch (error) {
-    console.log(error);
     res.json({
       response: "⚠️ Unable to reach AI service. Check your internet connection or try again."   
     });
     res.status(500).json({ error: "something went wrong" });
   }
 });
+
+
+app.post('/api/test',async (req,res)=>{
+
+  const APIkey = req.body.APIkey
+
+  if(!APIkey){
+     return res.status(400).json({ type: "error", response: "API Key is required." });
+  }
+
+  try{
+    const  answer = await askAI('how are you?',APIkey)
+
+    if(answer.error || !answer.choices?.[0]?.message?.content){
+        console.log("error ____________________")
+        return res.json({
+        response: "⚠️ The provided API key is invalid or the AI service is unreachable.",
+        type: "error"
+         });
+    }else{
+
+
+
+      const encryptedKey = encrypt(APIkey)
+      saveUserKey(encryptedKey)
+
+
+      res.json({
+        response: "ok",
+        type: "success"
+       });
+
+    }
+
+
+  
+
+  } catch (error) {
+    console.error("Error during API key test:", error);
+    res.status(500).json({
+      response: "⚠️ Internal server error while trying to validate key.",
+      type: "error"
+    });
+  }
+
+})
 
 
 app.get('/',(_,res)=>{
