@@ -24,6 +24,7 @@ import {
 import {chatsContext} from '../../../../chatsContext'
 
 
+import {DashboardPage}  from '../../../../Dashboard'
 
 export const AnimatedSpan = ({
   children,
@@ -105,9 +106,13 @@ export const Terminal = ({
   query,
   setQuery,
   messagesEndRef, 
-  className
+  className,
+  setShowCmdMenu,
+  showCmdMenu
 }) => {
 
+
+  const COMMAND_PREFIX = "//>"
 
   const {preferences} = useContext(chatsContext)
 
@@ -166,6 +171,20 @@ export const Terminal = ({
 
 
 
+  const handleInputChange = (e)=>{
+    const val = e.target.value
+    setQuery(val)
+    if(val.startsWith(COMMAND_PREFIX)){
+      setShowCmdMenu(true)
+    }else{
+      setShowCmdMenu(false)
+    }
+
+  }
+  
+
+
+
 
   return (
     <div
@@ -189,7 +208,7 @@ export const Terminal = ({
 
       {
 
-        preferences.pages.guide.keyValid 
+        !preferences.pages.guide.keyValid 
         ? (
 
             <pre className="   h-full overflow-y-scroll  overflow-x-hidden">
@@ -202,8 +221,30 @@ export const Terminal = ({
                 
                 <div className="flex gap-2 items-center sticky bottom-0 p-4 bg-gradient-to-t from-black/100 via-black/100 to-black/70">
                 {!loading && (
+                  <div className="relative w-full">
+                    
+                    {showCmdMenu && (
+
+
+                        <div className="cmd-menu">
+                        <div className="cmd-header">Available Commands</div>
+                        
+                          <div 
+                            key={0} 
+                            className="cmd-item"
+                          >
+                            <span className="cmd-text">ssqdz</span>
+                            <span className="cmd-desc">hello mouad</span>
+                          </div>
+                      
+                      </div>
+                    )}
+
+
                   <div className="flex items-start w-full gap-2">
-                  <span className="inline-block  h-full ">{">"}</span> <textarea   onKeyDown={handlekeyDown} autoFocus  value={query} onChange={(e)=>setQuery(e.target.value)}   className=" outline-none border-none w-full "></textarea>
+                  <span className="inline-block  h-full ">{">"}</span> <textarea   onKeyDown={handlekeyDown} autoFocus  value={query} onChange={handleInputChange}   className=" outline-none border-none w-full "></textarea>
+                  </div>
+
                   </div>
                 )}
 
