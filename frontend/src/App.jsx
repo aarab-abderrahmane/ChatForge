@@ -56,7 +56,7 @@ function App() {
 
   async function askAI(query,id){
       setLoading(true)
-      const response = await fetch('http://localhost:5000/',{
+      const response = await fetch('http://localhost:5000/api/chat',{
 
           method:"POST",
           headers : {
