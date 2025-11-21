@@ -1,4 +1,4 @@
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = "http://localhost:5100/api";
 
 export const api = {
 
@@ -30,11 +30,11 @@ export const api = {
 
   
   // send message
-  chat: async (question, history) => {
+  chat: async (question, history,userId) => {
     const res = await fetch(`${BASE_URL}/chat`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ question, history }),
+      body: JSON.stringify({ question, history,userId }),
     });
     return await res.json();
   }
