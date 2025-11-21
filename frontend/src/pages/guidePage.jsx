@@ -5,17 +5,17 @@ import { chatsContext } from '../context/chatsContext';
 import TypingText from '../components/ui/shadcn-io/typing-text'
 
 
-export async function KeyTest(setWelcomeMessages,key,setLoading,setShowBtnConfirm) {
+export async function KeyTest(setWelcomeMessages,key,userId,setLoading,setShowBtnConfirm) {
 
 
 
   try {
-    const res = await fetch("http://localhost:5000/api/test", {
+    const res = await fetch("http://localhost:5100/api/test", {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ APIkey:key }),
+      body: JSON.stringify({ APIkey:key ,userId :userId }),
     });
 
     const data = await res.json();
@@ -41,10 +41,15 @@ export async function KeyTest(setWelcomeMessages,key,setLoading,setShowBtnConfir
   } 
   catch (err) {
     setWelcomeMessages(prev => [...prev, "Connection error"]);
+  
+  }finally{
+
+    setLoading(false)
+
   }
 
 
-  setLoading(false)
+
   
 }
 
@@ -75,7 +80,7 @@ export const GuidePage = () => {
         
   ]);
 
-  const {setPreferences} = useContext(chatsContext)
+  const {setPreferences,preferences} = useContext(chatsContext)
 
   const handleInput = (e)=>{
      const target = e.target ; 
@@ -89,7 +94,9 @@ export const GuidePage = () => {
 
               e.preventDefault()
               setLoading(true)
-              await KeyTest(setWelcomeMessages,e.target.value.trim(),setLoading,setShowBtnConfirm)
+              const APIkey = e.target.value.trim()
+              const userId = preferences.userId 
+              await KeyTest(setWelcomeMessages,APIkey,userId,setLoading,setShowBtnConfirm)
           }
   }
 
@@ -129,7 +136,7 @@ export const GuidePage = () => {
         />
 
         <button 
-        onClick={()=>setPreferences(prev=>({...prev,currentPage:"chat",pages:{...prev.pages,guide:{keyValid:true}}}))}
+        onClick={()=>setPreferences(prev=>({...prev,currentPage:"chat"}))}
         className="bg-green-950 py-2 px-4 mt-2 border border-dashed border-green-500 rounded-md hover:bg-green-900">Open Chat</button>
        </div>
     ):(

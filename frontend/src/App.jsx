@@ -9,7 +9,13 @@ import { MultiStepLoader as Loader } from "./components/ui/multi-step-loader";
 
 import { api } from "./services/api";
 
+
+
+
+
+
 function App() {
+
   const loadingStates = [
     { text: "Initializing ChatForge AI..." },
     { text: "Warming up neural networks..." },
@@ -25,9 +31,8 @@ function App() {
 
   const [query, setQuery] = useState("");
 
-  const [stepLoader, setStepLoader] = useState(true);
 
-  const { chats, setChats, loading, setLoading } = useContext(chatsContext);
+  const { chats, setChats, loading, setLoading,preferences } = useContext(chatsContext);
 
   const messagesEndRef = useRef(null);
 
@@ -46,7 +51,10 @@ function App() {
   async function askAI(query, id) {
     setLoading(true);
 
-    const data = await api.chat(query,historySummary);
+    const userId = preferences.userId
+    console.log(userId)
+    const data = await api.chat(query,historySummary,userId);
+
     setLoading(false);
     setChats((prev) =>
       prev.map((obj) =>
@@ -94,12 +102,12 @@ function App() {
   return (
     <>
       <div className="bg-black scan-lines min-h-screen flex justify-center items-center w-screen ">
-        <Loader
+        {/* <Loader
           loadingStates={loadingStates}
           loading={stepLoader}
           setStepLoader={setStepLoader}
           duration={1200}
-        />
+        /> */}
         <Terminal
           copyToClipboard={copyToClipboard}
           isCopied={isCopied}

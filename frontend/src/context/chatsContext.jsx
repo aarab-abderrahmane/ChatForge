@@ -1,9 +1,39 @@
-import { createContext, useState, useEffect } from "react";
+import { createContext, useState, useEffect, useContext } from "react";
 import {api} from "../services/api"
 
 
 
 export const chatsContext = createContext();
+
+
+const  check_key_exists = async (setPreferences,preferences)=>{
+
+
+      const response = await fetch('http://localhost:5100/api/key-exists',{
+
+
+          headers : {
+            "Content-Type" : "application/json"
+          },
+          method : "POST",
+          body: JSON.stringify({userId: preferences.userId })
+
+      })
+      const data = await response.json()
+
+      if(data.exists){
+
+          setPreferences(prev=>({...prev,currentPage:"chat"}))
+
+
+      }else{
+
+        setPreferences(prev=>({...prev,currentPage:"guide"}))
+
+      }
+
+
+}
 
 export function ChatsProvider({ children }) {
   const [loading, setLoading] = useState(false);
@@ -41,13 +71,15 @@ export function ChatsProvider({ children }) {
     },
   ]);
 
+
+  //generate user id 
+  function uuid(){
+    return crypto.randomUUID()
+  }
+
   const defaultPreferences = {
-    currentPage : "guide",
-    pages: {
-      guide: { keyValid: false },
-      dashboard: { isVisited: false },
-      chat: { isVisited: false },
-    },
+    userId : uuid() , 
+    currentPage : "guide"
   };
 
   const [preferences, setPreferences] = useState(() => {
@@ -60,28 +92,43 @@ export function ChatsProvider({ children }) {
   });
 
 
-
   useEffect(() => {
     localStorage.setItem("Preferences", JSON.stringify(preferences));
   }, [preferences]);
 
-
   useEffect(()=>{
-    const checkKey = async ()=>{
 
-        const result = await api.checkKey()
-        if(result){
-            setPreferences(prev=>({...prev,pages:{...prev.pages,guide:{keyValid:true}}}))
-        }else{
-            setPreferences(prev=>({...prev,pages:{...prev.pages,guide:{keyValid:false}}}))
+      const run = async ()=>{
 
-        }
+          await check_key_exists(setPreferences,preferences)
 
-    }
 
-    checkKey()
+      }
+
+      run()
+
+      console.log('runs _________________________________________')
+      
+
 
   },[])
+
+  // useEffect(()=>{
+  //   const checkKey = async ()=>{
+
+  //       const result = await api.checkKey()
+  //       if(result){
+  //           setPreferences(prev=>({...prev,pages:{...prev.pages,guide:{keyValid:true}}}))
+  //       }else{
+  //           setPreferences(prev=>({...prev,pages:{...prev.pages,guide:{keyValid:false}}}))
+
+  //       }
+
+  //   }
+
+  //   checkKey()
+
+  // },[])
 
 
   return (

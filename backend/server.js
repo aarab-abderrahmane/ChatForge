@@ -1,7 +1,11 @@
-import express from "express";
+import express, { response } from "express";
+
 import cors from "cors";
 import dotenv from "dotenv";
 import fs from "fs";
+
+
+import {client,connectDB} from './db.js'
 
 dotenv.config();
 
@@ -19,18 +23,56 @@ function decrypt(text){
   return Buffer.from(text,"base64").toString('utf8')
 }
 
-export function saveUserKey(encryptedKey) {
-  fs.writeFileSync(
-    "keys.json",
-    JSON.stringify({ key: encryptedKey }, null, 2)
-  );
+export async function saveUserKey(encryptedKey,userId) {
+  
+  const db = client.db(process.env.APP_NAME)
+  const collection = db.collection("apikeys") // like table in sql 
+
+
+  
+  await collection.updateOne(
+    {userId},
+    {$set : {encryptedKey}}, // update key if the user already exist
+    {upsert : true} // add new key 
+  )
+
+
+  // fs.writeFileSync(
+  //   "keys.json",
+  //   JSON.stringify({ key: encryptedKey }, null, 2)
+  // );
 }
 
-export function getUserKey() {
-  if (!fs.existsSync("keys.json")) return "";
+export async function getUserKey(userId) {
+  try {
 
-  const data = JSON.parse(fs.readFileSync("keys.json"));
-  return decrypt(data.key);
+    const db = client.db(process.env.APP_NAME)
+    const collection  = db.collection('apikeys');
+
+    const user  = await collection.findOne({userId:userId})
+    const decryptedkey  = decrypt(user.encryptedKey).trim()
+
+
+    if(user){
+
+        return {exists: true , res : decryptedkey}
+
+    }else{
+
+
+      return {exists : false , res :"User not found. Please provide a valid API key ⚠️." }
+
+    }
+
+  }catch(err){
+
+      return {exists : false , res : "Unable to fetch user key due to a server error .Please try again later ❌."} 
+
+  }
+  // if (!fs.existsSync("keys.json")) return "";
+
+  // const data = JSON.parse(fs.readFileSync("keys.json"));
+  // return decrypt(data.key);
 }
 
 
@@ -40,6 +82,9 @@ async function askAI(question,key,historySummary="") {
 
 
   try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 20000);
+
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -48,7 +93,7 @@ async function askAI(question,key,historySummary="") {
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "kwaipilot/kat-coder-pro:free",
+        model: "openai/gpt-oss-20b:free",
         messages: [{ 
           role: "user", 
           content: `
@@ -64,10 +109,14 @@ async function askAI(question,key,historySummary="") {
         
         }],
       }),
+      signal: controller.signal
     });
+
+    clearTimeout(timeout);
 
     const data = await response.json();
     console.log("Data from API:", data);
+
     return data;
   } catch (err) {
     console.error("Error fetching AI:", err);
@@ -78,12 +127,20 @@ async function askAI(question,key,historySummary="") {
 
 app.post("/api/chat", async (req, res) => {
 
-  const key = getUserKey()
+  const { userId } = req.body;
+  const keyStatus = await getUserKey(userId)
 
-  console.log(key)
+  if (!keyStatus.exists){
+      res.json({
+          response : `API not found.! , ${keyStatus.res}`,
+          mesType:"error"
+      })
+  }
 
   try {
-    const answer = await askAI(req.body.question,key,req.body.history);
+
+
+    const answer = await askAI(req.body.question,keyStatus.res,req.body.history);
 
     let content = ""; 
     let mesType = "";
@@ -121,17 +178,17 @@ app.post("/api/chat", async (req, res) => {
 
 app.post('/api/test',async (req,res)=>{
 
-  const APIkey = req.body.APIkey
-
-  if(!APIkey){
+  const {APIkey,userId} = req.body
+  const cleanKey = APIkey?.trim()
+  if(!cleanKey){
      return res.status(400).json({ type: "error", response: "API Key is required." });
   }
 
   try{
-    const  answer = await askAI('how are you?',APIkey)
+    const  answer = await askAI('how are you?',cleanKey)
 
     if(answer.error || !answer.choices?.[0]?.message?.content){
-        console.log("error ____________________")
+        console.log("API key test failed, full response:", answer);
         return res.json({
         response: "⚠️ The provided API key is invalid or the AI service is unreachable.",
         type: "error"
@@ -140,8 +197,8 @@ app.post('/api/test',async (req,res)=>{
 
 
 
-      const encryptedKey = encrypt(APIkey)
-      saveUserKey(encryptedKey)
+      const encryptedKey = encrypt(cleanKey)
+      await saveUserKey(encryptedKey,userId)
 
 
       res.json({
@@ -170,21 +227,34 @@ app.get('/',(_,res)=>{
 })
 
 
-app.get("/api/key-check",(_,res)=>{
-  
-  const key = getUserKey()
+// check if the user have key in database 
 
-  if(key && key.length>0){
-    res.json({
-      exists : true
-    })
+app.post("/api/key-exists",async (request,res)=>{
+  
+  const {userId} = request.body
+
+  const keystatus = await getUserKey(userId)
+  res.json(keystatus)
+
+  if(keystatus.exists && keystatus.res.length>0){
+    res.json(keystatus)
   }else{
-    res.json({
-      exists : false 
-    })
+    res.json(keystatus)
   }
 
 })
 
-// app.listen(5000, () => console.log("Server running on port 5000"));
-export default app;
+
+
+async function startServer() {
+  try {
+    await connectDB(); 
+    app.listen(5100, () => console.log("Server running on port 5000"));
+  } catch (err) {
+    console.error("Failed to start server due to DB connection error:", err);
+     // Exit process if DB not connected
+    process.exit(1);
+  }
+}
+
+startServer();
