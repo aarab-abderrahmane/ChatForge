@@ -246,15 +246,15 @@ app.post("/api/key-exists",async (request,res)=>{
 
 
 
-async function startServer() {
-  try {
-    await connectDB(); 
-    app.listen(5100, () => console.log("Server running on port 5000"));
-  } catch (err) {
-    console.error("Failed to start server due to DB connection error:", err);
-     // Exit process if DB not connected
-    process.exit(1);
-  }
-}
+// async function startServer() {
+//   try {
+//     await connectDB(); 
+//     app.listen(5100, () => console.log("Server running on port 5000"));
+//   } catch (err) {
+//     console.error("Failed to start server due to DB connection error:", err);
+//      // Exit process if DB not connected
+//     process.exit(1);
+//   }
+// }
 
-startServer();
+// startServer();
