@@ -31,6 +31,7 @@ function App() {
 
   const [query, setQuery] = useState("");
 
+  const [stepLoader,setStepLoader] = useState(true)
 
   const { chats, setChats, loading, setLoading,preferences } = useContext(chatsContext);
 
@@ -53,6 +54,7 @@ function App() {
 
     const userId = preferences.userId
     console.log(userId)
+    
     const data = await api.chat(query,historySummary,userId);
 
     setLoading(false);
@@ -102,12 +104,12 @@ function App() {
   return (
     <>
       <div className="bg-black scan-lines min-h-screen flex justify-center items-center w-screen ">
-        {/* <Loader
+        <Loader
           loadingStates={loadingStates}
           loading={stepLoader}
           setStepLoader={setStepLoader}
           duration={1200}
-        /> */}
+        />
         <Terminal
           copyToClipboard={copyToClipboard}
           isCopied={isCopied}

@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useContext } from "react";
+import { createContext, useState, useEffect} from "react";
 import {api} from "../services/api"
 
 
@@ -9,17 +9,8 @@ export const chatsContext = createContext();
 const  check_key_exists = async (setPreferences,preferences)=>{
 
 
-      const response = await fetch('http://localhost:5100/api/key-exists',{
-
-
-          headers : {
-            "Content-Type" : "application/json"
-          },
-          method : "POST",
-          body: JSON.stringify({userId: preferences.userId })
-
-      })
-      const data = await response.json()
+      
+      const data = await api.checkKeyExists(preferences.userId)
 
       if(data.exists){
 
