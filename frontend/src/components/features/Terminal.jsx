@@ -186,7 +186,7 @@ export const Terminal = ({
   return (
     <div
       className={cn(
-        "z-0 flex flex-col  custom-scroll rounded-xl border border-green-500 bg-background h-[85vh] md:max-h-[600px] xl:max-h-[800px] w-[95vw] md:w-[70vw] md:max-w-[1000px]  overflow-hidden  ",
+        "z-0 flex flex-col  custom-scroll md:rounded-xl  border-2 md:border  border-green-500  border-b-0 md:border-b bg-background h-screen w-screen    md:max-h-[600px] xl:max-h-[800px]  md:w-[70vw] md:max-w-[1000px]  overflow-hidden  ",
         className
       )}>
 
