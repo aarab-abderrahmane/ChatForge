@@ -1,4 +1,4 @@
-import { askAI } from '../functions';
+import { askAI, encrypt, saveUserKey } from '../functions.js';
 
 export default async function handler (req,res){
 
