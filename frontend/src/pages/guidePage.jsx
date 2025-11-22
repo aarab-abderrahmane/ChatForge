@@ -4,25 +4,19 @@ import { chatsContext } from '../context/chatsContext';
 
 import TypingText from '../components/ui/shadcn-io/typing-text'
 
+import {api} from "../services/api"
+
 
 export async function KeyTest(setWelcomeMessages,key,userId,setLoading,setShowBtnConfirm) {
 
 
 
   try {
-    const res = await fetch("http://localhost:5100/api/test", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ APIkey:key ,userId :userId }),
-    });
 
-    const data = await res.json();
-    console.log(data);
+    const data = await api.testKey(key,userId);
 
 
-    if (data.mesType === "error"  || data.type=== "error") {
+    if ( data.type=== "error") {
       setWelcomeMessages(prev => [...prev,{type:"error",content:data.response} ]);
       console.log("invalid")
    
@@ -40,7 +34,7 @@ export async function KeyTest(setWelcomeMessages,key,userId,setLoading,setShowBt
 
   } 
   catch (err) {
-    setWelcomeMessages(prev => [...prev, "Connection error"]);
+    setWelcomeMessages(prev => [...prev, `Connection error__${err}`]);
   
   }finally{
 
@@ -49,10 +43,7 @@ export async function KeyTest(setWelcomeMessages,key,userId,setLoading,setShowBt
   }
 
 
-
-  
 }
-
 
 
 
@@ -134,7 +125,7 @@ export const GuidePage = () => {
 
           variableSpeed={{ min: 50, max: 120 }}
         />
-
+        <p></p>
         <button 
         onClick={()=>setPreferences(prev=>({...prev,currentPage:"chat"}))}
         className="bg-green-950 py-2 px-4 mt-2 border border-dashed border-green-500 rounded-md hover:bg-green-900">Open Chat</button>
