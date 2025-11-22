@@ -1,15 +1,16 @@
-// import cors from "cors";
+import cors from "cors";
 // import dotenv from "dotenv";
 
 
 // import {client,connectDB} from './db.js'
 // dotenv.config();
-// app.use(cors());
 
 import express from "express"
 import {connectDB} from "./db.js"
 
 const app = express();
+app.use(cors());
+
 app.use(express.json());
 
 
@@ -194,6 +195,7 @@ app.post('/api/test',async (req,res)=>{
      return res.status(400).json({ type: "error", response: "API Key is required." });
   }
 
+
   try{
     const  answer = await askAI('how are you?',cleanKey)
 
@@ -244,13 +246,14 @@ app.post("/api/key-exists",async (request,res)=>{
   const {userId} = request.body
 
   const keystatus = await getUserKey(userId)
-  res.json(keystatus)
 
-  if(keystatus.exists && keystatus.res.length>0){
-    res.json(keystatus)
-  }else{
-    res.json(keystatus)
-  }
+  // if(keystatus.exists && keystatus.res.length>0){
+  //   res.json(keystatus)
+  // }else{
+  //   res.json(keystatus)
+  // }
+
+  res.json(keystatus)
 
 })
 
