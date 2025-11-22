@@ -4,11 +4,10 @@ import { MongoClient } from "mongodb";
 
 // dotenv.config()
 
-let uri = `mongodb+srv://${process.env.USER_NAME_MONGO}:${encodeURIComponent(process.env.DB_PASSWORD)}@${process.env.CLUSTER}.mongodb.net/?appName=${process.env.APP_NAME}`
 
 // const client = new MongoClient(uri)
 
-let client ;
+let cachedClient ;
 
 export async function connectDB(){
 
@@ -21,13 +20,29 @@ export async function connectDB(){
     //     console.error('MongoDB connection error:',error)
     //     throw error
     // }
-    if (!client) {
-        client = new MongoClient(uri);
-        await client.connect();
-        console.log("MongoDB connected"); 
-    }
-    return client;
+    if (cachedClient) {
 
+
+        return client
+
+
+    }
+
+
+    let uri = `mongodb+srv://${process.env.USER_NAME_MONGO}:${encodeURIComponent(process.env.DB_PASSWORD)}@${process.env.CLUSTER}.mongodb.net/?appName=${process.env.APP_NAME}`
+
+    if(!uri){
+        throw new Error('MONGO_URI environment variable is not set.')
+    }
+
+    const client = new MongoClient(uri)
+    await client.connectDB()
+
+    cachedClient = client ; 
+    console.log("MongoDB connection established/reused.");
+
+
+    return client
 }
 
 
