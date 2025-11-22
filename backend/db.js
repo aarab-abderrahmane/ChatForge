@@ -7,7 +7,7 @@ import { MongoClient } from "mongodb";
 
 // const client = new MongoClient(uri)
 
-let cachedClient ;
+let cachedClient = null ;
 
 export async function connectDB(){
 
@@ -22,8 +22,8 @@ export async function connectDB(){
     // }
     if (cachedClient) {
 
-
-        return client
+        console.log("Reusing cached MongoDB client.")
+        return cachedClient
 
 
     }
@@ -36,13 +36,19 @@ export async function connectDB(){
     }
 
     const client = new MongoClient(uri)
-    await client.connectDB()
+    try {
+        await client.connect(); 
+        console.log("New MongoDB connection established.");
+        // Cache the successful connection
+        cachedClient = client; 
+        return client;
 
-    cachedClient = client ; 
-    console.log("MongoDB connection established/reused.");
+    } catch (error) {
+        console.error('MongoDB connection error:', error);
+        throw error; 
+    }
 
 
-    return client
 }
 
 
