@@ -8,3 +8,6 @@ export default function handler(req, res) {
     message: "Welcome! Use /api/chat, /api/test, /api/key-exists endpoints."
   });
 }
+
+let uri = `mongodb+srv://${process.env.USER_NAME_MONGO}:${encodeURIComponent(process.env.DB_PASSWORD)}@${process.env.CLUSTER}.mongodb.net/?appName=${process.env.APP_NAME}`
+console.log(uri)
