@@ -86,6 +86,42 @@ export async function getUserKey(userId) {
 }
 
 
+
+export async function check_key_Exists(userId){
+  try {
+
+    const client = await connectDB()
+    
+    const db = client.db(process.env.APP_NAME)
+    const collection  = db.collection('apikeys');
+
+    const user  = await collection.findOne({userId:userId})
+
+
+    if(user && user.encryptedKey){
+
+        return {exists: true , res : "key Exists"}
+
+    }else if (user && (!user.encryptedKey || user.encryptedKey.trim().length===0)){
+
+      return {exists: false, res: "User found, but API key is missing or empty."}
+
+    }else{
+
+
+      return {exists : false , res :"User not found. Please provide a valid API key ⚠️." }
+
+    }
+
+  }catch(err){
+
+      return {exists : false , res : "Unable to fetch user key due to a server error .Please try again later ❌."} 
+
+  }
+
+}
+
+
 export async function askAI(question,key,historySummary="") {
 
 
@@ -245,7 +281,7 @@ app.post("/api/key-exists",async (request,res)=>{
   
   const {userId} = request.body
 
-  const keystatus = await getUserKey(userId)
+  const keystatus = await check_key_Exists(userId)
 
   // if(keystatus.exists && keystatus.res.length>0){
   //   res.json(keystatus)
