@@ -1,4 +1,4 @@
-import {connectDB} from "./db"
+import {connectDB} from "../db"
 
 
 
@@ -78,8 +78,8 @@ export async function askAI(question,key,historySummary="") {
 
 
   try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 20000);
+    // const controller = new AbortController();
+    // const timeout = setTimeout(() => controller.abort(), 20000);
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
@@ -105,10 +105,10 @@ export async function askAI(question,key,historySummary="") {
         
         }],
       }),
-      signal: controller.signal
+      // signal: controller.signal
     });
 
-    clearTimeout(timeout);
+    // clearTimeout(timeout);
 
     const data = await response.json();
     console.log("Data from API:", data);
