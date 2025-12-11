@@ -43,7 +43,7 @@ export const api = {
   
   // send message
   chat: async (question, history,userId) => {
-
+      console.log(question ,history , userId )
     try{
 
       const res = await fetch(`${BASE_URL}/chat`, {
@@ -51,9 +51,14 @@ export const api = {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ question, history,userId }),
       });
-      return await res.json();
+
+      const response = await res.json();
+      // return await res.json();
+      return response
+    
     
     }catch(error){
+      console.log('error response')
        return { type: "error", response: `Connection error,${error}` };
     }
 

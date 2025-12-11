@@ -13,17 +13,22 @@ import { api } from "./services/api";
 
 import {SideBar} from './components/Sidebar'
 import {StatusBar} from './components/StatusBar'
-import { input } from "motion/react-client";
+// import { input } from "motion/react-client";
 
 
 
 function App() {
+
+  const generateId = ()=>Math.random().toString(36).substring(2,15)
 
   const MessageRole = {
     USER : 'user',
     MODEL : 'model',
     SYSTEM : 'system'
   }
+
+  const [input, setInput] = useState('');
+
   const [terminalState, setTerminalState] = useState({
     isConnected: true,
     latency: 24,
@@ -31,11 +36,14 @@ function App() {
     securityLevel: 'CLASS-4'
   });
 
-  const [message, setMessages] = useState([
+
+  const [isLoading, setIsLoading] = useState(false);
+
+  const [messages, setMessages] = useState([
         {
       id: 'init-1',
       role: MessageRole.SYSTEM,
-      content: 'NEXUS_OS v4.2.0 initializing...\n> Establishing secure uplink...\n> Uplink verified.\n> Neural interface active.\n\nWelcome, User. I am NEXUS. How may I assist you today?',
+      content: 'ChatForge v2.0.0 initializing...\n> Establishing secure uplink...\n> Uplink verified.\n> Neural interface active.\n\nWelcome, User. I am ChatForge. How may I assist you today?',
       timestamp: new Date()
     }
   ])
@@ -76,34 +84,56 @@ function App() {
     .join("\n");
 
   async function askAI(query, id) {
-    setLoading(true);
+    // setLoading(true);
 
-    const userId = preferences.userId
-    console.log(userId)
+    // const userId = preferences.userId
+    // console.log(userId)
     
-    const data = await api.chat(query,historySummary,userId);
+    const data = await api.chat(query,"","7f1a16bc-2b12-43be-993f-2063f2aec2dd");
 
     setLoading(false);
-    setChats((prev) =>
+    setMessages((prev) =>
       prev.map((obj) =>
         obj.id === id
           ? {
               ...obj,
-              type: data.type === "res" ? "ch" : "error",
-              answer: data.response,
+              content: data.response,
             }
           : obj
       )
     );
   }
 
-  const handleSend = (e) => {
-    const newId = new Date();
-    const query = e.target.value.trim();
+  const handleSendMessage = async (e) => {
+    if(e) e.preventDefault()
+    if(!input.trim() || isLoading)  return
 
-    setChats((prev) => [...prev, { id: newId, question: query }]);
+    const userMessage = {
+      id : generateId(),
+      role : MessageRole.USER , 
+      content : input.trim(),
+      timestamp : new Date()
+    }
 
-    query.trim().length > 0 && askAI(query, newId);
+    setMessages((prev) => [...prev, userMessage]);
+    setInput('')
+    setIsLoading(true);
+
+
+    // query.trim().length > 0 && 
+    const modelMessageId = generateId();
+    const modelMessage = {
+      id : modelMessageId , 
+      rolel : MessageRole.MODEL,
+      content : '',
+      timestamp : new Date(),
+      isStreaming : true  
+    }
+
+    setMessages(prev=> [...prev,modelMessage])
+    await askAI(input.trim() , modelMessageId);
+    setIsLoading(false)
+   
   };
 
   const copyToClipboard = async (idMes) => {
@@ -176,22 +206,59 @@ function App() {
                         </div>
                     </div>
 
-                    {/* message area  */}
+                    {/* messages area  */}
                     <div className="flex-1 overflow-y-auto p-4 md:p-8 space-y-6 scroll-smooth">
+                          
+                          {
+                            messages.map((msg)=> (
+                                <div
+                                  key = {msg.id}
+                                  className={`flex flex-col ${msg.role === MessageRole.USER ? 'items-end' : "items-start"}`}
+                                >
+
+                                      {/* message  metadata */}
+                                      <div
+                                      className="flex items-center gap-2 mb-1 text-[10px] uppercase opacity-70"
+                                      >
+                                         <span>{msg.role === MessageRole.USER ? '>> USER' : '>> CHATFORGE'}</span>
+                                         <span className="text-emerald-800">::</span>
+                                         <span>{msg.timestamp.toLocaleTimeString([],{hour12:false , hour: "2-digit",minute:"2-digit"})}</span>
+                                      </div>
+
+
+                                      {/* block  */}
+                                      <div
+                                          className={`
+                                            relative max-w-[90%] md:max-w-[80%] p-4 rounded-sm border
+                                            ${msg.role === MessageRole.USER 
+                                                ? 'bg-emerald-950/40 border-emerald-500/30 text-emerald-100 rounded-br-none' 
+                                                : 'bg-transparent border-emerald-900/50 text-emerald-400 border-l-4 border-l-emerald-500 rounded-bl-none shadow-[0_0_15px_-5px_rgba(16,185,129,0.1)]'}
+                                          `}>
+                                            <div>
+                                              {msg.content}
+                                              </div>
+                                      </div>
+                                    
+                                </div>
+
+                            ))
+                          }
 
                     </div>
                     {/* input area  */}
                     <div className="p-4 bg-black/40 border-t border-green-300 backdrop-blur-sm  shrink-0">
-                        <form className="relative flex items-center gap-3 max-w-5xl mx-auto">
+                        <form 
+                        onSubmit={handleSendMessage}
+                        className="relative flex items-center gap-3 max-w-5xl mx-auto">
 
                           <span className="text-green-300 font-bold text-lg select-none glow-text">{'>'}</span>
                           <input
                           // ref={}
                           type="text"
-                          // value={input}
-                          // onChange={}
-                          // placeholder={}
-                          // disabled
+                          value={input}
+                          onChange={(e)=>setInput(e.target.value)}
+                          placeholder={isLoading? "PROCESSING..." : "ENTER COMMAND..."}
+                          disabled={isLoading}
                           className="flex-1 bg-transparent border-none outline-none text-green-300 placeholder-green-300 font-mono text-base md:text-lg h-12 caret-green-300"
                           autoComplete="off"
                           >
@@ -201,7 +268,7 @@ function App() {
                             // disabled
                             className={`
                                 px-6 py-2 rounded-sm font-bold tracking-wider text-xs transition-all duration-200
-                        
+                                border
                               `}
                           >
                             SEND
