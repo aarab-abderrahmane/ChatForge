@@ -2,24 +2,14 @@ import { useEffect, useState, useRef, useContext, useCallback } from "react";
 import "./index.css";
 
 import { Terminal } from "./components/features/Terminal";
+import { DocsPage } from "./pages/DocsPage";
 import { chatsContext, SKILLS, MODELS, THEMES } from "./context/chatsContext";
-import { MultiStepLoader as Loader } from "./components/ui/multi-step-loader";
 import { api } from "./services/api";
 
-const loadingStates = [
-  { text: "Initializing ChatForge AI..." },
-  { text: "Warming up neural networks..." },
-  { text: "Scanning your query..." },
-  { text: "Generating insights..." },
-  { text: "Synthesizing answers..." },
-  { text: "Polishing responses..." },
-  { text: "Almost ready..." },
-  { text: "ChatForge AI is online!" },
-];
+
 
 function App() {
   const [query, setQuery] = useState("");
-  const [stepLoader, setStepLoader] = useState(true);
 
   const {
     chats,
@@ -49,8 +39,8 @@ function App() {
   useEffect(() => {
     const fontMap = {
       jetbrains: "'JetBrains Mono', monospace",
-      cascadia:  "'Cascadia Code', 'Fira Code', monospace",
-      fira:      "'Fira Code', monospace",
+      cascadia: "'Cascadia Code', 'Fira Code', monospace",
+      fira: "'Fira Code', monospace",
     };
     document.body.style.fontFamily = fontMap[settings.font] || fontMap.fira;
     document.documentElement.style.setProperty(
@@ -134,8 +124,8 @@ function App() {
     // Response length instruction
     const lengthInstruction =
       settings.responseLength === "short" ? " Be concise and brief in your response."
-      : settings.responseLength === "detailed" ? " Provide a thorough and detailed response."
-      : "";
+        : settings.responseLength === "detailed" ? " Provide a thorough and detailed response."
+          : "";
 
     const messages = [
       ...historyMessages,
@@ -212,10 +202,10 @@ function App() {
         prev.map((obj) =>
           obj.id === id
             ? {
-                ...obj,
-                type: "error",
-                answer: errMsg,
-              }
+              ...obj,
+              type: "error",
+              answer: errMsg,
+            }
             : obj
         )
       );
@@ -340,32 +330,27 @@ function App() {
 
       {/* Scanlines */}
       <div
-        className={`scan-lines fixed inset-0 pointer-events-none z-[9999] ${
-          settings.scanlines ? "" : "scanlines-off"
-        }`}
-      />
-
-      {/* Boot loader */}
-      <Loader
-        loadingStates={loadingStates}
-        loading={stepLoader}
-        setStepLoader={setStepLoader}
-        duration={900}
+        className={`scan-lines fixed inset-0 pointer-events-none z-[9999] ${settings.scanlines ? "" : "scanlines-off"
+          }`}
       />
 
       {/* Main app */}
-      <div className="relative z-10 min-h-screen flex justify-center items-center w-screen p-2 md:p-4">
-        <Terminal
-          copyToClipboard={copyToClipboard}
-          isCopied={isCopied}
-          chats={chats}
-          handleSend={handleSend}
-          loading={loading}
-          query={query}
-          setQuery={setQuery}
-          messagesEndRef={messagesEndRef}
-          onRetry={handleRetry}
-        />
+      <div className="relative z-10 w-screen h-screen flex justify-center items-center">
+        {preferences.currentPage === "docs" ? (
+          <DocsPage />
+        ) : (
+          <Terminal
+            copyToClipboard={copyToClipboard}
+            isCopied={isCopied}
+            chats={chats}
+            handleSend={handleSend}
+            loading={loading}
+            query={query}
+            setQuery={setQuery}
+            messagesEndRef={messagesEndRef}
+            onRetry={handleRetry}
+          />
+        )}
       </div>
     </>
   );

@@ -59,35 +59,35 @@ export const AnimatedSpan = ({ children, delay = 0, className, ...props }) => (
 // Command palette data
 // ──────────────────────────────────────────────────────────────
 const COMMANDS = [
-  { cmd: "//>clear",  desc: "Clear current chat history",      icon: "🗑" },
-  { cmd: "//>help",   desc: "Show keyboard shortcuts & tips",   icon: "❓" },
-  { cmd: "//>skill",  desc: "Show current AI skill info",       icon: "🤖" },
-  { cmd: "//>model",  desc: "Show current AI model info",       icon: "🧠" },
-  { cmd: "//>export", desc: "Export this chat as .txt file",    icon: "📤" },
-  { cmd: "//>new",    desc: "Start a new chat session",         icon: "✨" },
+  { cmd: "//>clear", desc: "Clear current chat history", icon: "🗑" },
+  { cmd: "//>help", desc: "Show keyboard shortcuts & tips", icon: "❓" },
+  { cmd: "//>skill", desc: "Show current AI skill info", icon: "🤖" },
+  { cmd: "//>model", desc: "Show current AI model info", icon: "🧠" },
+  { cmd: "//>export", desc: "Export this chat as .txt file", icon: "📤" },
+  { cmd: "//>new", desc: "Start a new chat session", icon: "✨" },
 ];
 
 const TOOL_GROUPS = [
   // Group 1 — AI tasks
   [
-    { id: "summarize", label: "Summarize",  icon: FileText,      cmd: "//>summarize" },
-    { id: "improve",   label: "Improve",    icon: Wand2,          prompt: "Improve and polish this text: " },
-    { id: "explain",   label: "Explain",    icon: Lightbulb,      prompt: "Explain this concept in simple terms: " },
-    { id: "translate", label: "Translate",  icon: Languages,      cmd: "//>translate" },
+    { id: "summarize", label: "Summarize", icon: FileText, cmd: "//>summarize" },
+    { id: "improve", label: "Improve", icon: Wand2, prompt: "Improve and polish this text: " },
+    { id: "explain", label: "Explain", icon: Lightbulb, prompt: "Explain this concept in simple terms: " },
+    { id: "translate", label: "Translate", icon: Languages, cmd: "//>translate" },
   ],
   // Group 2 — Writing
   [
-    { id: "grammar",   label: "Fix Grammar", icon: PenLine,        prompt: "Fix the grammar and spelling of this text: " },
-    { id: "bullets",   label: "Bullet Pts",  icon: List,           prompt: "Convert this into clear bullet points: " },
-    { id: "proTone",   label: "Pro Tone",    icon: Briefcase,      prompt: "Rewrite in a professional tone: " },
-    { id: "stories",   label: "Storytell",   icon: Sparkles,       prompt: "Write a creative story about: " },
+    { id: "grammar", label: "Fix Grammar", icon: PenLine, prompt: "Fix the grammar and spelling of this text: " },
+    { id: "bullets", label: "Bullet Pts", icon: List, prompt: "Convert this into clear bullet points: " },
+    { id: "proTone", label: "Pro Tone", icon: Briefcase, prompt: "Rewrite in a professional tone: " },
+    { id: "stories", label: "Storytell", icon: Sparkles, prompt: "Write a creative story about: " },
   ],
   // Group 3 — Dev
   [
-    { id: "debug",     label: "Debug",       icon: Bug,            prompt: "Help me debug this code: " },
-    { id: "writecode", label: "Write Code",  icon: Code2,          prompt: "Write code for: " },
-    { id: "mindmap",   label: "Mindmap",     icon: Network,        prompt: "Create a mindmap outline for: " },
-    { id: "qa",        label: "Q&A",         icon: MessageSquare,  prompt: "Answer these questions clearly: " },
+    { id: "debug", label: "Debug", icon: Bug, prompt: "Help me debug this code: " },
+    { id: "writecode", label: "Write Code", icon: Code2, prompt: "Write code for: " },
+    { id: "mindmap", label: "Mindmap", icon: Network, prompt: "Create a mindmap outline for: " },
+    { id: "qa", label: "Q&A", icon: MessageSquare, prompt: "Answer these questions clearly: " },
   ],
 ];
 
@@ -112,6 +112,7 @@ export const Terminal = ({
 
   const {
     preferences,
+    setPreferences,
     settings,
     clearCurrentChat,
     createNewSession,
@@ -124,20 +125,20 @@ export const Terminal = ({
   const activeSkill = allSkills.find(s => s.id === settings.activeSkillId) || SKILLS[0];
   const activeModel = MODELS.find(m => m.id === settings.activeModelId) || MODELS[0];
 
-  const [showSettings,     setShowSettings]     = useState(false);
-  const [showCmdMenu,      setShowCmdMenu]       = useState(false);
-  const [sidebarOpen,      setSidebarOpen]       = useState(true);
-  const [charCount,        setCharCount]         = useState(0);
-  const [promptHistIdx,    setPromptHistIdx]     = useState(-1);
-  const [showSearch,       setShowSearch]        = useState(false);
-  const [searchQuery,      setSearchQuery]       = useState("");
-  const [showClearConfirm, setShowClearConfirm]  = useState(false);
-  const [isOnline,         setIsOnline]          = useState(navigator?.onLine ?? true);
+  const [showSettings, setShowSettings] = useState(false);
+  const [showCmdMenu, setShowCmdMenu] = useState(false);
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [charCount, setCharCount] = useState(0);
+  const [promptHistIdx, setPromptHistIdx] = useState(-1);
+  const [showSearch, setShowSearch] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [isOnline, setIsOnline] = useState(navigator?.onLine ?? true);
 
-  const textareaRef     = useRef(null);
-  const settingsRef     = useRef(null);
+  const textareaRef = useRef(null);
+  const settingsRef = useRef(null);
   const toolbarScrollRef = useRef(null);
-  const searchInputRef  = useRef(null);
+  const searchInputRef = useRef(null);
 
   const scrollToolbar = (dir) => {
     const el = toolbarScrollRef.current;
@@ -147,12 +148,12 @@ export const Terminal = ({
 
   // Online/offline detection
   useEffect(() => {
-    const on  = () => setIsOnline(true);
+    const on = () => setIsOnline(true);
     const off = () => setIsOnline(false);
-    window.addEventListener("online",  on);
+    window.addEventListener("online", on);
     window.addEventListener("offline", off);
     return () => {
-      window.removeEventListener("online",  on);
+      window.removeEventListener("online", on);
       window.removeEventListener("offline", off);
     };
   }, []);
@@ -360,17 +361,17 @@ export const Terminal = ({
   };
 
   // Message count + estimated tokens in current input
-  const msgCount  = chats.filter((c) => c.type === "ch").length;
+  const msgCount = chats.filter((c) => c.type === "ch").length;
   const estTokens = Math.round(charCount / 4);
 
   // Filtered messages for in-chat search
   const searchMatches = searchQuery.trim()
     ? chats.filter(
-        (c) =>
-          c.type === "ch" &&
-          ((c.question || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
-            (c.answer || "").toLowerCase().includes(searchQuery.toLowerCase()))
-      ).length
+      (c) =>
+        c.type === "ch" &&
+        ((c.question || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+          (c.answer || "").toLowerCase().includes(searchQuery.toLowerCase()))
+    ).length
     : 0;
 
   // Font style (reads fontSize from settings)
@@ -379,17 +380,16 @@ export const Terminal = ({
       settings.font === "jetbrains"
         ? "'JetBrains Mono', monospace"
         : settings.font === "cascadia"
-        ? "'Cascadia Code', 'Fira Code', monospace"
-        : "'Fira Code', monospace",
+          ? "'Cascadia Code', 'Fira Code', monospace"
+          : "'Fira Code', monospace",
     fontSize: `${settings.fontSize || 14}px`,
   };
 
   return (
     <div
       className={cn(
-        "z-10 flex flex-row glass-panel md:rounded-xl overflow-hidden",
-        "h-screen w-screen md:max-h-[720px] xl:max-h-[860px]",
-        "md:w-[90vw] md:max-w-[1200px]",
+        "z-10 flex flex-row glass-panel overflow-hidden",
+        "h-screen w-screen",
         className
       )}
       style={fontStyle}
@@ -437,20 +437,19 @@ export const Terminal = ({
 
             {/* Online Status */}
             <div
-              className={`flex items-center gap-1.5 ml-2 text-[9px] uppercase tracking-widest font-bold ${
-                isOnline ? "" : "opacity-60"
-              }`}
+              className={`flex items-center gap-1.5 ml-2 text-[9px] uppercase tracking-widest font-bold ${isOnline ? "" : "opacity-60"
+                }`}
               style={{ color: isOnline ? "var(--neon-green)" : "var(--neon-magenta)" }}
               title={isOnline ? "Connected" : "Offline / Reconnecting..."}
             >
               {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
               <span className="hidden sm:inline">{isOnline ? "Online" : "Offline"}</span>
             </div>
-            
+
             {/* Active Skill Badge */}
-            <div 
+            <div
               className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] uppercase tracking-wider font-bold"
-              style={{ 
+              style={{
                 color: "var(--neon-cyan)",
                 borderColor: "var(--neon-cyan-dim)",
                 background: "rgba(0,245,255,0.03)"
@@ -462,9 +461,9 @@ export const Terminal = ({
             </div>
 
             {/* Active Model Badge */}
-            <div 
+            <div
               className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] uppercase tracking-wider font-bold"
-              style={{ 
+              style={{
                 color: "var(--neon-cyan)",
                 borderColor: "var(--neon-cyan-dim)",
                 background: "rgba(0,245,255,0.03)"
@@ -529,6 +528,21 @@ export const Terminal = ({
                 <Search size={14} style={{ color: showSearch ? "var(--neon-cyan)" : undefined }} />
               </button>
             )}
+
+            {/* Docs Page Link */}
+            <button
+              onClick={() => {
+                setPreferences((prev) => ({
+                  ...prev,
+                  _prevPage: prev.currentPage,
+                  currentPage: "docs",
+                }));
+              }}
+              className="btn-ghost"
+              title="Documentation"
+            >
+              <FileText size={14} />
+            </button>
 
             {/* Settings */}
             <div className="relative" ref={settingsRef}>
@@ -678,7 +692,7 @@ export const Terminal = ({
 
             {/* ── Input Area ─────────────────────────────── */}
             <div className="input-wrapper px-4 py-3 relative">
-              
+
               {/* AI Tools Bar */}
               {settings.showToolbar !== false && (
                 <div className="ai-toolbar-wrapper">
