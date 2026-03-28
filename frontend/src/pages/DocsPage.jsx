@@ -295,7 +295,7 @@ export function DocsPage() {
                     <section className="docs-section">
                         <SectionTitle id="commands" icon={Command}>Terminal Commands</SectionTitle>
                         <p className="docs-prose">
-                            Type <code className="docs-code">//>  </code> in the input to see a live command menu. Commands are processed instantly — some trigger AI responses, others perform local actions.
+                            Type <code className="docs-code">{"//> "}</code> in the input to see a live command menu. Commands are processed instantly — some trigger AI responses, others perform local actions.
                         </p>
                         <div className="docs-table-wrap">
                             <table className="docs-table">
@@ -395,7 +395,7 @@ export function DocsPage() {
                     <section className="docs-section">
                         <SectionTitle id="skills" icon={Bot}>AI Skills &amp; Personas</SectionTitle>
                         <p className="docs-prose">
-                            Skills are predefined AI personas with specialized system prompts. Switch between them in Settings → AI, or activate one on-the-fly with <code className="docs-code">//>skill</code>.
+                            Skills are predefined AI personas with specialized system prompts. Switch between them in Settings → AI, or activate one on-the-fly with <code className="docs-code">{"//>skill"}</code>.
                         </p>
                         <div className="docs-skills-grid">
                             {SKILLS.map((s) => (
@@ -419,7 +419,7 @@ export function DocsPage() {
                                 <li>Write a deep system prompt that defines the AI's behavior</li>
                                 <li>Click <strong>"✓ Save Skill"</strong> — it's instantly available in the skill grid</li>
                             </ol>
-                            <p className="docs-callout-note">Custom skills are stored in localStorage and survive page refreshes. Activate them via Settings or with <code className="docs-code">//>skill</code>.</p>
+                            <p className="docs-callout-note">Custom skills are stored in localStorage and survive page refreshes. Activate them via Settings or with <code className="docs-code">{"//>skill"}</code>.</p>
                         </div>
                         <Screenshot
                             src={pic(900, 380, "chatforge-skills")}
@@ -457,7 +457,7 @@ export function DocsPage() {
                             </table>
                         </div>
                         <p className="docs-prose" style={{ marginTop: 16 }}>
-                            Switch models in <strong>Settings → AI → AI Intelligence / Model</strong>. The active model is shown in the toolbar. Use <code className="docs-code">//>model</code> to get a model self-introduction.
+                            Switch models in <strong>Settings → AI → AI Intelligence / Model</strong>. The active model is shown in the toolbar. Use <code className="docs-code">{"//>model"}</code> to get a model self-introduction.
                         </p>
                     </section>
 

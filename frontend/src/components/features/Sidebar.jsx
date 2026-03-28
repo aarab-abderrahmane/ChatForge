@@ -43,11 +43,11 @@ export function Sidebar({ isOpen, onToggle }) {
     pinSession,
   } = useContext(chatsContext);
 
-  const [hoveredId, setHoveredId]     = useState(null);
+  const [hoveredId, setHoveredId] = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
-  const [editingId, setEditingId]     = useState(null);
-  const [editValue, setEditValue]     = useState("");
+  const [editingId, setEditingId] = useState(null);
+  const [editValue, setEditValue] = useState("");
   const editInputRef = useRef(null);
 
   // Focus rename input when it appears
@@ -111,7 +111,7 @@ export function Sidebar({ isOpen, onToggle }) {
 
   return (
     <div
-      className="sidebar flex flex-col h-full flex-shrink-0 relative"
+      className={`sidebar flex flex-col h-full flex-shrink-0 relative ${isOpen ? "sidebar-open" : "sidebar-closed"}`}
       style={{ width: isOpen ? 290 : 0 }}
     >
       <AnimatePresence>
@@ -178,12 +178,12 @@ export function Sidebar({ isOpen, onToggle }) {
                   </p>
                 )}
                 {filtered.map((session) => {
-                  const isActive  = session.id === activeSessionId;
+                  const isActive = session.id === activeSessionId;
                   const isHovered = hoveredId === session.id;
                   const willDelete = confirmDelete === session.id;
-                  const isPinned  = pinnedSessions.has(session.id);
+                  const isPinned = pinnedSessions.has(session.id);
                   const isEditing = editingId === session.id;
-                  const count     = messageCount(session);
+                  const count = messageCount(session);
 
                   return (
                     <motion.div

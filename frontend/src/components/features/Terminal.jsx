@@ -40,6 +40,7 @@ import {
   GitMerge,
   Zap,
   Mail,
+  Menu,
 } from "lucide-react";
 
 // Context
@@ -146,7 +147,8 @@ export const Terminal = ({
 
   const [showSettings, setShowSettings] = useState(false);
   const [showCmdMenu, setShowCmdMenu] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
+  const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [charCount, setCharCount] = useState(0);
   const [promptHistIdx, setPromptHistIdx] = useState(-1);
   const [showSearch, setShowSearch] = useState(false);
@@ -154,6 +156,17 @@ export const Terminal = ({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator?.onLine ?? true);
   const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
+
+  // Resize listener
+  useEffect(() => {
+    const handleResize = () => {
+      const mobile = window.innerWidth <= 768;
+      setIsMobile(mobile);
+      if (mobile) setSidebarOpen(false);
+    };
+    window.addEventListener("resize", handleResize);
+    return () => window.removeEventListener("resize", handleResize);
+  }, []);
 
   const textareaRef = useRef(null);
   const settingsRef = useRef(null);
@@ -415,6 +428,12 @@ export const Terminal = ({
       style={fontStyle}
     >
       {/* ── Sidebar ─────────────────────────────────── */}
+      {isMobile && sidebarOpen && (
+        <div
+          className="sidebar-backdrop"
+          onClick={() => setSidebarOpen(false)}
+        />
+      )}
       <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen((p) => !p)} />
 
       {/* ── Main Terminal Column ─────────────────────── */}
@@ -431,6 +450,15 @@ export const Terminal = ({
         >
           {/* Traffic lights */}
           <div className="flex gap-2 items-center">
+            {!sidebarOpen && (
+              <button
+                onClick={() => setSidebarOpen(true)}
+                className="btn-ghost p-1 mr-1"
+                title="Show Sidebar"
+              >
+                <Menu size={16} />
+              </button>
+            )}
             <div className="traffic-dot red" title="Close" />
             <div className="traffic-dot yellow" title="Minimize" />
             <div className="traffic-dot green" title="Maximize" />
