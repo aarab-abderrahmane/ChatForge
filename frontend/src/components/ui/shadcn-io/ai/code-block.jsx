@@ -20,10 +20,74 @@ import { cn } from '../../../../lib/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { createContext, useContext, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import {
-  oneDark,
-  oneLight,
-} from 'react-syntax-highlighter/dist/esm/styles/prism';
+
+// Custom neon terminal theme for code blocks
+const neonTerminalTheme = {
+  'code[class*="language-"]': {
+    color: '#c8ffc0',
+    background: 'none',
+    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+    fontSize: '0.85rem',
+    textAlign: 'left',
+    whiteSpace: 'pre',
+    wordSpacing: 'normal',
+    wordBreak: 'normal',
+    wordWrap: 'normal',
+    lineHeight: '1.6',
+    tabSize: 2,
+    hyphens: 'none',
+  },
+  'pre[class*="language-"]': {
+    color: '#c8ffc0',
+    background: '#050f08',
+    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+    fontSize: '0.85rem',
+    textAlign: 'left',
+    whiteSpace: 'pre',
+    wordSpacing: 'normal',
+    wordBreak: 'normal',
+    wordWrap: 'normal',
+    lineHeight: '1.6',
+    tabSize: 2,
+    hyphens: 'none',
+    padding: '1rem',
+    margin: 0,
+    overflow: 'auto',
+  },
+  comment: { color: '#4a7a50', fontStyle: 'italic' },
+  prolog:  { color: '#4a7a50' },
+  doctype: { color: '#4a7a50' },
+  cdata:   { color: '#4a7a50' },
+  punctuation: { color: '#7eed8a' },
+  property:  { color: '#00f5ff' },
+  tag:       { color: '#00f5ff' },
+  boolean:   { color: '#ff2d78' },
+  number:    { color: '#ffd700' },
+  constant:  { color: '#ff2d78' },
+  symbol:    { color: '#ffd700' },
+  deleted:   { color: '#ff2d78' },
+  selector:  { color: '#39ff14' },
+  'attr-name':  { color: '#00f5ff' },
+  string:    { color: '#39ff14' },
+  char:      { color: '#39ff14' },
+  builtin:   { color: '#00f5ff' },
+  inserted:  { color: '#39ff14' },
+  operator:  { color: '#c8ffc0' },
+  entity:    { color: '#ffd700', cursor: 'help' },
+  url:       { color: '#00f5ff' },
+  'language-css .token.string': { color: '#39ff14' },
+  'style .token.string':        { color: '#39ff14' },
+  variable:  { color: '#c8ffc0' },
+  atrule:    { color: '#00f5ff' },
+  'attr-value': { color: '#39ff14' },
+  function:  { color: '#00f5ff', textShadow: '0 0 6px rgba(0,245,255,0.5)' },
+  'class-name': { color: '#ffd700', textShadow: '0 0 6px rgba(255,215,0,0.4)' },
+  keyword:   { color: '#ff2d78', textShadow: '0 0 6px rgba(255,45,120,0.4)' },
+  regex:     { color: '#ffd700' },
+  important: { color: '#ffd700', fontWeight: 'bold' },
+  bold:      { fontWeight: 'bold' },
+  italic:    { fontStyle: 'italic' },
+};
 
 
 
@@ -37,68 +101,63 @@ const CodeBlockContext = createContext({
 export const CodeBlock = ({
   code,
   language,
-  showLineNumbers = false,
+  showLineNumbers = true,
   className,
   children,
   ...props
 }) => (
   <CodeBlockContext.Provider value={{ code }}>
     <div
-      className={cn(
-        'relative w-full overflow-hidden rounded-md border border-dashed border-green-700 bg-background text-foreground',
-        className
-      )}
-      {...props}>
-      <div className="relative">
-        <SyntaxHighlighter
-          className="overflow-hidden dark:hidden"
-          codeTagProps={{
-            className: 'font-mono text-sm',
-          }}
-          customStyle={{
-            margin: 0,
-            padding: '1rem',
-            fontSize: '0.875rem',
-            background: 'hsl(var(--background))',
-            color: 'hsl(var(--foreground))',
-          }}
-          language={language}
-          lineNumberStyle={{
-            color: 'hsl(var(--muted-foreground))',
-            paddingRight: '1rem',
-            minWidth: '2.5rem',
-          }}
-          showLineNumbers={showLineNumbers}
-          style={oneLight}>
-          {code}
-        </SyntaxHighlighter>
-        <SyntaxHighlighter
-          className="hidden overflow-hidden dark:block"
-          codeTagProps={{
-            className: 'font-mono text-sm',
-          }}
-          customStyle={{
-            margin: 0,
-            padding: '1rem',
-            fontSize: '0.875rem',
-            background: 'hsl(var(--background))',
-            color: 'hsl(var(--foreground))',
-          }}
-          language={language}
-          lineNumberStyle={{
-            color: 'hsl(var(--muted-foreground))',
-            paddingRight: '1rem',
-            minWidth: '2.5rem',
-          }}
-          showLineNumbers={showLineNumbers}
-          style={oneDark}>
-          {code}
-        </SyntaxHighlighter>
+      className={cn('relative w-full overflow-hidden rounded-lg my-3', className)}
+      style={{
+        border: '1px solid rgba(57,255,20,0.25)',
+        background: '#050f08',
+        boxShadow: '0 0 20px rgba(57,255,20,0.06), inset 0 0 20px rgba(0,0,0,0.5)',
+      }}
+      {...props}
+    >
+      {/* Language label + copy button header */}
+      <div
+        className="flex items-center justify-between px-4 py-1.5"
+        style={{
+          borderBottom: '1px solid rgba(57,255,20,0.15)',
+          background: 'rgba(57,255,20,0.04)',
+        }}
+      >
+        <span
+          className="text-[10px] tracking-widest uppercase"
+          style={{ color: 'rgba(0,245,255,0.6)', fontFamily: "'Fira Code', monospace" }}
+        >
+          {language || 'code'}
+        </span>
         {children && (
-          <div className="absolute top-2 right-2 flex items-center gap-2">
-            {children}
-          </div>
+          <div className="flex items-center gap-2">{children}</div>
         )}
+      </div>
+
+      {/* Code */}
+      <div className="overflow-x-auto">
+        <SyntaxHighlighter
+          codeTagProps={{ className: 'font-mono' }}
+          customStyle={{
+            margin: 0,
+            padding: '1rem',
+            background: 'transparent',
+            fontSize: '0.82rem',
+            lineHeight: '1.6',
+          }}
+          language={language || 'text'}
+          lineNumberStyle={{
+            color: 'rgba(57,255,20,0.2)',
+            paddingRight: '1.2rem',
+            minWidth: '2.5rem',
+            userSelect: 'none',
+          }}
+          showLineNumbers={showLineNumbers}
+          style={neonTerminalTheme}
+        >
+          {code}
+        </SyntaxHighlighter>
       </div>
     </div>
   </CodeBlockContext.Provider>

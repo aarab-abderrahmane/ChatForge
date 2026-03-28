@@ -22,6 +22,7 @@ import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import { CodeBlock, CodeBlockCopyButton } from './code-block';
+import { MermaidBlock } from './mermaid-block';
 import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
 
@@ -174,151 +175,298 @@ function parseIncompleteMarkdown(text) {
 const HardenedMarkdown = hardenReactMarkdown(ReactMarkdown);
 
 const components = {
+  // Lists
   ol: ({ node, children, className, ...props }) => (
-    <ol className={cn('ml-4 list-outside list-decimal', className)} {...props}>
+    <ol
+      className={cn('ml-5 list-outside list-decimal space-y-1 my-2', className)}
+      style={{ color: 'rgba(200,255,192,0.85)' }}
+      {...props}
+    >
       {children}
     </ol>
   ),
   li: ({ node, children, className, ...props }) => (
-    <li className={cn('py-1', className)} {...props}>
+    <li className={cn('py-0.5 leading-relaxed', className)} {...props}>
       {children}
     </li>
   ),
   ul: ({ node, children, className, ...props }) => (
-    <ul className={cn('ml-4 list-outside list-disc', className)} {...props}>
+    <ul
+      className={cn('ml-5 list-outside list-disc space-y-1 my-2', className)}
+      style={{ color: 'rgba(200,255,192,0.85)' }}
+      {...props}
+    >
       {children}
     </ul>
   ),
+
+  // Horizontal rule
   hr: ({ node, className, ...props }) => (
-    <hr className={cn('my-6 border-border', className)} {...props} />
+    <hr
+      className={cn('my-5', className)}
+      style={{ borderColor: 'rgba(57,255,20,0.2)' }}
+      {...props}
+    />
   ),
+
+  // Bold
   strong: ({ node, children, className, ...props }) => (
-    <span className={cn('font-semibold', className)} {...props}>
+    <span
+      className={cn('font-bold', className)}
+      style={{ color: '#39ff14', textShadow: '0 0 8px rgba(57,255,20,0.4)' }}
+      {...props}
+    >
       {children}
     </span>
   ),
+
+  // Italic
+  em: ({ node, children, className, ...props }) => (
+    <em
+      className={cn('italic', className)}
+      style={{ color: 'rgba(0,245,255,0.85)' }}
+      {...props}
+    >
+      {children}
+    </em>
+  ),
+
+  // Strikethrough
+  del: ({ node, children, className, ...props }) => (
+    <del
+      className={cn('line-through', className)}
+      style={{ color: 'rgba(255,45,120,0.7)' }}
+      {...props}
+    >
+      {children}
+    </del>
+  ),
+
+  // Links
   a: ({ node, children, className, ...props }) => (
     <a
-      className={cn('font-medium text-primary underline', className)}
+      className={cn('underline decoration-dashed underline-offset-2 transition-all', className)}
+      style={{ color: '#00f5ff' }}
+      onMouseEnter={e => (e.target.style.textShadow = '0 0 8px rgba(0,245,255,0.8)')}
+      onMouseLeave={e => (e.target.style.textShadow = 'none')}
       rel="noreferrer"
       target="_blank"
-      {...props}>
+      {...props}
+    >
       {children}
     </a>
   ),
+
+  // Headings
   h1: ({ node, children, className, ...props }) => (
-    <h1 className={cn('mt-6 mb-2 font-semibold text-3xl', className)} {...props}>
+    <h1
+      className={cn('mt-6 mb-3 font-bold text-2xl', className)}
+      style={{ color: '#39ff14', textShadow: '0 0 12px rgba(57,255,20,0.5)', borderBottom: '1px solid rgba(57,255,20,0.2)', paddingBottom: '0.4rem' }}
+      {...props}
+    >
       {children}
     </h1>
   ),
   h2: ({ node, children, className, ...props }) => (
-    <h2 className={cn('mt-6 mb-2 font-semibold text-2xl', className)} {...props}>
-      {children}
+    <h2
+      className={cn('mt-5 mb-2 font-bold text-xl', className)}
+      style={{ color: '#39ff14', textShadow: '0 0 10px rgba(57,255,20,0.4)' }}
+      {...props}
+    >
+      # {children}
     </h2>
   ),
   h3: ({ node, children, className, ...props }) => (
-    <h3 className={cn('mt-6 mb-2 font-semibold text-xl', className)} {...props}>
-      {children}
+    <h3
+      className={cn('mt-4 mb-2 font-semibold text-lg', className)}
+      style={{ color: '#00f5ff', textShadow: '0 0 8px rgba(0,245,255,0.4)' }}
+      {...props}
+    >
+      ## {children}
     </h3>
   ),
   h4: ({ node, children, className, ...props }) => (
-    <h4 className={cn('mt-6 mb-2 font-semibold text-lg', className)} {...props}>
-      {children}
+    <h4
+      className={cn('mt-4 mb-1 font-semibold text-base', className)}
+      style={{ color: '#00f5ff' }}
+      {...props}
+    >
+      ### {children}
     </h4>
   ),
   h5: ({ node, children, className, ...props }) => (
-    <h5 className={cn('mt-6 mb-2 font-semibold text-base', className)} {...props}>
+    <h5
+      className={cn('mt-3 mb-1 font-semibold', className)}
+      style={{ color: 'rgba(200,255,192,0.8)' }}
+      {...props}
+    >
       {children}
     </h5>
   ),
   h6: ({ node, children, className, ...props }) => (
-    <h6 className={cn('mt-6 mb-2 font-semibold text-sm', className)} {...props}>
+    <h6
+      className={cn('mt-3 mb-1 font-semibold text-sm', className)}
+      style={{ color: 'rgba(200,255,192,0.6)' }}
+      {...props}
+    >
       {children}
     </h6>
   ),
+
+  // Tables
   table: ({ node, children, className, ...props }) => (
-    <div className="my-4 overflow-x-auto">
+    <div className="my-4 overflow-x-auto rounded-lg" style={{ border: '1px solid rgba(57,255,20,0.2)' }}>
       <table
-        className={cn('w-full border-collapse border border-border', className)}
-        {...props}>
+        className={cn('w-full border-collapse', className)}
+        {...props}
+      >
         {children}
       </table>
     </div>
   ),
   thead: ({ node, children, className, ...props }) => (
-    <thead className={cn('bg-muted/50', className)} {...props}>
+    <thead
+      className={cn('', className)}
+      style={{ background: 'rgba(57,255,20,0.08)', borderBottom: '1px solid rgba(57,255,20,0.25)' }}
+      {...props}
+    >
       {children}
     </thead>
   ),
   tbody: ({ node, children, className, ...props }) => (
-    <tbody className={cn('divide-y divide-border', className)} {...props}>
+    <tbody className={cn('', className)} {...props}>
       {children}
     </tbody>
   ),
   tr: ({ node, children, className, ...props }) => (
-    <tr className={cn('border-border border-b', className)} {...props}>
+    <tr
+      className={cn('', className)}
+      style={{ borderBottom: '1px solid rgba(57,255,20,0.1)' }}
+      {...props}
+    >
       {children}
     </tr>
   ),
   th: ({ node, children, className, ...props }) => (
     <th
-      className={cn('px-4 py-2 text-left font-semibold text-sm', className)}
-      {...props}>
+      className={cn('px-4 py-2 text-left font-bold text-xs tracking-widest uppercase', className)}
+      style={{ color: '#00f5ff' }}
+      {...props}
+    >
       {children}
     </th>
   ),
   td: ({ node, children, className, ...props }) => (
-    <td className={cn('px-4 py-2 text-sm', className)} {...props}>
+    <td
+      className={cn('px-4 py-2 text-sm', className)}
+      style={{ color: 'rgba(200,255,192,0.85)' }}
+      {...props}
+    >
       {children}
     </td>
   ),
+
+  // Blockquote
   blockquote: ({ node, children, className, ...props }) => (
     <blockquote
-      className={cn(
-        'my-4 border-muted-foreground/30 border-l-4 pl-4 text-muted-foreground italic',
-        className
-      )}
-      {...props}>
+      className={cn('my-4 pl-4 italic', className)}
+      style={{
+        borderLeft: '3px solid rgba(0,245,255,0.5)',
+        color: 'rgba(0,245,255,0.7)',
+        background: 'rgba(0,245,255,0.04)',
+        borderRadius: '0 6px 6px 0',
+        padding: '8px 16px',
+      }}
+      {...props}
+    >
       {children}
     </blockquote>
   ),
+
+  // Task list checkbox
+  input: ({ node, type, checked, className, ...props }) => {
+    if (type !== 'checkbox') {
+      return <input type={type} checked={checked} className={className} {...props} />;
+    }
+    return (
+      <span
+        className="inline-flex items-center justify-center mr-2 flex-shrink-0"
+        style={{
+          width: 14,
+          height: 14,
+          border: `1px solid ${checked ? '#39ff14' : 'rgba(57,255,20,0.35)'}`,
+          borderRadius: 3,
+          background: checked ? 'rgba(57,255,20,0.18)' : 'transparent',
+          boxShadow: checked ? '0 0 6px rgba(57,255,20,0.4)' : 'none',
+          verticalAlign: 'middle',
+          cursor: 'default',
+          display: 'inline-flex',
+          position: 'relative',
+          top: '-1px',
+        }}
+      >
+        {checked && (
+          <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
+            <path d="M1 3L3.5 5.5L8 1" stroke="#39ff14" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
+        )}
+      </span>
+    );
+  },
+
+  // Inline code
   code: ({ node, className, ...props }) => {
     const inline = node?.position?.start.line === node?.position?.end.line;
-
     if (!inline) {
       return <code className={className} {...props} />;
     }
-
     return (
       <code
-        className={cn('rounded bg-muted px-1.5 py-0.5 font-mono text-sm', className)}
-        {...props} />
+        className={cn('rounded px-1.5 py-0.5 font-mono text-sm', className)}
+        style={{
+          background: 'rgba(57,255,20,0.1)',
+          color: '#39ff14',
+          border: '1px solid rgba(57,255,20,0.2)',
+        }}
+        {...props}
+      />
     );
   },
-  pre: ({ node, className, children }) => {
-    let language = 'javascript';
 
-    if (typeof node?.properties?.className === 'string') {
+  // Code block via <pre> — with mermaid detection
+  pre: ({ node, className, children }) => {
+    // Detect language from child code element
+    let language = 'text';
+    if (isValidElement(children) && children.props?.className) {
+      const match = children.props.className.match(/language-(\S+)/);
+      if (match) language = match[1];
+    } else if (typeof node?.properties?.className === 'string') {
       language = node.properties.className.replace('language-', '');
     }
 
-    // Extract code content from children safely
+    // Extract code string
     let code = '';
     if (
       isValidElement(children) &&
       children.props &&
-      typeof (children.props).children === 'string'
+      typeof children.props.children === 'string'
     ) {
-      code = (children.props).children;
+      code = children.props.children;
     } else if (typeof children === 'string') {
       code = children;
     }
 
+    // Render mermaid diagrams inline
+    if (language === 'mermaid') {
+      return <MermaidBlock code={code} />;
+    }
+
     return (
-      <CodeBlock className={cn('my-4 h-auto', className)} code={code} language={language}>
+      <CodeBlock code={code} language={language}>
         <CodeBlockCopyButton
-          onCopy={() => console.log('Copied code to clipboard')}
-          onError={() => console.error('Failed to copy code to clipboard')} />
+          onCopy={() => {}}
+          onError={() => {}}
+        />
       </CodeBlock>
     );
   },
