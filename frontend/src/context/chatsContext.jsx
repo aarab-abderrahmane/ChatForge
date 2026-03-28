@@ -47,10 +47,88 @@ const WELCOME_MESSAGES = [
   },
 ];
 
+export const SKILLS = [
+  {
+    id: "general",
+    name: "General",
+    icon: "🤖",
+    description: "Balanced for general tasks and conversation.",
+    systemPrompt: "You are ChatForge AI, a helpful and intelligent assistant. Provide clear, accurate, and helpful responses. Use Markdown for formatting. If the user asks for a flowchart or diagram, use Mermaid syntax of correctly.",
+  },
+  {
+    id: "code",
+    name: "Code Master",
+    icon: "💻",
+    description: "Expert in 50+ languages and debugging.",
+    systemPrompt: "You are an expert software engineer and code mentor. Your tone is technical and precise. Always explain code logic, follow best practices, and use proper Markdown code blocks with language labels. For complex logic, provide Mermaid flowcharts.",
+  },
+  {
+    id: "creative",
+    name: "Creative",
+    icon: "✍️",
+    description: "Unleash imagination and storytelling.",
+    systemPrompt: "You are a creative writing companion. Your tone is expressive, evocative, and imaginative. Help with storytelling, poetry, and creative ideas. Use rich formatting to enhance the reading experience.",
+  },
+  {
+    id: "security",
+    name: "Cyber Security",
+    icon: "🛡️",
+    description: "Specialized in security and audit tasks.",
+    systemPrompt: "You are a cyber security expert. You speak in a professional, security-conscious manner. When analyzing code or requests, look for vulnerabilities (OWASP Top 10), suggest remediations, and explain security concepts clearly. Maintain a high-integrity 'white hat' persona.",
+  },
+];
+
+export const MODELS = [
+  {
+    id: "deepseek/deepseek-chat:free",
+    name: "DeepSeek V3",
+    provider: "DeepSeek",
+    icon: "🧠",
+    description: "Fast, smart, and free. Excellent for general reasoning.",
+  },
+  {
+    id: "google/gemini-2.0-flash-exp:free",
+    name: "Gemini 2.0 Flash",
+    provider: "Google",
+    icon: "⚡",
+    description: "Ultra-fast response time with high intelligence.",
+  },
+  {
+    id: "meta-llama/llama-3.3-70b-instruct:free",
+    name: "Llama 3.3 70B",
+    provider: "Meta",
+    icon: "🦙",
+    description: "Powerful open-source reasoning model.",
+  },
+  {
+    id: "qwen/qwen-2.5-72b-instruct:free",
+    name: "Qwen 2.5 72B",
+    provider: "Alibaba",
+    icon: "🐉",
+    description: "Strong performance in coding and mathematics.",
+  },
+  {
+    id: "microsoft/phi-3-medium-128k-instruct:free",
+    name: "Phi-3 Medium",
+    provider: "Microsoft",
+    icon: "🧬",
+    description: "Compact but surprisingly powerful reasoning.",
+  },
+  {
+    id: "openai/gpt-4o-mini",
+    name: "GPT-4o Mini",
+    provider: "OpenAI",
+    icon: "🌟",
+    description: "The most efficient and cost-effective OpenAI model.",
+  },
+];
+
 const defaultSettings = {
   scanlines: true,
   font: "fira",     // 'fira' | 'jetbrains'
   sounds: false,
+  activeSkillId: "general",
+  activeModelId: "deepseek/deepseek-chat:free",
 };
 
 export function ChatsProvider({ children }) {

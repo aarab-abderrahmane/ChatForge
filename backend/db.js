@@ -1,8 +1,8 @@
-// import dotenv from "dotenv" ; 
+import dotenv from "dotenv" ; 
 import { MongoClient } from "mongodb";
 
 
-// dotenv.config()
+dotenv.config()
 
 
 // const client = new MongoClient(uri)

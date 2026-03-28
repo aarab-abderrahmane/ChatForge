@@ -1,4 +1,4 @@
-const BASE_URL = "https://chat-forge-api.vercel.app/api";
+const BASE_URL = "http://localhost:5000/api";
 
 export const api = {
 
@@ -42,22 +42,17 @@ export const api = {
 
   
   // send message
-  chat: async (question, history,userId) => {
-
-    try{
-
+  chat: async (userId, messages, skillPrompt, model) => {
+    try {
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ question, history,userId }),
+        body: JSON.stringify({ userId, messages, skillPrompt, model }),
       });
-      return await res.json();
-    
-    }catch(error){
-       return { type: "error", response: `Connection error,${error}` };
+      return res; // Return raw response for streaming
+    } catch (error) {
+      throw error;
     }
-
-
   }
 
 };

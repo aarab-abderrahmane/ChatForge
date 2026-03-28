@@ -2,7 +2,7 @@ import { useEffect, useState, useRef, useContext } from "react";
 import "./index.css";
 
 import { Terminal } from "./components/features/Terminal";
-import { chatsContext } from "./context/chatsContext";
+import { chatsContext, SKILLS } from "./context/chatsContext";
 import { MultiStepLoader as Loader } from "./components/ui/multi-step-loader";
 import { api } from "./services/api";
 
@@ -62,36 +62,105 @@ function App() {
         gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
         osc.start(ctx.currentTime);
         osc.stop(ctx.currentTime + 0.04);
-      }
+        }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [settings.sounds]);
 
-  // Build history summary for context
-  const historySummary = chats
-    .filter((c) => c.type === "ch")
+  // Build clean history array for context
+  const historyMessages = chats
+    .filter((c) => c.type === "ch" && c.answer)
     .slice(-10)
-    .map((obj) => `question: ${obj.question}, your answer: ${obj.answer}`)
-    .join("\n");
+    .flatMap((obj) => [
+      { role: "user", content: obj.question },
+      { role: "assistant", content: obj.answer },
+    ]);
 
   // ── Core AI call ────────────────────────────────────────────
   async function askAI(question, id) {
     setLoading(true);
-    const userId = preferences.userId;
-    const data = await api.chat(question, historySummary, userId);
-    setLoading(false);
-    setChats((prev) =>
-      prev.map((obj) =>
-        obj.id === id
-          ? {
-              ...obj,
-              type: data.type === "res" ? "ch" : "error",
-              answer: data.response,
+    
+    // Find active skill and model info
+    const activeSkill = SKILLS?.find(s => s.id === settings.activeSkillId) || SKILLS?.[0];
+    const activeModelId = settings.activeModelId || "deepseek/deepseek-chat:free";
+
+    const messages = [
+      ...historyMessages,
+      { role: "user", content: question }
+    ];
+
+    try {
+      const response = await api.chat(
+        preferences.userId, 
+        messages, 
+        activeSkill?.systemPrompt,
+        activeModelId
+      );
+
+      if (!response.ok) {
+        throw new Error("Failed to connect to AI service.");
+      }
+
+      setLoading(false); // Stop 'thinking' spinner once first chunk arrives
+
+      const reader = response.body.getReader();
+      const decoder = new TextDecoder();
+      let fullContent = "";
+      let buffer = ""; // Persistence buffer for fragmented chunks
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        buffer += chunk;
+        
+        // Split by double newline (standard SSE separator) OR single newline
+        const lines = buffer.split("\n");
+        
+        // Keep the last (potentially incomplete) line in the buffer
+        buffer = lines.pop();
+
+        for (const line of lines) {
+          const trimmed = line.trim();
+          if (!trimmed || !trimmed.startsWith("data: ")) continue;
+          
+          const dataStr = trimmed.slice(6);
+          if (dataStr === "[DONE]") continue;
+
+          try {
+            const data = JSON.parse(dataStr);
+            const content = data.choices?.[0]?.delta?.content || "";
+            if (content) {
+              fullContent += content;
+              setChats((prev) =>
+                prev.map((obj) =>
+                  obj.id === id ? { ...obj, answer: fullContent } : obj
+                )
+              );
             }
-          : obj
-      )
-    );
+          } catch (e) {
+            // Fragmented JSON - this shouldn't happen with the line-splitting but good to be safe
+            // console.warn("Failed to parse SSE data chunk", e);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("AI stream error:", error);
+      setLoading(false);
+      setChats((prev) =>
+        prev.map((obj) =>
+          obj.id === id
+            ? {
+                ...obj,
+                type: "error",
+                answer: `⚠️ Error: ${error.message || "Connection lost."}`,
+              }
+            : obj
+        )
+      );
+    }
   }
 
   // ── Retry handler ────────────────────────────────────────────
@@ -109,6 +178,8 @@ function App() {
     const newId = new Date();
     const text = (e.target?.value ?? e.target?.innerText ?? query).trim();
     if (!text) return;
+
+    if (text.startsWith("//>")) return; // Don't send commands to AI
 
     const newMsg = {
       id: newId,

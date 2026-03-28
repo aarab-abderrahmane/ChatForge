@@ -122,103 +122,99 @@ export async function check_key_Exists(userId){
 }
 
 
-export async function askAI(question,key,historySummary="") {
-
-
-
+export async function askAI(messages, key, options = {}) {
+  const { 
+    model = "openai/gpt-3.5-turbo", 
+    systemPrompt = "You are a helpful AI assistant.",
+    temperature = 0.7,
+    stream = false
+  } = options;
 
   try {
-    // const controller = new AbortController();
-    // const timeout = setTimeout(() => controller.abort(), 20000);
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+
+    const fullMessages = [
+      { role: "system", content: systemPrompt },
+      ...messages
+    ];
 
     const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
       method: "POST",
       headers: {
-
         "Authorization": `Bearer ${key}`,
         "Content-Type": "application/json",
+        "HTTP-Referer": "https://chatforge.ai",
+        "X-Title": "ChatForge"
       },
       body: JSON.stringify({
-        model: "openai/gpt-oss-20b:free",
-        messages: [{ 
-          role: "user", 
-          content: `
-              
-
-              ${historySummary.trim().length>0 && `Here is the recent chat history (short summary): ${historySummary} `}
-
-              Now answer this question clearly and briefly:
-              ${question}
-
-              Reply with the shortest correct answer possible.
-              `
-        
-        }],
+        model: model,
+        messages: fullMessages,
+        temperature: temperature,
+        max_tokens: 2000,
+        stream: stream
       }),
-      // signal: controller.signal
+      signal: controller.signal
     });
 
-    // clearTimeout(timeout);
+    clearTimeout(timeout);
 
-    const data = await response.json();
-    console.log("Data from API:", data);
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData?.error?.message || `API error: ${response.status}`);
+    }
 
-    return data;
+    return response; // Return the raw response for streaming or .json()
   } catch (err) {
+    if (err.name === 'AbortError') throw new Error("AI request timed out.");
     console.error("Error fetching AI:", err);
-    return { error: err.message };
+    throw err;
   }
 }
 
 
 
 app.post("/api/chat", async (req, res) => {
+  const { userId, messages, skillPrompt, model } = req.body;
+  const keyStatus = await getUserKey(userId);
 
-  const { userId } = req.body;
-  const keyStatus = await getUserKey(userId)
-
-  if (!keyStatus.exists){
-      res.json({
-          response : `API not found.! , ${keyStatus.res}`,
-          mesType:"error"
-      })
+  if (!keyStatus.exists) {
+    return res.status(401).json({ response: `API key not found!`, type: "error" });
   }
 
+  // Set headers for SSE (Streaming)
+  res.setHeader('Content-Type', 'text/event-stream');
+  res.setHeader('Cache-Control', 'no-cache');
+  res.setHeader('Connection', 'keep-alive');
+  res.flushHeaders();
+
   try {
+    const options = {
+      model: model || "deepseek/deepseek-chat:free",
+      systemPrompt: skillPrompt || "You are ChatForge AI.",
+      stream: true
+    };
 
+    const aiRes = await askAI(messages, keyStatus.res, options);
+    
+    // Read the stream from OpenRouter and pipe it to our response
+    const reader = aiRes.body.getReader();
+    const decoder = new TextDecoder();
+    
+    while (true) {
+      const { done, value } = await reader.read();
+      if (done) break;
 
-    const answer = await askAI(req.body.question,keyStatus.res,req.body.history);
-
-    let content = ""; 
-    let mesType = "";
-    if(answer.error){
-        content = "⚠️ AI service is currently unavailable. Please try again later."
-        mesType="error"
-    }else{
-
-      content = answer.choices?.[0]?.message?.content 
-      
-      if(content){
-          mesType="res"
-      }else{
-        content = "something went wrong ,Check your internet / firewall" 
-        mesType = "error"
-      }
-
+      const chunk = decoder.decode(value, { stream: true });
+      res.write(chunk); // OpenRouter sends SSE chunks compatible with our client
     }
-
-    res.json({
-      response: content ,
-      type : mesType
-
-    });
-  
+    
+    res.end();
 
   } catch (error) {
-    res.json({
-      response: "⚠️ Unable to reach AI service. Check your internet connection or try again."   
-    });
-    res.status(500).json({ error: "something went wrong" });
+    console.error("Chat API error:", error);
+    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.end();
   }
 });
 
@@ -233,7 +229,7 @@ app.post('/api/test',async (req,res)=>{
 
 
   try{
-    const  answer = await askAI('how are you?',cleanKey)
+    const answer = await askAI([{ role: "user", content: "how are you?" }], cleanKey)
 
     if(answer.error || !answer.choices?.[0]?.message?.content){
         console.log("API key test failed, full response:", answer);
@@ -302,15 +298,15 @@ export default app  ;
 
 
 
-// async function startServer() {
-//   try {
-//     await connectDB(); 
-//     app.listen(5100, () => console.log("Server running on port 5000"));
-//   } catch (err) {
-//     console.error("Failed to start server due to DB connection error:", err);
-//      // Exit process if DB not connected
-//     process.exit(1);
-//   }
-// }
+async function startServer() {
+  try {
+    await connectDB(); 
+    app.listen(5000, () => console.log("Server running on port 5000"));
+  } catch (err) {
+    console.error("Failed to start server due to DB connection error:", err);
+     // Exit process if DB not connected
+    process.exit(1);
+  }
+}
 
-// startServer();
+startServer();

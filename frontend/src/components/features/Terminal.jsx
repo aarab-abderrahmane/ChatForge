@@ -19,7 +19,7 @@ import {
 } from "lucide-react";
 
 // Context
-import { chatsContext } from "../../context/chatsContext";
+import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
 
 // ──────────────────────────────────────────────────────────────
 // Animated intro spans (for welcome messages)
@@ -42,7 +42,8 @@ export const AnimatedSpan = ({ children, delay = 0, className, ...props }) => (
 const COMMANDS = [
   { cmd: "//>clear",  desc: "Clear current chat history",      icon: "🗑" },
   { cmd: "//>help",   desc: "Show keyboard shortcuts & tips",   icon: "❓" },
-  { cmd: "//>model",  desc: "Show current AI model info",       icon: "🤖" },
+  { cmd: "//>skill",  desc: "Show current AI skill info",       icon: "🤖" },
+  { cmd: "//>model",  desc: "Show current AI model info",       icon: "🧠" },
   { cmd: "//>export", desc: "Export this chat as .txt file",    icon: "📤" },
   { cmd: "//>new",    desc: "Start a new chat session",         icon: "✨" },
 ];
@@ -66,6 +67,9 @@ export const Terminal = ({
 
   const { preferences, settings, clearCurrentChat, createNewSession } =
     useContext(chatsContext);
+
+  const activeSkill = SKILLS.find(s => s.id === settings.activeSkillId) || SKILLS[0];
+  const activeModel = MODELS.find(m => m.id === settings.activeModelId) || MODELS[0];
 
   const [showSettings, setShowSettings] = useState(false);
   const [showCmdMenu, setShowCmdMenu] = useState(false);
@@ -237,11 +241,40 @@ export const Terminal = ({
               chatforge
             </span>
             <span
-              className="text-xs hidden sm:inline"
+              className="text-xs hidden md:inline"
               style={{ color: "rgba(200,255,192,0.3)" }}
             >
               — AI Terminal
             </span>
+            
+            {/* Active Skill Badge */}
+            <div 
+              className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] uppercase tracking-wider font-bold"
+              style={{ 
+                color: "var(--neon-cyan)",
+                borderColor: "var(--neon-cyan-dim)",
+                background: "rgba(0,245,255,0.03)"
+              }}
+              title={activeSkill.description}
+            >
+              <span className="opacity-70">Skill:</span>
+              <span>{activeSkill.icon} {activeSkill.name}</span>
+            </div>
+
+            {/* Active Model Badge */}
+            <div 
+              className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] uppercase tracking-wider font-bold"
+              style={{ 
+                color: "var(--neon-cyan)",
+                borderColor: "var(--neon-cyan-dim)",
+                background: "rgba(0,245,255,0.03)"
+              }}
+              title={activeModel.description}
+            >
+              <span className="opacity-70">Model:</span>
+              <span>{activeModel.icon} {activeModel.name.replace(" Instruct", "").replace(" instruct", "")}</span>
+            </div>
+
             <span className="cursor-blink hidden sm:inline-block" />
           </div>
 
@@ -250,7 +283,7 @@ export const Terminal = ({
             {/* message count badge */}
             {preferences.currentPage === "chat" && (
               <span
-                className="hidden sm:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border"
+                className="hidden xl:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border"
                 style={{
                   color: "var(--neon-cyan)",
                   borderColor: "var(--neon-cyan-dim)",

@@ -10,7 +10,7 @@ import {
   Trash2,
   Type,
 } from "lucide-react";
-import { chatsContext } from "../../context/chatsContext";
+import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
 
 function Toggle({ value, onToggle }) {
   return (
@@ -141,6 +141,75 @@ export function SettingsPanel({ onClose }) {
           >
             swap
           </div>
+        </div>
+
+        {/* Section: AI Skill */}
+        <div
+          className="px-4 py-2 text-[9px] tracking-widest uppercase border-t"
+          style={{
+            color: "rgba(200,255,192,0.3)",
+            borderColor: "rgba(255,255,255,0.04)",
+          }}
+        >
+          AI Personality / Skill
+        </div>
+
+        <div className="px-3 pb-3 grid grid-cols-2 gap-2">
+          {SKILLS.map((skill) => {
+            const isActive = settings.activeSkillId === skill.id;
+            return (
+              <div
+                key={skill.id}
+                onClick={() => setSettings(prev => ({ ...prev, activeSkillId: skill.id }))}
+                className="flex flex-col items-center gap-1 p-2 rounded-lg border cursor-pointer transition-all"
+                style={{
+                  background: isActive ? "rgba(57,255,20,0.08)" : "rgba(255,255,255,0.02)",
+                  borderColor: isActive ? "var(--neon-green)" : "rgba(255,255,255,0.05)",
+                  boxShadow: isActive ? "0 0 10px rgba(57,255,20,0.15)" : "none",
+                }}
+              >
+                <span className="text-xl">{skill.icon}</span>
+                <span className="text-[10px] uppercase tracking-tighter" style={{ color: isActive ? "var(--neon-green)" : "rgba(200,255,192,0.4)" }}>
+                  {skill.name}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+
+        {/* Section: AI Model */}
+        <div
+          className="px-4 py-2 text-[9px] tracking-widest uppercase border-t"
+          style={{
+            color: "rgba(200,255,192,0.3)",
+            borderColor: "rgba(255,255,255,0.04)",
+          }}
+        >
+          AI Intelligence / Model
+        </div>
+
+        <div className="px-3 pb-4 grid grid-cols-3 gap-1.5">
+          {MODELS.map((model) => {
+            const isActive = settings.activeModelId === model.id;
+            return (
+              <div
+                key={model.id}
+                onClick={() => setSettings(prev => ({ ...prev, activeModelId: model.id }))}
+                className="flex flex-col items-center justify-center gap-1 p-1.5 rounded border cursor-pointer transition-all hover:bg-white/5"
+                style={{
+                  background: isActive ? "rgba(0,245,255,0.08)" : "rgba(255,255,255,0.02)",
+                  borderColor: isActive ? "var(--neon-cyan)" : "rgba(255,255,255,0.05)",
+                  boxShadow: isActive ? "0 0 8px rgba(0,245,255,0.1)" : "none",
+                }}
+                title={model.description}
+              >
+                <span className="text-sm">{model.icon}</span>
+                <span className="text-[8px] uppercase tracking-tighter text-center leading-none" style={{ color: isActive ? "var(--neon-cyan)" : "rgba(200,255,192,0.4)" }}>
+                  {model.name.replace(" Instruct", "").replace(" instruct", "")}
+                </span>
+              </div>
+            );
+          })}
         </div>
 
         {/* Section: Audio */}
