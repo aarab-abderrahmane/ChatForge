@@ -86,29 +86,34 @@ export const MultiStepLoader = ({
 }) => {
   const [currentState, setCurrentState] = useState(0);
 
+  // Advance through loading steps
   useEffect(() => {
     if (!loading) {
       setCurrentState(0);
       return;
     }
 
+    const isLast = currentState === loadingStates.length - 1;
+    if (isLast) return; // Don't schedule another tick; completion handled below
 
-    
     const timeout = setTimeout(() => {
-      setCurrentState((prevState) =>{
-        prevState === loadingStates.length-1 && setStepLoader(false)
-        return prevState === loadingStates.length-1
-          ? 0
-          : Math.min(prevState + 1, loadingStates.length - 1)
-        
-        
-        })
-
-       
+      setCurrentState((prev) => Math.min(prev + 1, loadingStates.length - 1));
     }, duration);
 
     return () => clearTimeout(timeout);
-  }, [currentState, loading, loop, setStepLoader,loadingStates.length, duration]);
+  }, [currentState, loading, loadingStates.length, duration]);
+
+  // When the last step is reached, dismiss the loader after one more duration
+  useEffect(() => {
+    if (!loading) return;
+    if (currentState !== loadingStates.length - 1) return;
+
+    const timeout = setTimeout(() => {
+      setStepLoader(false);
+    }, duration);
+
+    return () => clearTimeout(timeout);
+  }, [currentState, loading, loadingStates.length, duration, setStepLoader]);
 
   return (
     <AnimatePresence mode="wait">
