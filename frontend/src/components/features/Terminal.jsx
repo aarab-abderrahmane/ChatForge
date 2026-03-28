@@ -134,6 +134,7 @@ export const Terminal = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator?.onLine ?? true);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
 
   const textareaRef = useRef(null);
   const settingsRef = useRef(null);
@@ -695,41 +696,48 @@ export const Terminal = ({
 
               {/* AI Tools Bar */}
               {settings.showToolbar !== false && (
-                <div className="ai-toolbar-wrapper">
-                  <button
-                    className="ai-tool-scroll-btn left"
-                    onClick={() => scrollToolbar(-1)}
-                    title="Scroll left"
-                  >
-                    <ChevronLeft size={10} />
-                  </button>
-
-                  <div className="ai-tool-bar" ref={toolbarScrollRef}>
-                    {TOOL_GROUPS.map((group, gi) => (
-                      <>
-                        {gi > 0 && <div key={`sep-${gi}`} className="ai-tool-separator" />}
-                        {group.map((tool) => (
-                          <button
-                            key={tool.id}
-                            onClick={() => handleToolClick(tool)}
-                            className="ai-tool-btn"
-                            title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
-                          >
-                            <tool.icon size={10} />
-                            <span>{tool.label}</span>
-                          </button>
-                        ))}
-                      </>
-                    ))}
+                <div className="ai-toolbar-wrapper mb-2">
+                  <div className="flex items-center mb-1">
+                    <button
+                      onClick={() => setIsToolbarExpanded((p) => !p)}
+                      className="btn-ghost text-[10px] sm:text-xs px-2 py-1"
+                      title="Toggle AI Tools"
+                    >
+                      <Sparkles size={12} style={{ color: "var(--neon-green)" }} />
+                      <span className="font-semibold">{isToolbarExpanded ? "Hide AI Tools" : "Show AI Tools"}</span>
+                    </button>
                   </div>
 
-                  <button
-                    className="ai-tool-scroll-btn right"
-                    onClick={() => scrollToolbar(1)}
-                    title="Scroll right"
-                  >
-                    <ChevronRight size={10} />
-                  </button>
+                  <AnimatePresence>
+                    {isToolbarExpanded && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden"
+                      >
+                        <div className="ai-tool-bar flex-col items-start gap-2 pt-1" ref={toolbarScrollRef}>
+                          {TOOL_GROUPS.map((group, gi) => (
+                            <div key={gi} className="flex flex-wrap items-center gap-2">
+                              {/* Separators are no longer needed as group elements are wrapped in rows, but keeping for inline view if preferred, actually we can drop the separator if we use rows */}
+                              {group.map((tool) => (
+                                <button
+                                  key={tool.id}
+                                  onClick={() => handleToolClick(tool)}
+                                  className="ai-tool-btn"
+                                  title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
+                                >
+                                  <tool.icon size={10} />
+                                  <span>{tool.label}</span>
+                                </button>
+                              ))}
+                            </div>
+                          ))}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
                 </div>
               )}
 

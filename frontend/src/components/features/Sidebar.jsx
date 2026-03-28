@@ -112,7 +112,7 @@ export function Sidebar({ isOpen, onToggle }) {
   return (
     <div
       className="sidebar flex flex-col h-full flex-shrink-0 relative"
-      style={{ width: isOpen ? 220 : 0 }}
+      style={{ width: isOpen ? 290 : 0 }}
     >
       <AnimatePresence>
         {isOpen && (
@@ -121,7 +121,7 @@ export function Sidebar({ isOpen, onToggle }) {
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
             transition={{ duration: 0.2 }}
-            className="flex flex-col h-full w-[220px] absolute inset-0"
+            className="flex flex-col h-full w-[290px] absolute inset-0"
           >
             {/* Header */}
             <div
