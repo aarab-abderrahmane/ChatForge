@@ -224,6 +224,10 @@ const defaultSettings = {
   activeModelId: DEFAULT_MODEL_ID,
   responseLength: "balanced", // 'short' | 'balanced' | 'detailed'
   temperature: 0.7,           // 0.0–1.5
+  topP: 1.0,
+  frequencyPenalty: 0.0,
+  presencePenalty: 0.0,
+  maxTokens: 2048,
   systemPromptPrefix: "",     // appended to every skill system prompt
 };
 
@@ -411,19 +415,19 @@ export function ChatsProvider({ children }) {
       prev.map((s) =>
         s.id === (activeSession?.id)
           ? {
-              ...s,
-              messages: typeof updater === "function" ? updater(s.messages) : updater,
-              // Auto-title from first user message
-              title:
-                s.title === "New Chat"
-                  ? (() => {
-                      const msgs =
-                        typeof updater === "function" ? updater(s.messages) : updater;
-                      const first = msgs.find((m) => m.type === "ch" && m.question);
-                      return first ? first.question.slice(0, 40) : "New Chat";
-                    })()
-                  : s.title,
-            }
+            ...s,
+            messages: typeof updater === "function" ? updater(s.messages) : updater,
+            // Auto-title from first user message
+            title:
+              s.title === "New Chat"
+                ? (() => {
+                  const msgs =
+                    typeof updater === "function" ? updater(s.messages) : updater;
+                  const first = msgs.find((m) => m.type === "ch" && m.question);
+                  return first ? first.question.slice(0, 40) : "New Chat";
+                })()
+                : s.title,
+          }
           : s
       )
     );

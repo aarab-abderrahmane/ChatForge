@@ -23,6 +23,7 @@ import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
 import { CodeBlock, CodeBlockCopyButton } from './code-block';
 import { MermaidBlock } from './mermaid-block';
+import { QuizBlock } from './quiz-block';
 import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
 
@@ -461,11 +462,16 @@ const components = {
       return <MermaidBlock code={code} />;
     }
 
+    // Render quiz blocks inline
+    if (language === 'quiz') {
+      return <QuizBlock code={code} />;
+    }
+
     return (
       <CodeBlock code={code} language={language}>
         <CodeBlockCopyButton
-          onCopy={() => {}}
-          onError={() => {}}
+          onCopy={() => { }}
+          onError={() => { }}
         />
       </CodeBlock>
     );

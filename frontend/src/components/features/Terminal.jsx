@@ -35,6 +35,11 @@ import {
   Wifi,
   WifiOff,
   Keyboard,
+  PieChart,
+  Target,
+  GitMerge,
+  Zap,
+  Mail,
 } from "lucide-react";
 
 // Context
@@ -60,35 +65,46 @@ export const AnimatedSpan = ({ children, delay = 0, className, ...props }) => (
 // ──────────────────────────────────────────────────────────────
 const COMMANDS = [
   { cmd: "//>clear", desc: "Clear current chat history", icon: "🗑" },
+  { cmd: "//>new", desc: "Start a new chat session", icon: "✨" },
+  { cmd: "//>summarize", desc: "Summarize this conversation", icon: "📋" },
+  { cmd: "//>translate", desc: "Translate text", icon: "🌍" },
+  { cmd: "//>quiz", desc: "Generate a quiz (e.g. //>quiz React)", icon: "🎯" },
+  { cmd: "//>retry", desc: "Retry the last message", icon: "🔄" },
+  { cmd: "//>stats", desc: "Show session statistics", icon: "📊" },
+  { cmd: "//>export", desc: "Export this chat as .txt file", icon: "📤" },
   { cmd: "//>help", desc: "Show keyboard shortcuts & tips", icon: "❓" },
   { cmd: "//>skill", desc: "Show current AI skill info", icon: "🤖" },
   { cmd: "//>model", desc: "Show current AI model info", icon: "🧠" },
-  { cmd: "//>export", desc: "Export this chat as .txt file", icon: "📤" },
-  { cmd: "//>new", desc: "Start a new chat session", icon: "✨" },
 ];
 
 const TOOL_GROUPS = [
-  // Group 1 — AI tasks
+  // Group 1 — Writing & Polish
   [
-    { id: "summarize", label: "Summarize", icon: FileText, cmd: "//>summarize" },
     { id: "improve", label: "Improve", icon: Wand2, prompt: "Improve and polish this text: " },
     { id: "explain", label: "Explain", icon: Lightbulb, prompt: "Explain this concept in simple terms: " },
-    { id: "translate", label: "Translate", icon: Languages, cmd: "//>translate" },
-  ],
-  // Group 2 — Writing
-  [
-    { id: "grammar", label: "Fix Grammar", icon: PenLine, prompt: "Fix the grammar and spelling of this text: " },
-    { id: "bullets", label: "Bullet Pts", icon: List, prompt: "Convert this into clear bullet points: " },
+    { id: "grammar", label: "Fix Grammar", icon: PenLine, prompt: "Fix the grammar and spelling: " },
     { id: "proTone", label: "Pro Tone", icon: Briefcase, prompt: "Rewrite in a professional tone: " },
+  ],
+  // Group 2 — Formatting & Drafts
+  [
+    { id: "bullets", label: "Bullet Pts", icon: List, prompt: "Convert this to bullet points: " },
+    { id: "email", label: "Draft Email", icon: Mail, prompt: "Draft a professional email for: " },
+    { id: "qa", label: "Q&A", icon: MessageSquare, prompt: "Answer these questions clearly: " },
     { id: "stories", label: "Storytell", icon: Sparkles, prompt: "Write a creative story about: " },
   ],
-  // Group 3 — Dev
+  // Group 3 — Dev & Architecture
   [
     { id: "debug", label: "Debug", icon: Bug, prompt: "Help me debug this code: " },
     { id: "writecode", label: "Write Code", icon: Code2, prompt: "Write code for: " },
     { id: "mindmap", label: "Mindmap", icon: Network, prompt: "Create a mindmap outline for: " },
-    { id: "qa", label: "Q&A", icon: MessageSquare, prompt: "Answer these questions clearly: " },
+    { id: "refactor", label: "Refactor", icon: GitMerge, prompt: "Suggest a better structure for: " },
   ],
+  // Group 4 — Analysis & Planning
+  [
+    { id: "analyze", label: "Analyze", icon: PieChart, prompt: "Analyze this data and provide insights: " },
+    { id: "plan", label: "Plan", icon: Target, prompt: "Create an action plan for: " },
+    { id: "brainstorm", label: "Brainstorm", icon: Zap, prompt: "Generate creative ideas for: " },
+  ]
 ];
 
 

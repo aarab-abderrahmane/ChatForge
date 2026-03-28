@@ -137,7 +137,14 @@ function App() {
         preferences.userId,
         messages,
         fullSystemPrompt,
-        activeModelId
+        activeModelId,
+        {
+          temperature: settings.temperature,
+          top_p: settings.topP,
+          frequency_penalty: settings.frequencyPenalty,
+          presence_penalty: settings.presencePenalty,
+          max_tokens: settings.maxTokens
+        }
       );
 
       if (!response.ok) {
@@ -240,7 +247,7 @@ function App() {
     }
     if (cmd === "//> help" || cmd === "//>help") {
       return {
-        question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: //>clear, //>new, //>summarize, //>translate, //>retry, //>stats, //>export, //>help, //>skill, //>model. Also mention: Enter to send, Shift+Enter for newline.`,
+        question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: //>clear, //>new, //>summarize, //>translate, //>retry, //>stats, //>export, //>help, //>skill, //>model, and //>quiz [topic]. Also mention: Enter to send, Shift+Enter for newline.`,
         skillId: "general",
       };
     }
@@ -256,6 +263,27 @@ function App() {
       const model = MODELS.find((m) => m.id === settings.activeModelId) || MODELS[0];
       return {
         question: `You are currently running as "${model.name}" by ${model.provider}. Briefly introduce yourself: your strengths, ideal use cases, and one fun fact about your architecture.`,
+        skillId: "general",
+      };
+    }
+
+    if (cmd.startsWith("//> quiz ") || cmd.startsWith("//>quiz ")) {
+      const topic = text.substring(text.indexOf("quiz") + 4).trim();
+      return {
+        question: `Generate a multiple choice quiz about: ${topic}. Format your response exactly as JSON using THIS STRICT STRUCTURE:
+\`\`\`quiz
+{
+  "topic": "${topic}",
+  "questions": [
+    {
+      "q": "Question text?",
+      "options": ["Option A", "Option B", "Option C", "Option D"],
+      "answer": 0 
+    }
+  ]
+}
+\`\`\`
+Provide ONLY this JSON block. Do not include any other text.`,
         skillId: "general",
       };
     }

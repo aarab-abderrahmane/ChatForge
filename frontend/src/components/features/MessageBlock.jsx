@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { useState, useContext, useRef } from "react";
 import { Response } from "../ui/shadcn-io/ai/response";
+import { QuizBlock } from "../ui/shadcn-io/ai/quiz-block";
 import { chatsContext } from "../../context/chatsContext";
 
 function formatTime(isoString) {
@@ -39,9 +40,9 @@ export function MessageBlock({
   onEditSubmit,
 }) {
   const [reaction, setReaction] = useState(null); // 'up' | 'down' | null
-  const [isEditing, setIsEditing]     = useState(false);
-  const [editValue, setEditValue]     = useState("");
-  const [showRaw, setShowRaw]         = useState(false);
+  const [isEditing, setIsEditing] = useState(false);
+  const [editValue, setEditValue] = useState("");
+  const [showRaw, setShowRaw] = useState(false);
   const editRef = useRef(null);
 
   const {
@@ -51,10 +52,11 @@ export function MessageBlock({
     editMessage,
   } = useContext(chatsContext);
 
-  const isError  = obj.type === "error";
+  const isError = obj.type === "error";
   const hasAnswer = !!obj.answer;
-  const compact  = settings?.compactMode;
+  const compact = settings?.compactMode;
   const isStarred = starredMessages?.has(obj.id);
+  const isQuiz = obj.question?.trim().toLowerCase().startsWith("//> quiz") || obj.question?.trim().toLowerCase().startsWith("//>quiz");
 
   const startEdit = () => {
     setEditValue(obj.question);
@@ -175,7 +177,7 @@ export function MessageBlock({
                   {obj.answer}
                 </pre>
               ) : (
-                <Response>{obj.answer}</Response>
+                isQuiz ? <QuizBlock code={obj.answer} /> : <Response>{obj.answer}</Response>
               )}
             </div>
           )}

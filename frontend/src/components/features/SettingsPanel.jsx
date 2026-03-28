@@ -50,8 +50,8 @@ function Toggle({ value, onToggle }) {
 
 // ── Emoji picker options ──────────────────────────────────────
 const EMOJI_OPTIONS = [
-  "⭐","🎯","🔥","💡","🧩","🎨","🚀","⚙️","🌟","🎤",
-  "📚","🧠","🔮","💎","🌈","🎭","🤖","🦊","🐉","🌀",
+  "⭐", "🎯", "🔥", "💡", "🧩", "🎨", "🚀", "⚙️", "🌟", "🎤",
+  "📚", "🧠", "🔮", "💎", "🌈", "🎭", "🤖", "🦊", "🐉", "🌀",
 ];
 
 // ── Custom Skill Form ─────────────────────────────────────────
@@ -219,9 +219,9 @@ function ColorRow({ label, value, onChange }) {
 // ── TAB DATA ──────────────────────────────────────────────────
 const TABS = [
   { id: "appearance", label: "Appearance", icon: Palette },
-  { id: "ai",         label: "AI",         icon: Bot },
-  { id: "interface",  label: "Interface",  icon: Settings2 },
-  { id: "data",       label: "Data",       icon: Database },
+  { id: "ai", label: "AI", icon: Bot },
+  { id: "interface", label: "Interface", icon: Settings2 },
+  { id: "data", label: "Data", icon: Database },
 ];
 
 // ── Main Settings Panel ───────────────────────────────────────
@@ -684,6 +684,110 @@ export function SettingsPanel({ onClose }) {
                     </div>
                   </div>
 
+                  {/* Top P Slider */}
+                  <div className="range-row">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-xs" style={{ color: "rgba(200,255,192,0.8)" }}>
+                        <Gauge size={14} style={{ color: "var(--neon-green)" }} />
+                        Top P
+                      </span>
+                      <span className="text-[10px] font-semibold" style={{ color: "var(--neon-cyan)" }}>
+                        {(settings.topP ?? 1.0).toFixed(1)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      className="neon-range"
+                      min={0}
+                      max={10}
+                      step={1}
+                      value={Math.round((settings.topP ?? 1.0) * 10)}
+                      onChange={(e) => setSettings((p) => ({ ...p, topP: +e.target.value / 10 }))}
+                    />
+                    <div className="range-labels">
+                      <span>0.0 · Focused</span>
+                      <span>1.0 · Diverse</span>
+                    </div>
+                  </div>
+
+                  {/* Frequency Penalty */}
+                  <div className="range-row">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-xs" style={{ color: "rgba(200,255,192,0.8)" }}>
+                        <SlidersHorizontal size={14} style={{ color: "var(--neon-green)" }} />
+                        Freq Penalty
+                      </span>
+                      <span className="text-[10px] font-semibold" style={{ color: "var(--neon-cyan)" }}>
+                        {(settings.frequencyPenalty ?? 0.0).toFixed(1)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      className="neon-range"
+                      min={-20}
+                      max={20}
+                      step={1}
+                      value={Math.round((settings.frequencyPenalty ?? 0.0) * 10)}
+                      onChange={(e) => setSettings((p) => ({ ...p, frequencyPenalty: +e.target.value / 10 }))}
+                    />
+                    <div className="range-labels">
+                      <span>-2.0</span>
+                      <span>2.0</span>
+                    </div>
+                  </div>
+
+                  {/* Presence Penalty */}
+                  <div className="range-row">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-xs" style={{ color: "rgba(200,255,192,0.8)" }}>
+                        <SlidersHorizontal size={14} style={{ color: "var(--neon-green)" }} />
+                        Pres Penalty
+                      </span>
+                      <span className="text-[10px] font-semibold" style={{ color: "var(--neon-cyan)" }}>
+                        {(settings.presencePenalty ?? 0.0).toFixed(1)}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      className="neon-range"
+                      min={-20}
+                      max={20}
+                      step={1}
+                      value={Math.round((settings.presencePenalty ?? 0.0) * 10)}
+                      onChange={(e) => setSettings((p) => ({ ...p, presencePenalty: +e.target.value / 10 }))}
+                    />
+                    <div className="range-labels">
+                      <span>-2.0</span>
+                      <span>2.0</span>
+                    </div>
+                  </div>
+
+                  {/* Max Tokens */}
+                  <div className="range-row">
+                    <div className="flex items-center justify-between">
+                      <span className="flex items-center gap-2 text-xs" style={{ color: "rgba(200,255,192,0.8)" }}>
+                        <AlignJustify size={14} style={{ color: "var(--neon-green)" }} />
+                        Max Tokens
+                      </span>
+                      <span className="text-[10px] font-semibold" style={{ color: "var(--neon-cyan)" }}>
+                        {settings.maxTokens ?? 2048}
+                      </span>
+                    </div>
+                    <input
+                      type="range"
+                      className="neon-range"
+                      min={256}
+                      max={8192}
+                      step={256}
+                      value={settings.maxTokens ?? 2048}
+                      onChange={(e) => setSettings((p) => ({ ...p, maxTokens: +e.target.value }))}
+                    />
+                    <div className="range-labels">
+                      <span>256</span>
+                      <span>8192</span>
+                    </div>
+                  </div>
+
                   {/* System Prompt Prefix */}
                   <SectionHeader label="Context Prefix" />
                   <div className="px-3 pb-3">
@@ -764,11 +868,11 @@ export function SettingsPanel({ onClose }) {
 
                   <SectionHeader label="Keyboard Shortcuts" />
                   <div className="p-3 mb-2 flex flex-col gap-2 bg-[rgba(0,0,0,0.3)] rounded-lg border border-[rgba(255,255,255,0.05)] text-xs" style={{ color: "rgba(200,255,192,0.7)" }}>
-                     <div className="flex justify-between items-center"><span className="opacity-80">Send Message</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Enter</kbd></div>
-                     <div className="flex justify-between items-center"><span className="opacity-80">New Line</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Shift+Enter</kbd></div>
-                     <div className="flex justify-between items-center"><span className="opacity-80">Command Menu</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">//&gt;</kbd></div>
-                     <div className="flex justify-between items-center"><span className="opacity-80">Search Chat</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Ctrl+F</kbd></div>
-                     <div className="flex justify-between items-center"><span className="opacity-80">Prompt History</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">↑ / ↓</kbd></div>
+                    <div className="flex justify-between items-center"><span className="opacity-80">Send Message</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Enter</kbd></div>
+                    <div className="flex justify-between items-center"><span className="opacity-80">New Line</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Shift+Enter</kbd></div>
+                    <div className="flex justify-between items-center"><span className="opacity-80">Command Menu</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">//&gt;</kbd></div>
+                    <div className="flex justify-between items-center"><span className="opacity-80">Search Chat</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Ctrl+F</kbd></div>
+                    <div className="flex justify-between items-center"><span className="opacity-80">Prompt History</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">↑ / ↓</kbd></div>
                   </div>
                 </>
               )}

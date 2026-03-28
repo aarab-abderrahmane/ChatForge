@@ -6,7 +6,7 @@ import cors from "cors";
 // dotenv.config();
 
 import express from "express"
-import {connectDB} from "./db.js"
+import { connectDB } from "./db.js"
 
 const app = express();
 app.use(cors());
@@ -16,19 +16,19 @@ app.use(express.json());
 
 
 
-export async function saveUserKey(encryptedKey,userId) {
-  
-    const client = await connectDB()
+export async function saveUserKey(encryptedKey, userId) {
 
-    const db = client.db(process.env.APP_NAME)
-    const collection = db.collection("apikeys") // like table in sql 
+  const client = await connectDB()
+
+  const db = client.db(process.env.APP_NAME)
+  const collection = db.collection("apikeys") // like table in sql 
 
 
-  
+
   await collection.updateOne(
-    {userId},
-    {$set : {encryptedKey}}, // update key if the user already exist
-    {upsert : true} // add new key 
+    { userId },
+    { $set: { encryptedKey } }, // update key if the user already exist
+    { upsert: true } // add new key 
   )
 
 
@@ -40,13 +40,13 @@ export async function saveUserKey(encryptedKey,userId) {
 
 
 
-export function encrypt(text){
+export function encrypt(text) {
 
   return Buffer.from(text).toString('base64')
 }
 
-export function decrypt(text){
-  return Buffer.from(text,"base64").toString('utf8')
+export function decrypt(text) {
+  return Buffer.from(text, "base64").toString('utf8')
 }
 
 
@@ -55,28 +55,28 @@ export async function getUserKey(userId) {
   try {
 
     const client = await connectDB()
-    
+
     const db = client.db(process.env.APP_NAME)
-    const collection  = db.collection('apikeys');
+    const collection = db.collection('apikeys');
 
-    const user  = await collection.findOne({userId:userId})
-    const decryptedkey  = decrypt(user.encryptedKey).trim()
-
-
-    if(user){
-
-        return {exists: true , res : decryptedkey}
-
-    }else{
+    const user = await collection.findOne({ userId: userId })
+    const decryptedkey = decrypt(user.encryptedKey).trim()
 
 
-      return {exists : false , res :"User not found. Please provide a valid API key ⚠️." }
+    if (user) {
+
+      return { exists: true, res: decryptedkey }
+
+    } else {
+
+
+      return { exists: false, res: "User not found. Please provide a valid API key ⚠️." }
 
     }
 
-  }catch(err){
+  } catch (err) {
 
-      return {exists : false , res : "Unable to fetch user key due to a server error .Please try again later ❌."} 
+    return { exists: false, res: "Unable to fetch user key due to a server error .Please try again later ❌." }
 
   }
   // if (!fs.existsSync("keys.json")) return "";
@@ -87,35 +87,35 @@ export async function getUserKey(userId) {
 
 
 
-export async function check_key_Exists(userId){
+export async function check_key_Exists(userId) {
   try {
 
     const client = await connectDB()
-    
+
     const db = client.db(process.env.APP_NAME)
-    const collection  = db.collection('apikeys');
+    const collection = db.collection('apikeys');
 
-    const user  = await collection.findOne({userId:userId})
-
-
-    if(user && user.encryptedKey){
-
-        return {exists: true , res : "key Exists"}
-
-    }else if (user && (!user.encryptedKey || user.encryptedKey.trim().length===0)){
-
-      return {exists: false, res: "User found, but API key is missing or empty."}
-
-    }else{
+    const user = await collection.findOne({ userId: userId })
 
 
-      return {exists : false , res :"User not found. Please provide a valid API key ⚠️." }
+    if (user && user.encryptedKey) {
+
+      return { exists: true, res: "key Exists" }
+
+    } else if (user && (!user.encryptedKey || user.encryptedKey.trim().length === 0)) {
+
+      return { exists: false, res: "User found, but API key is missing or empty." }
+
+    } else {
+
+
+      return { exists: false, res: "User not found. Please provide a valid API key ⚠️." }
 
     }
 
-  }catch(err){
+  } catch (err) {
 
-      return {exists : false , res : "Unable to fetch user key due to a server error .Please try again later ❌."} 
+    return { exists: false, res: "Unable to fetch user key due to a server error .Please try again later ❌." }
 
   }
 
@@ -134,11 +134,15 @@ export const FREE_MODELS = [
 ];
 
 export async function askAI(messages, key, options = {}) {
-  const { 
+  const {
     models = FREE_MODELS,
     systemPrompt = "You are a helpful AI assistant.",
     temperature = 0.7,
-    stream = false
+    stream = false,
+    top_p,
+    frequency_penalty,
+    presence_penalty,
+    max_tokens
   } = options;
 
   const fullMessages = [
@@ -166,7 +170,11 @@ export async function askAI(messages, key, options = {}) {
           model: model,   // single model per request — we handle fallback ourselves
           messages: fullMessages,
           stream: stream,
-          temperature: temperature
+          temperature: temperature,
+          top_p: top_p,
+          frequency_penalty: frequency_penalty,
+          presence_penalty: presence_penalty,
+          max_tokens: max_tokens
         }),
         signal: controller.signal
       });
@@ -176,14 +184,14 @@ export async function askAI(messages, key, options = {}) {
       if (!response.ok) {
         const errorData = await response.json();
         const code = errorData?.error?.code || response.status;
-        const msg  = errorData?.error?.message || `HTTP ${response.status}`;
+        const msg = errorData?.error?.message || `HTTP ${response.status}`;
         console.warn(`[ChatForge] Model "${model}" failed (${code}): ${msg}`);
         triedErrors.push(`${model}: ${msg}`);
 
         // Retryable / skip-to-next errors
         if ([400, 404, 429, 500, 503].includes(Number(code)) ||
-            msg.includes("rate-limit") || msg.includes("Provider returned error") ||
-            msg.includes("No endpoints")) {
+          msg.includes("rate-limit") || msg.includes("Provider returned error") ||
+          msg.includes("No endpoints")) {
           continue; // try the next model
         }
 
@@ -216,7 +224,7 @@ export async function askAI(messages, key, options = {}) {
 
 
 app.post("/api/chat", async (req, res) => {
-  const { userId, messages, skillPrompt, model } = req.body;
+  const { userId, messages, skillPrompt, model, parameters } = req.body;
   const keyStatus = await getUserKey(userId);
 
   if (!keyStatus.exists) {
@@ -240,23 +248,24 @@ app.post("/api/chat", async (req, res) => {
     const options = {
       models: finalModels,
       systemPrompt: skillPrompt || "You are ChatForge AI.",
-      stream: true
+      stream: true,
+      ...(parameters || {})
     };
 
     const aiRes = await askAI(messages, keyStatus.res, options);
-    
+
     // Read the stream from OpenRouter...
     const reader = aiRes.body.getReader();
     const decoder = new TextDecoder();
-    
+
     while (true) {
       const { done, value } = await reader.read();
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
-      res.write(chunk); 
+      res.write(chunk);
     }
-    
+
     res.end();
 
   } catch (error) {
@@ -267,48 +276,48 @@ app.post("/api/chat", async (req, res) => {
 });
 
 
-app.post('/api/test',async (req,res)=>{
+app.post('/api/test', async (req, res) => {
 
-  const {APIkey,userId} = req.body
+  const { APIkey, userId } = req.body
   const cleanKey = APIkey?.trim()
-  if(!cleanKey){
-     return res.status(400).json({ type: "error", response: "API Key is required." });
+  if (!cleanKey) {
+    return res.status(400).json({ type: "error", response: "API Key is required." });
   }
 
 
-  try{
+  try {
     // Test using full fallback chain — succeeds as long as any model is available
     const aiRes = await askAI([{ role: "user", content: "Say hello in one sentence." }], cleanKey, {
       models: FREE_MODELS,
       systemPrompt: "You are a helpful assistant. Answer concisely."
     })
-    
+
     // We must parse the JSON for the test verification
     const answer = await aiRes.json();
 
-    if(answer.error || !answer.choices?.[0]?.message?.content){
-        console.log("API key test failed, check your terminal for the Full OpenRouter Error Response!");
-        return res.json({
+    if (answer.error || !answer.choices?.[0]?.message?.content) {
+      console.log("API key test failed, check your terminal for the Full OpenRouter Error Response!");
+      return res.json({
         response: `⚠️ AI Service Error: ${answer.error?.message || "Provider rejected the request."}`,
         type: "error"
-         });
-    }else{
+      });
+    } else {
 
 
 
       const encryptedKey = encrypt(cleanKey)
-      await saveUserKey(encryptedKey,userId)
+      await saveUserKey(encryptedKey, userId)
 
 
       res.json({
         response: "ok",
         type: "success"
-       });
+      });
 
     }
 
 
-  
+
 
   } catch (error) {
     console.error("Error during API key test:", error);
@@ -321,16 +330,16 @@ app.post('/api/test',async (req,res)=>{
 })
 
 
-app.get('/',(_,res)=>{
-    res.json({message:"Welcome to chatForge "})
+app.get('/', (_, res) => {
+  res.json({ message: "Welcome to chatForge " })
 })
 
 
 // check if the user have key in database 
 
-app.post("/api/key-exists",async (request,res)=>{
-  
-  const {userId} = request.body
+app.post("/api/key-exists", async (request, res) => {
+
+  const { userId } = request.body
 
   const keystatus = await check_key_Exists(userId)
 
@@ -347,7 +356,7 @@ app.post("/api/key-exists",async (request,res)=>{
 
 
 
-export default app  ; 
+export default app;
 
 
 
@@ -355,11 +364,11 @@ export default app  ;
 
 async function startServer() {
   try {
-    await connectDB(); 
+    await connectDB();
     app.listen(5000, () => console.log("Server running on port 5000"));
   } catch (err) {
     console.error("Failed to start server due to DB connection error:", err);
-     // Exit process if DB not connected
+    // Exit process if DB not connected
     process.exit(1);
   }
 }
