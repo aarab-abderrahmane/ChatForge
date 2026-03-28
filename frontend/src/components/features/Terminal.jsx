@@ -30,6 +30,11 @@ import {
   ChevronLeft,
   ChevronRight,
   Wand2,
+  Search,
+  X as XIcon,
+  Wifi,
+  WifiOff,
+  Keyboard,
 } from "lucide-react";
 
 // Context
@@ -101,30 +106,56 @@ export const Terminal = ({
   messagesEndRef,
   className,
   onRetry,
+  onEditSubmit,
 }) => {
   const COMMAND_PREFIX = "//>";
 
-  const { preferences, settings, clearCurrentChat, createNewSession, customSkills } =
-    useContext(chatsContext);
+  const {
+    preferences,
+    settings,
+    clearCurrentChat,
+    createNewSession,
+    customSkills,
+    promptHistory,
+    addToPromptHistory,
+  } = useContext(chatsContext);
 
   const allSkills = [...SKILLS, ...(customSkills || [])];
   const activeSkill = allSkills.find(s => s.id === settings.activeSkillId) || SKILLS[0];
   const activeModel = MODELS.find(m => m.id === settings.activeModelId) || MODELS[0];
 
-  const [showSettings, setShowSettings] = useState(false);
-  const [showCmdMenu, setShowCmdMenu] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
-  const [charCount, setCharCount] = useState(0);
+  const [showSettings,     setShowSettings]     = useState(false);
+  const [showCmdMenu,      setShowCmdMenu]       = useState(false);
+  const [sidebarOpen,      setSidebarOpen]       = useState(true);
+  const [charCount,        setCharCount]         = useState(0);
+  const [promptHistIdx,    setPromptHistIdx]     = useState(-1);
+  const [showSearch,       setShowSearch]        = useState(false);
+  const [searchQuery,      setSearchQuery]       = useState("");
+  const [showClearConfirm, setShowClearConfirm]  = useState(false);
+  const [isOnline,         setIsOnline]          = useState(navigator?.onLine ?? true);
 
-  const textareaRef = useRef(null);
-  const settingsRef = useRef(null);
+  const textareaRef     = useRef(null);
+  const settingsRef     = useRef(null);
   const toolbarScrollRef = useRef(null);
+  const searchInputRef  = useRef(null);
 
   const scrollToolbar = (dir) => {
     const el = toolbarScrollRef.current;
     if (!el) return;
     el.scrollBy({ left: dir * 120, behavior: "smooth" });
   };
+
+  // Online/offline detection
+  useEffect(() => {
+    const on  = () => setIsOnline(true);
+    const off = () => setIsOnline(false);
+    window.addEventListener("online",  on);
+    window.addEventListener("offline", off);
+    return () => {
+      window.removeEventListener("online",  on);
+      window.removeEventListener("offline", off);
+    };
+  }, []);
 
   // Close settings on outside click
   useEffect(() => {
@@ -151,20 +182,55 @@ export const Terminal = ({
 
   // Keyboard shortcut handler
   const handleKeyDown = (e) => {
+    // Ctrl+F → open in-chat search
+    if (e.ctrlKey && e.key === "f") {
+      e.preventDefault();
+      setShowSearch((p) => !p);
+      if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
+      return;
+    }
+
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (query.trim().length === 0 || loading) return;
       executeCommand(query) || doSend({ target: { value: query } });
+      setPromptHistIdx(-1);
+      return;
     }
+
+    // ↑ cycle back through prompt history
+    if (e.key === "ArrowUp" && !query && promptHistory.length > 0) {
+      e.preventDefault();
+      const nextIdx = Math.min(promptHistIdx + 1, promptHistory.length - 1);
+      setPromptHistIdx(nextIdx);
+      setQuery(promptHistory[nextIdx]);
+      setCharCount(promptHistory[nextIdx].length);
+      return;
+    }
+
+    // ↓ cycle forward
+    if (e.key === "ArrowDown" && promptHistIdx >= 0) {
+      e.preventDefault();
+      const nextIdx = promptHistIdx - 1;
+      if (nextIdx < 0) {
+        setPromptHistIdx(-1);
+        setQuery("");
+        setCharCount(0);
+      } else {
+        setPromptHistIdx(nextIdx);
+        setQuery(promptHistory[nextIdx]);
+        setCharCount(promptHistory[nextIdx].length);
+      }
+      return;
+    }
+
     if (e.key === "Escape") {
       setShowCmdMenu(false);
+      setShowSearch(false);
     }
     if (e.key === "/") {
-      // Small delay to allow the character to be typed
       setTimeout(() => {
-        if (textareaRef.current?.value.startsWith("//>")) {
-          setShowCmdMenu(true);
-        }
+        if (textareaRef.current?.value.startsWith("//>")) setShowCmdMenu(true);
       }, 10);
     }
   };
@@ -188,8 +254,11 @@ export const Terminal = ({
   };
 
   const doSend = (e) => {
+    const val = e?.target?.value;
+    if (val?.trim()) addToPromptHistory(val.trim());
     setQuery("");
     setCharCount(0);
+    setPromptHistIdx(-1);
     handleSend(e);
   };
 
@@ -201,8 +270,14 @@ export const Terminal = ({
 
     const cmd = trimmed.toLowerCase();
 
+    if (cmd === "//> clear" || cmd === "//> clear") {
+      setShowClearConfirm(true);
+      setQuery("");
+      setShowCmdMenu(false);
+      return true;
+    }
     if (cmd === "//>clear") {
-      clearCurrentChat();
+      setShowClearConfirm(true);
       setQuery("");
       setShowCmdMenu(false);
       return true;
@@ -284,8 +359,19 @@ export const Terminal = ({
     textareaRef.current?.focus();
   };
 
-  // Message count
-  const msgCount = chats.filter((c) => c.type === "ch").length;
+  // Message count + estimated tokens in current input
+  const msgCount  = chats.filter((c) => c.type === "ch").length;
+  const estTokens = Math.round(charCount / 4);
+
+  // Filtered messages for in-chat search
+  const searchMatches = searchQuery.trim()
+    ? chats.filter(
+        (c) =>
+          c.type === "ch" &&
+          ((c.question || "").toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (c.answer || "").toLowerCase().includes(searchQuery.toLowerCase()))
+      ).length
+    : 0;
 
   // Font style (reads fontSize from settings)
   const fontStyle = {
@@ -348,6 +434,18 @@ export const Terminal = ({
             >
               — AI Terminal
             </span>
+
+            {/* Online Status */}
+            <div
+              className={`flex items-center gap-1.5 ml-2 text-[9px] uppercase tracking-widest font-bold ${
+                isOnline ? "" : "opacity-60"
+              }`}
+              style={{ color: isOnline ? "var(--neon-green)" : "var(--neon-magenta)" }}
+              title={isOnline ? "Connected" : "Offline / Reconnecting..."}
+            >
+              {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
+              <span className="hidden sm:inline">{isOnline ? "Online" : "Offline"}</span>
+            </div>
             
             {/* Active Skill Badge */}
             <div 
@@ -410,11 +508,25 @@ export const Terminal = ({
             {/* Clear chat */}
             {preferences.currentPage === "chat" && (
               <button
-                onClick={clearCurrentChat}
+                onClick={() => setShowClearConfirm(true)}
                 className="btn-ghost"
                 title="Clear chat"
               >
                 <Trash2 size={14} />
+              </button>
+            )}
+
+            {/* Search */}
+            {preferences.currentPage === "chat" && (
+              <button
+                onClick={() => {
+                  setShowSearch((p) => !p);
+                  if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
+                }}
+                className={`btn-ghost ${showSearch ? "text-cyan-400" : ""}`}
+                title="Search chat (Ctrl+F)"
+              >
+                <Search size={14} style={{ color: showSearch ? "var(--neon-cyan)" : undefined }} />
               </button>
             )}
 
@@ -445,6 +557,48 @@ export const Terminal = ({
         </div>
 
         {/* ── Body ────────────────────────────────────── */}
+        {/* Search Bar */}
+        <AnimatePresence>
+          {showSearch && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: "auto", opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="border-b overflow-hidden"
+              style={{ borderColor: "rgba(0,245,255,0.1)", background: "rgba(0,245,255,0.02)" }}
+            >
+              <div className="px-4 py-2 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2 flex-1">
+                  <Search size={12} style={{ color: "var(--neon-cyan)" }} />
+                  <input
+                    ref={searchInputRef}
+                    className="flex-1 bg-transparent border-none text-xs outline-none"
+                    style={{ color: "var(--neon-cyan)" }}
+                    placeholder="Search in this chat..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Escape") setShowSearch(false);
+                    }}
+                  />
+                </div>
+                {searchQuery && (
+                  <div className="text-[10px] font-bold" style={{ color: "var(--neon-cyan)" }}>
+                    {searchMatches} match{searchMatches !== 1 ? "es" : ""}
+                  </div>
+                )}
+                <button
+                  onClick={() => { setShowSearch(false); setSearchQuery(""); }}
+                  className="p-1 hover:bg-white/5 rounded transition-all"
+                  style={{ color: "var(--neon-cyan)" }}
+                >
+                  <XIcon size={12} />
+                </button>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         {preferences.currentPage === "chat" ? (
           <div className="flex flex-col flex-1 min-h-0">
             {/* Messages scroll area */}
@@ -482,6 +636,9 @@ export const Terminal = ({
                     isCopied={isCopied}
                     copyToClipboard={copyToClipboard}
                     onRetry={onRetry}
+                    onEditSubmit={onEditSubmit || ((newQuestion, id) => {
+                      executeCommand(newQuestion) || onRetry(newQuestion, id);
+                    })}
                   />
                 );
               })}
@@ -618,10 +775,11 @@ export const Terminal = ({
                   />
                   {charCount > 0 && (
                     <span
-                      className="absolute bottom-0 right-0 text-[9px] px-1"
-                      style={{ color: "rgba(200,255,192,0.2)" }}
+                      className="absolute bottom-0 right-1 flex items-center gap-2 text-[9px] pointer-events-none"
+                      style={{ color: "rgba(200,255,192,0.3)", background: "var(--bg-panel)", paddingInline: 4, borderRadius: 2 }}
                     >
-                      {charCount}
+                      <span title="Estimated tokens">~{estTokens} tokens</span>
+                      <span>{charCount} chars</span>
                     </span>
                   )}
                 </div>
@@ -676,6 +834,44 @@ export const Terminal = ({
           <GuidePage />
         )}
       </div>
+      {/* ── Confirm Clear Overlay ─────────────────────── */}
+      <AnimatePresence>
+        {showClearConfirm && (
+          <motion.div
+            className="confirm-overlay"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            style={{ position: "absolute", zIndex: 100 }}
+          >
+            <div className="confirm-card max-w-[300px] text-center">
+              <div className="text-xl mb-3">🧹</div>
+              <div className="text-xs font-bold mb-2 uppercase tracking-widest" style={{ color: "var(--neon-magenta)" }}>
+                Clear Chat?
+              </div>
+              <div className="text-[10px] mb-5 leading-relaxed" style={{ color: "rgba(200,255,192,0.6)" }}>
+                This will wipe the current session's history. This action cannot be undone.
+              </div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => { clearCurrentChat(); setShowClearConfirm(false); setQuery(""); }}
+                  className="flex-1 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest transition-all"
+                  style={{ background: "rgba(255,45,120,0.12)", border: "1px solid var(--neon-magenta)", color: "var(--neon-magenta)" }}
+                >
+                  Clear
+                </button>
+                <button
+                  onClick={() => setShowClearConfirm(false)}
+                  className="flex-1 py-1.5 rounded text-[10px] transition-all hover:bg-white/5 uppercase tracking-widest"
+                  style={{ border: "1px solid rgba(255,255,255,0.08)", color: "rgba(200,255,192,0.5)" }}
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   );
 };

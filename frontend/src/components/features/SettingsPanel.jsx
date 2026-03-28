@@ -761,6 +761,15 @@ export function SettingsPanel({ onClose }) {
                     <span className="flex-1 text-xs" style={{ color: "rgba(200,255,192,0.8)" }}>Keyboard sounds</span>
                     <Toggle value={settings.sounds} onToggle={() => toggle("sounds")} />
                   </div>
+
+                  <SectionHeader label="Keyboard Shortcuts" />
+                  <div className="p-3 mb-2 flex flex-col gap-2 bg-[rgba(0,0,0,0.3)] rounded-lg border border-[rgba(255,255,255,0.05)] text-xs" style={{ color: "rgba(200,255,192,0.7)" }}>
+                     <div className="flex justify-between items-center"><span className="opacity-80">Send Message</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Enter</kbd></div>
+                     <div className="flex justify-between items-center"><span className="opacity-80">New Line</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Shift+Enter</kbd></div>
+                     <div className="flex justify-between items-center"><span className="opacity-80">Command Menu</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">//&gt;</kbd></div>
+                     <div className="flex justify-between items-center"><span className="opacity-80">Search Chat</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">Ctrl+F</kbd></div>
+                     <div className="flex justify-between items-center"><span className="opacity-80">Prompt History</span><kbd className="px-1.5 py-0.5 rounded bg-white/10 text-[10px] font-mono">↑ / ↓</kbd></div>
+                  </div>
                 </>
               )}
 

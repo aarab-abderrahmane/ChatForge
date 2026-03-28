@@ -298,10 +298,60 @@ export function ChatsProvider({ children }) {
 
   const deleteCustomSkill = useCallback((id) => {
     setCustomSkills((prev) => prev.filter((s) => s.id !== id));
-    // If the deleted skill was active, reset to general
     setSettings((prev) =>
       prev.activeSkillId === id ? { ...prev, activeSkillId: "general" } : prev
     );
+  }, []);
+
+  // ── Pinned Sessions ─────────────────────────────────────────────────
+  const [pinnedSessions, setPinnedSessions] = useState(() => {
+    try {
+      const stored = localStorage.getItem("ChatForge_Pinned");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ChatForge_Pinned", JSON.stringify([...pinnedSessions]));
+  }, [pinnedSessions]);
+
+  const pinSession = useCallback((id) => {
+    setPinnedSessions((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  }, []);
+
+  // ── Starred Messages ────────────────────────────────────────────────
+  const [starredMessages, setStarredMessages] = useState(() => {
+    try {
+      const stored = localStorage.getItem("ChatForge_Starred");
+      return stored ? new Set(JSON.parse(stored)) : new Set();
+    } catch { return new Set(); }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ChatForge_Starred", JSON.stringify([...starredMessages]));
+  }, [starredMessages]);
+
+  const toggleStarMessage = useCallback((msgId) => {
+    setStarredMessages((prev) => {
+      const next = new Set(prev);
+      if (next.has(msgId)) next.delete(msgId); else next.add(msgId);
+      return next;
+    });
+  }, []);
+
+  // ── Prompt History ───────────────────────────────────────────────────
+  const [promptHistory, setPromptHistory] = useState([]);
+
+  const addToPromptHistory = useCallback((text) => {
+    if (!text?.trim()) return;
+    setPromptHistory((prev) => {
+      const filtered = prev.filter((p) => p !== text);
+      return [text, ...filtered].slice(0, 50);
+    });
   }, []);
 
   // ── Sessions ────────────────────────────────────────────────────────
@@ -402,6 +452,13 @@ export function ChatsProvider({ children }) {
     });
   }, [activeSessionId]);
 
+  const renameSession = useCallback((id, newTitle) => {
+    if (!newTitle?.trim()) return;
+    setSessions((prev) =>
+      prev.map((s) => s.id === id ? { ...s, title: newTitle.trim() } : s)
+    );
+  }, []);
+
   const clearAllSessions = useCallback(() => {
     const fresh = makeSession();
     setSessions([fresh]);
@@ -412,7 +469,6 @@ export function ChatsProvider({ children }) {
     if (!Array.isArray(incoming) || incoming.length === 0) return false;
     setSessions((prev) => {
       const merged = [...incoming, ...prev];
-      // deduplicate by id
       const seen = new Set();
       return merged.filter((s) => {
         if (seen.has(s.id)) return false;
@@ -423,6 +479,13 @@ export function ChatsProvider({ children }) {
     setActiveSessionId(incoming[0].id);
     return true;
   }, []);
+
+  const editMessage = useCallback((msgId, newQuestion) => {
+    if (!newQuestion?.trim()) return;
+    setChats((prev) =>
+      prev.map((m) => m.id === msgId ? { ...m, question: newQuestion.trim(), answer: undefined, type: "ch" } : m)
+    );
+  }, [setChats]);
 
   const clearCurrentChat = useCallback(() => {
     setChats(WELCOME_MESSAGES);
@@ -464,9 +527,20 @@ export function ChatsProvider({ children }) {
         // helpers
         createNewSession,
         deleteSession,
+        renameSession,
         clearCurrentChat,
         clearAllSessions,
         importSessions,
+        editMessage,
+        // pinned sessions
+        pinnedSessions,
+        pinSession,
+        // starred messages
+        starredMessages,
+        toggleStarMessage,
+        // prompt history
+        promptHistory,
+        addToPromptHistory,
       }}
     >
       {children}

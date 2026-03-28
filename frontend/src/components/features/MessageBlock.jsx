@@ -6,8 +6,14 @@ import {
   ThumbsDownIcon,
   RefreshCcwIcon,
   AlertTriangleIcon,
+  Pencil,
+  Star,
+  Eye,
+  EyeOff,
+  X,
+  Check,
 } from "lucide-react";
-import { useState, useContext } from "react";
+import { useState, useContext, useRef } from "react";
 import { Response } from "../ui/shadcn-io/ai/response";
 import { chatsContext } from "../../context/chatsContext";
 
@@ -30,17 +36,56 @@ export function MessageBlock({
   isCopied,
   copyToClipboard,
   onRetry,
+  onEditSubmit,
 }) {
   const [reaction, setReaction] = useState(null); // 'up' | 'down' | null
-  const { settings } = useContext(chatsContext);
+  const [isEditing, setIsEditing]     = useState(false);
+  const [editValue, setEditValue]     = useState("");
+  const [showRaw, setShowRaw]         = useState(false);
+  const editRef = useRef(null);
 
-  const isError = obj.type === "error";
+  const {
+    settings,
+    starredMessages,
+    toggleStarMessage,
+    editMessage,
+  } = useContext(chatsContext);
+
+  const isError  = obj.type === "error";
   const hasAnswer = !!obj.answer;
-  const compact = settings?.compactMode;
+  const compact  = settings?.compactMode;
+  const isStarred = starredMessages?.has(obj.id);
+
+  const startEdit = () => {
+    setEditValue(obj.question);
+    setIsEditing(true);
+    setTimeout(() => {
+      editRef.current?.focus();
+      editRef.current?.select();
+    }, 50);
+  };
+
+  const commitEdit = () => {
+    if (editValue.trim() && editValue !== obj.question) {
+      editMessage(obj.id, editValue.trim());
+      if (onEditSubmit) onEditSubmit(editValue.trim(), obj.id);
+    }
+    setIsEditing(false);
+  };
+
+  const cancelEdit = () => {
+    setIsEditing(false);
+    setEditValue("");
+  };
+
+  const handleEditKey = (e) => {
+    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit(); }
+    if (e.key === "Escape") cancelEdit();
+  };
 
   return (
     <motion.div
-      className={`message-block msg-enter ${compact ? "message-compact" : ""}`}
+      className={`message-block msg-enter ${compact ? "message-compact" : ""} ${isStarred ? "starred" : ""}`}
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.02 }}
@@ -53,16 +98,55 @@ export function MessageBlock({
         >
           ›
         </span>
+
         <div className="flex-1 min-w-0">
-          <p className="message-question text-sm text-wrap break-words">
-            {obj.question}
-          </p>
+          {isEditing ? (
+            /* ── Inline edit mode ── */
+            <div className="flex flex-col gap-2">
+              <textarea
+                ref={editRef}
+                className="msg-edit-textarea"
+                value={editValue}
+                onChange={(e) => setEditValue(e.target.value)}
+                onKeyDown={handleEditKey}
+                rows={3}
+              />
+              <div className="flex gap-2">
+                <button
+                  onClick={commitEdit}
+                  className="msg-edit-btn confirm"
+                  title="Save & Re-send (Enter)"
+                >
+                  <Check size={10} /> Save & Re-send
+                </button>
+                <button
+                  onClick={cancelEdit}
+                  className="msg-edit-btn cancel"
+                  title="Cancel (Esc)"
+                >
+                  <X size={10} /> Cancel
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="message-question text-sm text-wrap break-words">
+              {obj.question}
+            </p>
+          )}
         </div>
-        {obj.timestamp && settings?.showTimestamps && (
-          <span className="message-timestamp visible flex-shrink-0 mt-0.5">
-            {formatTime(obj.timestamp)}
-          </span>
-        )}
+
+        <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Star indicator */}
+          {isStarred && (
+            <span style={{ fontSize: 10, color: "#ffd700" }} title="Starred">⭐</span>
+          )}
+          {/* Timestamp */}
+          {obj.timestamp && settings?.showTimestamps && (
+            <span className="message-timestamp visible">
+              {formatTime(obj.timestamp)}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* Answer */}
@@ -83,7 +167,16 @@ export function MessageBlock({
             </div>
           ) : (
             <div className="message-answer">
-              <Response>{obj.answer}</Response>
+              {showRaw ? (
+                <pre
+                  className="text-xs whitespace-pre-wrap break-words"
+                  style={{ color: "rgba(200,255,192,0.7)", lineHeight: 1.7 }}
+                >
+                  {obj.answer}
+                </pre>
+              ) : (
+                <Response>{obj.answer}</Response>
+              )}
             </div>
           )}
 
@@ -92,10 +185,7 @@ export function MessageBlock({
             {/* Copy */}
             {hasAnswer && !isError && (
               isCopied.state && isCopied.idMes === obj.id ? (
-                <div
-                  className="reaction-btn active-up"
-                  style={{ pointerEvents: "none" }}
-                >
+                <div className="reaction-btn active-up" style={{ pointerEvents: "none" }}>
                   <CheckIcon size={11} />
                   <span>copied</span>
                 </div>
@@ -110,6 +200,40 @@ export function MessageBlock({
                 </button>
               )
             )}
+
+            {/* Raw toggle */}
+            {hasAnswer && !isError && (
+              <button
+                className={`reaction-btn ${showRaw ? "active-up" : ""}`}
+                onClick={() => setShowRaw((p) => !p)}
+                title={showRaw ? "Show rendered" : "Show raw markdown"}
+              >
+                {showRaw ? <EyeOff size={11} /> : <Eye size={11} />}
+                <span>{showRaw ? "rendered" : "raw"}</span>
+              </button>
+            )}
+
+            {/* Edit question */}
+            {!isEditing && (
+              <button
+                className="reaction-btn"
+                onClick={startEdit}
+                title="Edit & re-send"
+              >
+                <Pencil size={11} />
+                <span>edit</span>
+              </button>
+            )}
+
+            {/* Star */}
+            <button
+              className={`reaction-btn ${isStarred ? "active-star" : ""}`}
+              onClick={() => toggleStarMessage(obj.id)}
+              title={isStarred ? "Unstar" : "Star this message"}
+            >
+              <Star size={11} />
+              <span>{isStarred ? "starred" : "star"}</span>
+            </button>
 
             {/* Thumbs up */}
             {!isError && (
@@ -133,8 +257,8 @@ export function MessageBlock({
               </button>
             )}
 
-            {/* Retry on error */}
-            {isError && onRetry && (
+            {/* Retry — shown for errors AND normal messages */}
+            {onRetry && (
               <button
                 className="reaction-btn"
                 onClick={() => onRetry(obj.question, obj.id)}
@@ -148,16 +272,11 @@ export function MessageBlock({
         </div>
       )}
 
-      {/* Streaming placeholder — no answer yet */}
+      {/* Streaming placeholder */}
       {!hasAnswer && (
         <div className="pl-4 border-l-2" style={{ borderColor: "var(--border-green)" }}>
-          <div
-            className="loading-dots text-sm"
-            style={{ color: "rgba(200,255,192,0.4)" }}
-          >
-            <span>.</span>
-            <span>.</span>
-            <span>.</span>
+          <div className="loading-dots text-sm" style={{ color: "rgba(200,255,192,0.4)" }}>
+            <span>.</span><span>.</span><span>.</span>
           </div>
         </div>
       )}

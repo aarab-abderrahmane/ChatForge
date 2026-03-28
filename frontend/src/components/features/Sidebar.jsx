@@ -1,4 +1,4 @@
-import { useContext, useState } from "react";
+import { useContext, useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   MessageSquare,
@@ -7,6 +7,12 @@ import {
   ChevronLeft,
   ChevronRight,
   Clock,
+  Pin,
+  PinOff,
+  Search,
+  X,
+  Pencil,
+  Check,
 } from "lucide-react";
 import { chatsContext } from "../../context/chatsContext";
 
@@ -32,10 +38,25 @@ export function Sidebar({ isOpen, onToggle }) {
     setActiveSessionId,
     createNewSession,
     deleteSession,
+    renameSession,
+    pinnedSessions,
+    pinSession,
   } = useContext(chatsContext);
 
-  const [hoveredId, setHoveredId] = useState(null);
+  const [hoveredId, setHoveredId]     = useState(null);
   const [confirmDelete, setConfirmDelete] = useState(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [editingId, setEditingId]     = useState(null);
+  const [editValue, setEditValue]     = useState("");
+  const editInputRef = useRef(null);
+
+  // Focus rename input when it appears
+  useEffect(() => {
+    if (editingId && editInputRef.current) {
+      editInputRef.current.focus();
+      editInputRef.current.select();
+    }
+  }, [editingId]);
 
   const handleDelete = (e, id) => {
     e.stopPropagation();
@@ -48,8 +69,45 @@ export function Sidebar({ isOpen, onToggle }) {
     }
   };
 
+  const handlePin = (e, id) => {
+    e.stopPropagation();
+    pinSession(id);
+  };
+
+  const startRename = (e, session) => {
+    e.stopPropagation();
+    setEditingId(session.id);
+    setEditValue(session.title);
+  };
+
+  const commitRename = () => {
+    if (editingId && editValue.trim()) {
+      renameSession(editingId, editValue.trim());
+    }
+    setEditingId(null);
+    setEditValue("");
+  };
+
+  const handleRenameKey = (e) => {
+    if (e.key === "Enter") commitRename();
+    if (e.key === "Escape") { setEditingId(null); setEditValue(""); }
+  };
+
   const messageCount = (session) =>
     session.messages.filter((m) => m.type === "ch").length;
+
+  // Filter by search, then sort pinned to top
+  const filtered = sessions
+    .filter((s) =>
+      searchQuery.trim()
+        ? s.title.toLowerCase().includes(searchQuery.toLowerCase())
+        : true
+    )
+    .sort((a, b) => {
+      const ap = pinnedSessions.has(a.id) ? 0 : 1;
+      const bp = pinnedSessions.has(b.id) ? 0 : 1;
+      return ap - bp;
+    });
 
   return (
     <div
@@ -85,14 +143,47 @@ export function Sidebar({ isOpen, onToggle }) {
               </button>
             </div>
 
+            {/* Search bar */}
+            <div
+              className="px-2 py-2 border-b"
+              style={{ borderColor: "rgba(255,255,255,0.04)" }}
+            >
+              <div className="sidebar-search">
+                <Search size={11} className="sidebar-search-icon" />
+                <input
+                  type="text"
+                  className="sidebar-search-input"
+                  placeholder="Search sessions…"
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                />
+                {searchQuery && (
+                  <button
+                    onClick={() => setSearchQuery("")}
+                    className="sidebar-search-clear"
+                    title="Clear"
+                  >
+                    <X size={9} />
+                  </button>
+                )}
+              </div>
+            </div>
+
             {/* Session list */}
             <div className="flex-1 overflow-y-auto p-2">
               <AnimatePresence>
-                {sessions.map((session) => {
-                  const isActive = session.id === activeSessionId;
+                {filtered.length === 0 && (
+                  <p className="text-[10px] text-center py-4" style={{ color: "rgba(200,255,192,0.25)" }}>
+                    No sessions found
+                  </p>
+                )}
+                {filtered.map((session) => {
+                  const isActive  = session.id === activeSessionId;
                   const isHovered = hoveredId === session.id;
                   const willDelete = confirmDelete === session.id;
-                  const count = messageCount(session);
+                  const isPinned  = pinnedSessions.has(session.id);
+                  const isEditing = editingId === session.id;
+                  const count     = messageCount(session);
 
                   return (
                     <motion.div
@@ -102,71 +193,94 @@ export function Sidebar({ isOpen, onToggle }) {
                       animate={{ opacity: 1, y: 0 }}
                       exit={{ opacity: 0, x: -20, height: 0 }}
                       transition={{ duration: 0.2 }}
-                      className={`sidebar-session ${isActive ? "active" : ""}`}
-                      onClick={() => setActiveSessionId(session.id)}
+                      className={`sidebar-session ${isActive ? "active" : ""} ${isPinned ? "pinned" : ""}`}
+                      onClick={() => !isEditing && setActiveSessionId(session.id)}
                       onMouseEnter={() => setHoveredId(session.id)}
                       onMouseLeave={() => setHoveredId(null)}
                     >
                       <div className="flex items-start gap-2">
-                        <MessageSquare
-                          size={12}
-                          style={{
-                            color: isActive ? "var(--neon-green)" : "rgba(200,255,192,0.3)",
-                            flexShrink: 0,
-                            marginTop: 3,
-                          }}
-                        />
+                        {/* Icon — 📌 for pinned, 💬 for normal */}
+                        <span style={{ fontSize: 11, marginTop: 2, flexShrink: 0 }}>
+                          {isPinned ? "📌" : <MessageSquare size={12} style={{ color: isActive ? "var(--neon-green)" : "rgba(200,255,192,0.3)" }} />}
+                        </span>
+
                         <div className="flex-1 min-w-0">
-                          <p
-                            className="text-xs font-medium truncate leading-snug"
-                            style={{
-                              color: isActive
-                                ? "var(--neon-green)"
-                                : "rgba(200,255,192,0.75)",
-                            }}
-                          >
-                            {session.title}
-                          </p>
+                          {/* Title — editable or static */}
+                          {isEditing ? (
+                            <div className="flex items-center gap-1">
+                              <input
+                                ref={editInputRef}
+                                className="sidebar-rename-input"
+                                value={editValue}
+                                onChange={(e) => setEditValue(e.target.value)}
+                                onBlur={commitRename}
+                                onKeyDown={handleRenameKey}
+                                maxLength={50}
+                                onClick={(e) => e.stopPropagation()}
+                              />
+                              <button
+                                onClick={(e) => { e.stopPropagation(); commitRename(); }}
+                                className="flex-shrink-0"
+                                style={{ color: "var(--neon-green)" }}
+                              >
+                                <Check size={10} />
+                              </button>
+                            </div>
+                          ) : (
+                            <p
+                              className="text-xs font-medium truncate leading-snug"
+                              style={{ color: isActive ? "var(--neon-green)" : "rgba(200,255,192,0.75)" }}
+                            >
+                              {session.title}
+                            </p>
+                          )}
+
                           <div className="flex items-center gap-2 mt-1">
                             <Clock size={9} style={{ color: "rgba(200,255,192,0.25)" }} />
-                            <span
-                              className="text-[10px]"
-                              style={{ color: "rgba(200,255,192,0.25)" }}
-                            >
+                            <span className="text-[10px]" style={{ color: "rgba(200,255,192,0.25)" }}>
                               {formatRelativeTime(session.createdAt)}
                             </span>
-                            <span
-                              className="text-[10px]"
-                              style={{ color: "rgba(200,255,192,0.2)" }}
-                            >
+                            <span className="text-[10px]" style={{ color: "rgba(200,255,192,0.2)" }}>
                               · {count} msg
                             </span>
                           </div>
                         </div>
 
-                        {/* Delete button */}
-                        {(isHovered || isActive) && (
-                          <button
-                            onClick={(e) => handleDelete(e, session.id)}
-                            className="flex-shrink-0 p-0.5 rounded"
-                            style={{
-                              color: willDelete
-                                ? "var(--neon-magenta)"
-                                : "rgba(255,255,255,0.2)",
-                              transition: "color 0.15s",
-                            }}
-                            title={willDelete ? "Click again to confirm" : "Delete"}
-                          >
-                            <Trash2 size={10} />
-                          </button>
+                        {/* Action buttons — show on hover/active */}
+                        {(isHovered || isActive) && !isEditing && (
+                          <div className="flex items-center gap-0.5 flex-shrink-0">
+                            {/* Rename */}
+                            <button
+                              onClick={(e) => startRename(e, session)}
+                              className="sidebar-action-btn"
+                              title="Rename"
+                            >
+                              <Pencil size={9} />
+                            </button>
+                            {/* Pin */}
+                            <button
+                              onClick={(e) => handlePin(e, session.id)}
+                              className="sidebar-action-btn"
+                              style={{ color: isPinned ? "var(--neon-cyan)" : undefined }}
+                              title={isPinned ? "Unpin" : "Pin to top"}
+                            >
+                              {isPinned ? <PinOff size={9} /> : <Pin size={9} />}
+                            </button>
+                            {/* Delete */}
+                            <button
+                              onClick={(e) => handleDelete(e, session.id)}
+                              className="sidebar-action-btn"
+                              style={{ color: willDelete ? "var(--neon-magenta)" : undefined }}
+                              title={willDelete ? "Click again to confirm" : "Delete"}
+                            >
+                              <Trash2 size={9} />
+                            </button>
+                          </div>
                         )}
                       </div>
 
                       {willDelete && (
-                        <p
-                          className="text-[9px] mt-1 pl-5"
-                          style={{ color: "var(--neon-magenta)" }}
-                        >
+                        <p className="text-[9px] mt-1 pl-5" style={{ color: "var(--neon-magenta)" }}>
                           Click again to confirm
                         </p>
                       )}
@@ -185,6 +299,7 @@ export function Sidebar({ isOpen, onToggle }) {
               }}
             >
               {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+              {pinnedSessions.size > 0 && ` · ${pinnedSessions.size} pinned`}
             </div>
           </motion.div>
         )}
