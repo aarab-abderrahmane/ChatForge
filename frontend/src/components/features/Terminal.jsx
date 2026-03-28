@@ -16,6 +16,20 @@ import {
   Plus,
   TerminalIcon,
   SendHorizonal,
+  FileText,
+  Bug,
+  Lightbulb,
+  Languages,
+  Sparkles,
+  Code2,
+  List,
+  MessageSquare,
+  Briefcase,
+  Network,
+  PenLine,
+  ChevronLeft,
+  ChevronRight,
+  Wand2,
 } from "lucide-react";
 
 // Context
@@ -48,6 +62,31 @@ const COMMANDS = [
   { cmd: "//>new",    desc: "Start a new chat session",         icon: "✨" },
 ];
 
+const TOOL_GROUPS = [
+  // Group 1 — AI tasks
+  [
+    { id: "summarize", label: "Summarize",  icon: FileText,      cmd: "//>summarize" },
+    { id: "improve",   label: "Improve",    icon: Wand2,          prompt: "Improve and polish this text: " },
+    { id: "explain",   label: "Explain",    icon: Lightbulb,      prompt: "Explain this concept in simple terms: " },
+    { id: "translate", label: "Translate",  icon: Languages,      cmd: "//>translate" },
+  ],
+  // Group 2 — Writing
+  [
+    { id: "grammar",   label: "Fix Grammar", icon: PenLine,        prompt: "Fix the grammar and spelling of this text: " },
+    { id: "bullets",   label: "Bullet Pts",  icon: List,           prompt: "Convert this into clear bullet points: " },
+    { id: "proTone",   label: "Pro Tone",    icon: Briefcase,      prompt: "Rewrite in a professional tone: " },
+    { id: "stories",   label: "Storytell",   icon: Sparkles,       prompt: "Write a creative story about: " },
+  ],
+  // Group 3 — Dev
+  [
+    { id: "debug",     label: "Debug",       icon: Bug,            prompt: "Help me debug this code: " },
+    { id: "writecode", label: "Write Code",  icon: Code2,          prompt: "Write code for: " },
+    { id: "mindmap",   label: "Mindmap",     icon: Network,        prompt: "Create a mindmap outline for: " },
+    { id: "qa",        label: "Q&A",         icon: MessageSquare,  prompt: "Answer these questions clearly: " },
+  ],
+];
+
+
 // ──────────────────────────────────────────────────────────────
 // Main Terminal component
 // ──────────────────────────────────────────────────────────────
@@ -65,10 +104,11 @@ export const Terminal = ({
 }) => {
   const COMMAND_PREFIX = "//>";
 
-  const { preferences, settings, clearCurrentChat, createNewSession } =
+  const { preferences, settings, clearCurrentChat, createNewSession, customSkills } =
     useContext(chatsContext);
 
-  const activeSkill = SKILLS.find(s => s.id === settings.activeSkillId) || SKILLS[0];
+  const allSkills = [...SKILLS, ...(customSkills || [])];
+  const activeSkill = allSkills.find(s => s.id === settings.activeSkillId) || SKILLS[0];
   const activeModel = MODELS.find(m => m.id === settings.activeModelId) || MODELS[0];
 
   const [showSettings, setShowSettings] = useState(false);
@@ -78,6 +118,13 @@ export const Terminal = ({
 
   const textareaRef = useRef(null);
   const settingsRef = useRef(null);
+  const toolbarScrollRef = useRef(null);
+
+  const scrollToolbar = (dir) => {
+    const el = toolbarScrollRef.current;
+    if (!el) return;
+    el.scrollBy({ left: dir * 120, behavior: "smooth" });
+  };
 
   // Close settings on outside click
   useEffect(() => {
@@ -107,10 +154,36 @@ export const Terminal = ({
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       if (query.trim().length === 0 || loading) return;
-      executeCommand(query) || doSend(e);
+      executeCommand(query) || doSend({ target: { value: query } });
     }
     if (e.key === "Escape") {
       setShowCmdMenu(false);
+    }
+    if (e.key === "/") {
+      // Small delay to allow the character to be typed
+      setTimeout(() => {
+        if (textareaRef.current?.value.startsWith("//>")) {
+          setShowCmdMenu(true);
+        }
+      }, 10);
+    }
+  };
+
+  const handleToolClick = (tool) => {
+    if (tool.cmd) {
+      // Direct command execution
+      executeCommand(tool.cmd) || handleSend({ target: { value: tool.cmd } });
+      setQuery("");
+      setCharCount(0);
+    } else if (tool.prompt) {
+      // Prompt injection
+      const newVal = tool.prompt;
+      setQuery(newVal);
+      setCharCount(newVal.length);
+      setTimeout(() => {
+        textareaRef.current?.focus();
+        resizeTextarea();
+      }, 0);
     }
   };
 
@@ -120,7 +193,8 @@ export const Terminal = ({
     handleSend(e);
   };
 
-  // Execute built-in commands; returns true if consumed
+  // Execute built-in commands; returns true if consumed (no AI call needed)
+  // Returns false to let the caller send query to AI
   const executeCommand = (val) => {
     const trimmed = val.trim();
     if (!trimmed.startsWith(COMMAND_PREFIX)) return false;
@@ -139,23 +213,48 @@ export const Terminal = ({
       setShowCmdMenu(false);
       return true;
     }
-    if (cmd === "//>help") {
-      setQuery("");
-      setShowCmdMenu(false);
-      // handled as a fake AI message from UI — fall through to send
-      return false;
-    }
-    if (cmd === "//>model") {
-      setQuery("");
-      setShowCmdMenu(false);
-      return false;
-    }
     if (cmd === "//>export") {
       exportTxt();
       setQuery("");
       setShowCmdMenu(false);
       return true;
     }
+    if (cmd === "//>retry") {
+      // Find the last chat message and retry it
+      const lastChat = [...chats].reverse().find((c) => c.type === "ch" && c.question);
+      if (lastChat && onRetry) {
+        onRetry(lastChat.question, lastChat.id);
+      }
+      setQuery("");
+      setShowCmdMenu(false);
+      return true;
+    }
+    if (cmd === "//>stats") {
+      // Stats are shown as a system message inserted into the chat
+      const msgCount = chats.filter((c) => c.type === "ch").length;
+      const wordCount = chats
+        .filter((c) => c.type === "ch")
+        .reduce((acc, c) => acc + ((c.question || "") + " " + (c.answer || "")).split(" ").length, 0);
+      const estTokens = Math.round(wordCount * 1.3);
+      const statsMsg = [
+        `📊 Session Statistics`,
+        `├ Messages : ${msgCount}`,
+        `├ Est. tokens used : ~${estTokens.toLocaleString()}`,
+        `├ Active skill : ${activeSkill.icon} ${activeSkill.name}`,
+        `└ Active model : ${activeModel.icon} ${activeModel.name}`,
+      ];
+      // We inject this directly without sending to AI
+      // Fall through to send so App.jsx can handle it as a //> command
+      // Actually we handle via a synthetic event — just set query for display
+      setQuery("");
+      setShowCmdMenu(false);
+      // Dispatch a custom event that App.jsx can listen for
+      window.dispatchEvent(new CustomEvent("chatforge:stats", { detail: { statsMsg } }));
+      return true;
+    }
+    // //>summarize, //>translate, //>help, //>skill, //>model — fall through to AI
+    setQuery("");
+    setShowCmdMenu(false);
     return false;
   };
 
@@ -188,12 +287,15 @@ export const Terminal = ({
   // Message count
   const msgCount = chats.filter((c) => c.type === "ch").length;
 
-  // Font class
+  // Font style (reads fontSize from settings)
   const fontStyle = {
     fontFamily:
       settings.font === "jetbrains"
         ? "'JetBrains Mono', monospace"
+        : settings.font === "cascadia"
+        ? "'Cascadia Code', 'Fira Code', monospace"
         : "'Fira Code', monospace",
+    fontSize: `${settings.fontSize || 14}px`,
   };
 
   return (
@@ -419,6 +521,47 @@ export const Terminal = ({
 
             {/* ── Input Area ─────────────────────────────── */}
             <div className="input-wrapper px-4 py-3 relative">
+              
+              {/* AI Tools Bar */}
+              {settings.showToolbar !== false && (
+                <div className="ai-toolbar-wrapper">
+                  <button
+                    className="ai-tool-scroll-btn left"
+                    onClick={() => scrollToolbar(-1)}
+                    title="Scroll left"
+                  >
+                    <ChevronLeft size={10} />
+                  </button>
+
+                  <div className="ai-tool-bar" ref={toolbarScrollRef}>
+                    {TOOL_GROUPS.map((group, gi) => (
+                      <>
+                        {gi > 0 && <div key={`sep-${gi}`} className="ai-tool-separator" />}
+                        {group.map((tool) => (
+                          <button
+                            key={tool.id}
+                            onClick={() => handleToolClick(tool)}
+                            className="ai-tool-btn"
+                            title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
+                          >
+                            <tool.icon size={10} />
+                            <span>{tool.label}</span>
+                          </button>
+                        ))}
+                      </>
+                    ))}
+                  </div>
+
+                  <button
+                    className="ai-tool-scroll-btn right"
+                    onClick={() => scrollToolbar(1)}
+                    title="Scroll right"
+                  >
+                    <ChevronRight size={10} />
+                  </button>
+                </div>
+              )}
+
               {/* Command palette */}
               <AnimatePresence>
                 {showCmdMenu && (
@@ -516,20 +659,16 @@ export const Terminal = ({
               </div>
 
               {/* Hint bar */}
-              <div
-                className="flex items-center gap-3 mt-1.5 text-[9px]"
-                style={{ color: "rgba(200,255,192,0.18)" }}
-              >
-                <span>
-                  <kbd>Enter</kbd> send
-                </span>
-                <span>
-                  <kbd>Shift+Enter</kbd> newline
-                </span>
-                <span>
-                  <kbd>/&gt;</kbd> commands
-                </span>
-              </div>
+              {settings.showHintBar !== false && (
+                <div
+                  className="flex items-center gap-3 mt-1.5 text-[9px]"
+                  style={{ color: "rgba(200,255,192,0.18)" }}
+                >
+                  <span><kbd>Enter</kbd> send</span>
+                  <span><kbd>Shift+Enter</kbd> newline</span>
+                  <span><kbd>/&gt;</kbd> commands</span>
+                </div>
+              )}
             </div>
           </div>
         ) : (

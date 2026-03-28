@@ -1,8 +1,8 @@
-import { useEffect, useState, useRef, useContext } from "react";
+import { useEffect, useState, useRef, useContext, useCallback } from "react";
 import "./index.css";
 
 import { Terminal } from "./components/features/Terminal";
-import { chatsContext, SKILLS } from "./context/chatsContext";
+import { chatsContext, SKILLS, MODELS, THEMES } from "./context/chatsContext";
 import { MultiStepLoader as Loader } from "./components/ui/multi-step-loader";
 import { api } from "./services/api";
 
@@ -28,23 +28,51 @@ function App() {
     setLoading,
     preferences,
     settings,
+    setSettings,
+    customSkills,
   } = useContext(chatsContext);
 
   const messagesEndRef = useRef(null);
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
 
-  // Auto-scroll to bottom on new messages
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chats]);
+  // All skills (built-in + custom)
+  const allSkills = [...SKILLS, ...(customSkills || [])];
 
-  // Apply font setting to body
+  // Auto-scroll to bottom on new messages (respects autoScroll setting)
   useEffect(() => {
-    document.body.style.fontFamily =
-      settings.font === "jetbrains"
-        ? "'JetBrains Mono', monospace"
-        : "'Fira Code', monospace";
-  }, [settings.font]);
+    if (settings.autoScroll !== false) {
+      messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [chats, settings.autoScroll]);
+
+  // Apply font + font-size settings to body
+  useEffect(() => {
+    const fontMap = {
+      jetbrains: "'JetBrains Mono', monospace",
+      cascadia:  "'Cascadia Code', 'Fira Code', monospace",
+      fira:      "'Fira Code', monospace",
+    };
+    document.body.style.fontFamily = fontMap[settings.font] || fontMap.fira;
+    document.documentElement.style.setProperty(
+      "--terminal-font-size",
+      `${settings.fontSize || 14}px`
+    );
+  }, [settings.font, settings.fontSize]);
+
+  // Sync theme colors with CSS variables
+  useEffect(() => {
+    const root = document.documentElement;
+    let theme = THEMES.find((t) => t.id === settings.theme) || THEMES[0];
+
+    // If custom theme, override with user-defined colors
+    if (settings.theme === "custom" && settings.customTheme) {
+      theme = { ...theme, ...settings.customTheme };
+    }
+
+    root.style.setProperty("--theme-primary", theme.primary);
+    root.style.setProperty("--theme-secondary", theme.secondary);
+    root.style.setProperty("--theme-accent", theme.accent);
+  }, [settings.theme, settings.customTheme]);
 
   // Keyboard sounds
   useEffect(() => {
@@ -62,11 +90,23 @@ function App() {
         gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
         osc.start(ctx.currentTime);
         osc.stop(ctx.currentTime + 0.04);
-        }
+      }
     };
     window.addEventListener("keydown", handleKey);
     return () => window.removeEventListener("keydown", handleKey);
   }, [settings.sounds]);
+
+  // Listen for //> stats event from Terminal
+  useEffect(() => {
+    const handleStats = (e) => {
+      setChats((prev) => [
+        ...prev,
+        { type: "ms", content: e.detail.statsMsg },
+      ]);
+    };
+    window.addEventListener("chatforge:stats", handleStats);
+    return () => window.removeEventListener("chatforge:stats", handleStats);
+  }, [setChats]);
 
   // Build clean history array for context
   const historyMessages = chats
@@ -78,23 +118,35 @@ function App() {
     ]);
 
   // ── Core AI call ────────────────────────────────────────────
-  async function askAI(question, id) {
+  async function askAI(question, id, overrideSkillId = null) {
     setLoading(true);
-    
-    // Find active skill and model info
-    const activeSkill = SKILLS?.find(s => s.id === settings.activeSkillId) || SKILLS?.[0];
-    const activeModelId = settings.activeModelId || "deepseek/deepseek-chat:free";
+
+    // Find active skill (including custom skills)
+    const skillId = overrideSkillId || settings.activeSkillId;
+    const activeSkill = allSkills.find((s) => s.id === skillId) || SKILLS[0];
+    const activeModelId = settings.activeModelId || "meta-llama/llama-3.3-70b-instruct:free";
+
+    // Build system prompt (skill + optional prefix)
+    const basePrompt = activeSkill?.systemPrompt || "You are a helpful assistant.";
+    const prefix = settings.systemPromptPrefix?.trim();
+    const fullSystemPrompt = prefix ? `${basePrompt}\n\n[User context]: ${prefix}` : basePrompt;
+
+    // Response length instruction
+    const lengthInstruction =
+      settings.responseLength === "short" ? " Be concise and brief in your response."
+      : settings.responseLength === "detailed" ? " Provide a thorough and detailed response."
+      : "";
 
     const messages = [
       ...historyMessages,
-      { role: "user", content: question }
+      { role: "user", content: question + lengthInstruction },
     ];
 
     try {
       const response = await api.chat(
-        preferences.userId, 
-        messages, 
-        activeSkill?.systemPrompt,
+        preferences.userId,
+        messages,
+        fullSystemPrompt,
         activeModelId
       );
 
@@ -102,12 +154,12 @@ function App() {
         throw new Error("Failed to connect to AI service.");
       }
 
-      setLoading(false); // Stop 'thinking' spinner once first chunk arrives
+      setLoading(false);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullContent = "";
-      let buffer = ""; // Persistence buffer for fragmented chunks
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
@@ -115,17 +167,14 @@ function App() {
 
         const chunk = decoder.decode(value, { stream: true });
         buffer += chunk;
-        
-        // Split by double newline (standard SSE separator) OR single newline
+
         const lines = buffer.split("\n");
-        
-        // Keep the last (potentially incomplete) line in the buffer
         buffer = lines.pop();
 
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith("data: ")) continue;
-          
+
           const dataStr = trimmed.slice(6);
           if (dataStr === "[DONE]") continue;
 
@@ -141,21 +190,31 @@ function App() {
               );
             }
           } catch (e) {
-            // Fragmented JSON - this shouldn't happen with the line-splitting but good to be safe
-            // console.warn("Failed to parse SSE data chunk", e);
+            // Fragmented JSON - ignore
           }
         }
       }
     } catch (error) {
       console.error("AI stream error:", error);
       setLoading(false);
+
+      let errMsg = error.message || "Connection lost.";
+      if (
+        errMsg.toLowerCase().includes("no endpoints") ||
+        errMsg.toLowerCase().includes("at capacity") ||
+        errMsg.toLowerCase().includes("all ai models")
+      ) {
+        errMsg =
+          "⚠️ All AI models are currently rate-limited. Please wait a moment and try again, or switch models in Settings (⚙️).";
+      }
+
       setChats((prev) =>
         prev.map((obj) =>
           obj.id === id
             ? {
                 ...obj,
                 type: "error",
-                answer: `⚠️ Error: ${error.message || "Connection lost."}`,
+                answer: errMsg,
               }
             : obj
         )
@@ -173,13 +232,72 @@ function App() {
     askAI(question, id);
   };
 
+  // ── Transform //> commands into AI requests ──────────────────
+  const transformCommand = (text) => {
+    const cmd = text.trim().toLowerCase();
+
+    if (cmd === "//> summarize" || cmd === "//>summarize") {
+      return {
+        question: "Please summarize our entire conversation so far in clear bullet points, highlighting the key topics, decisions, and conclusions.",
+        skillId: "summarizer",
+      };
+    }
+    if (cmd === "//> translate" || cmd === "//>translate") {
+      return {
+        question: "I'd like to use you as a translator. Please tell me: what would you like me to translate, and into which language?",
+        skillId: "translator",
+      };
+    }
+    if (cmd === "//> help" || cmd === "//>help") {
+      return {
+        question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: //>clear, //>new, //>summarize, //>translate, //>retry, //>stats, //>export, //>help, //>skill, //>model. Also mention: Enter to send, Shift+Enter for newline.`,
+        skillId: "general",
+      };
+    }
+    if (cmd === "//> skill" || cmd === "//>skill") {
+      const skillId = settings.activeSkillId;
+      const skill = allSkills.find((s) => s.id === skillId) || SKILLS[0];
+      return {
+        question: `Tell me about your current persona: you are "${skill.name}" (${skill.icon}). Briefly describe what you specialize in and give 3 example prompts that best demonstrate your capabilities.`,
+        skillId: skillId,
+      };
+    }
+    if (cmd === "//> model" || cmd === "//>model") {
+      const model = MODELS.find((m) => m.id === settings.activeModelId) || MODELS[0];
+      return {
+        question: `You are currently running as "${model.name}" by ${model.provider}. Briefly introduce yourself: your strengths, ideal use cases, and one fun fact about your architecture.`,
+        skillId: "general",
+      };
+    }
+
+    return null;
+  };
+
   // ── Send handler ─────────────────────────────────────────────
   const handleSend = (e) => {
     const newId = new Date();
     const text = (e.target?.value ?? e.target?.innerText ?? query).trim();
     if (!text) return;
 
-    if (text.startsWith("//>")) return; // Don't send commands to AI
+    // Check if it's a //> command that maps to an AI call
+    if (text.startsWith("//>")) {
+      const transformed = transformCommand(text);
+      if (transformed) {
+        const displayQuestion = text; // Show the command as typed
+        const newMsg = {
+          id: newId,
+          type: "ch",
+          question: displayQuestion,
+          answer: undefined,
+          timestamp: new Date().toISOString(),
+        };
+        setChats((prev) => [...prev, newMsg]);
+        askAI(transformed.question, newId, transformed.skillId);
+        return;
+      }
+      // Unknown //>command — don't send to AI
+      return;
+    }
 
     const newMsg = {
       id: newId,

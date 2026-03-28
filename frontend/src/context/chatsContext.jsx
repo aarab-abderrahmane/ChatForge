@@ -21,7 +21,7 @@ const WELCOME_MESSAGES = [
     type: "ms",
     content: [
       "👋 Welcome to ChatForge! Here's how you can get started",
-      "💡 Try asking questions like these to see the AI in action",
+      "💡 Type //> in the input to see all available AI commands",
     ],
   },
   {
@@ -35,14 +35,14 @@ const WELCOME_MESSAGES = [
     id: 2,
     type: "ch",
     question: "How can I generate a short summary of my chat history?",
-    answer: "Simply type your question and the AI will summarize the previous messages.",
+    answer: "Simply type `//>summarize` and the AI will summarize the conversation.",
     timestamp: new Date().toISOString(),
   },
   {
     id: 3,
     type: "ch",
-    question: "Can I ask multiple questions at once?",
-    answer: "Yes, but it's best to ask one question at a time for precise answers.",
+    question: "Can I create my own custom AI skills?",
+    answer: "Yes! Open Settings (⚙️) → scroll to Custom Skills → click 'New Skill' to define your own AI persona with a custom system prompt.",
     timestamp: new Date().toISOString(),
   },
 ];
@@ -53,82 +53,178 @@ export const SKILLS = [
     name: "General",
     icon: "🤖",
     description: "Balanced for general tasks and conversation.",
-    systemPrompt: "You are ChatForge AI, a helpful and intelligent assistant. Provide clear, accurate, and helpful responses. Use Markdown for formatting. If the user asks for a flowchart or diagram, use Mermaid syntax of correctly.",
+    systemPrompt:
+      "You are ChatForge AI, a helpful and intelligent assistant. Provide clear, accurate, and helpful responses. Use Markdown for formatting when appropriate. If the user asks for a flowchart or diagram, use Mermaid syntax correctly.",
   },
   {
     id: "code",
     name: "Code Master",
     icon: "💻",
     description: "Expert in 50+ languages and debugging.",
-    systemPrompt: "You are an expert software engineer and code mentor. Your tone is technical and precise. Always explain code logic, follow best practices, and use proper Markdown code blocks with language labels. For complex logic, provide Mermaid flowcharts.",
+    systemPrompt:
+      "You are an expert software engineer and code mentor. Your tone is technical and precise. Always explain code logic, follow best practices, and use proper Markdown code blocks with language labels. For complex logic, provide Mermaid flowcharts when helpful.",
   },
   {
     id: "creative",
     name: "Creative",
     icon: "✍️",
     description: "Unleash imagination and storytelling.",
-    systemPrompt: "You are a creative writing companion. Your tone is expressive, evocative, and imaginative. Help with storytelling, poetry, and creative ideas. Use rich formatting to enhance the reading experience.",
+    systemPrompt:
+      "You are a creative writing companion. Your tone is expressive, evocative, and imaginative. Help with storytelling, poetry, scripts, and creative ideas. Use rich Markdown formatting to enhance the reading experience.",
   },
   {
     id: "security",
     name: "Cyber Security",
     icon: "🛡️",
     description: "Specialized in security and audit tasks.",
-    systemPrompt: "You are a cyber security expert. You speak in a professional, security-conscious manner. When analyzing code or requests, look for vulnerabilities (OWASP Top 10), suggest remediations, and explain security concepts clearly. Maintain a high-integrity 'white hat' persona.",
+    systemPrompt:
+      "You are a cyber security expert. You speak in a professional, security-conscious manner. When analyzing code or requests, look for vulnerabilities (OWASP Top 10), suggest remediations, and explain security concepts clearly. Maintain a high-integrity 'white hat' persona.",
+  },
+  {
+    id: "translator",
+    name: "Translator",
+    icon: "🌍",
+    description: "Expert multilingual translator for any language.",
+    systemPrompt:
+      "You are an expert multilingual translator. When given text, detect its language and translate it as requested. If no target language is specified, translate to English. Provide the translation clearly, and optionally note cultural nuances or alternative phrasings. Be concise and accurate.",
+  },
+  {
+    id: "summarizer",
+    name: "Summarizer",
+    icon: "📋",
+    description: "Condenses content into clear bullet-point summaries.",
+    systemPrompt:
+      "You are a professional summarizer and analyst. When given text or a conversation, extract the key points, decisions, and action items into clear, concise bullet points. Structure your summary with: **Key Points**, **Details**, and **Conclusion** sections. Be brief but comprehensive.",
   },
 ];
 
+// All currently-live free models on OpenRouter (verified March 2026)
 export const MODELS = [
-  {
-    id: "deepseek/deepseek-chat:free",
-    name: "DeepSeek V3",
-    provider: "DeepSeek",
-    icon: "🧠",
-    description: "Fast, smart, and free. Excellent for general reasoning.",
-  },
-  {
-    id: "google/gemini-2.0-flash-exp:free",
-    name: "Gemini 2.0 Flash",
-    provider: "Google",
-    icon: "⚡",
-    description: "Ultra-fast response time with high intelligence.",
-  },
   {
     id: "meta-llama/llama-3.3-70b-instruct:free",
     name: "Llama 3.3 70B",
     provider: "Meta",
     icon: "🦙",
-    description: "Powerful open-source reasoning model.",
+    description: "Powerful open-source reasoning model. Primary recommendation.",
   },
   {
-    id: "qwen/qwen-2.5-72b-instruct:free",
-    name: "Qwen 2.5 72B",
-    provider: "Alibaba",
-    icon: "🐉",
-    description: "Strong performance in coding and mathematics.",
+    id: "mistralai/mistral-small-3.1-24b-instruct:free",
+    name: "Mistral Small",
+    provider: "Mistral",
+    icon: "🌪️",
+    description: "Fast and efficient European model. Great for general tasks.",
   },
   {
-    id: "microsoft/phi-3-medium-128k-instruct:free",
-    name: "Phi-3 Medium",
-    provider: "Microsoft",
-    icon: "🧬",
-    description: "Compact but surprisingly powerful reasoning.",
+    id: "nousresearch/hermes-3-llama-3.1-405b:free",
+    name: "Hermes 3 405B",
+    provider: "Nous",
+    icon: "🏛️",
+    description: "Massive 405B model. Best for complex reasoning.",
   },
   {
-    id: "openai/gpt-4o-mini",
-    name: "GPT-4o Mini",
-    provider: "OpenAI",
-    icon: "🌟",
-    description: "The most efficient and cost-effective OpenAI model.",
+    id: "meta-llama/llama-3.1-405b-instruct:free",
+    name: "Llama 3.1 405B",
+    provider: "Meta",
+    icon: "🦙",
+    description: "Meta's largest open model. Excellent for hard problems.",
+  },
+  {
+    id: "stepfun/step-3.5-flash:free",
+    name: "Step 3.5 Flash",
+    provider: "StepFun",
+    icon: "⚡",
+    description: "Ultra-fast Chinese model. Great for quick responses.",
+  },
+  {
+    id: "arcee-ai/trinity-large-preview:free",
+    name: "Trinity Large",
+    provider: "Arcee",
+    icon: "🔱",
+    description: "Arcee's large preview model. Diverse capabilities.",
+  },
+  {
+    id: "meta-llama/llama-3.2-3b-instruct:free",
+    name: "Llama 3.2 3B",
+    provider: "Meta",
+    icon: "🐇",
+    description: "Tiny but fast. Best for simple, quick queries.",
   },
 ];
 
+// ── Themes ──────────────────────────────────────────────────────
+export const THEMES = [
+  {
+    id: "green",
+    name: "Matrix Green",
+    icon: "🟢",
+    primary: "#39ff14",
+    secondary: "#00f5ff",
+    accent: "#ff2d78",
+  },
+  {
+    id: "cyan",
+    name: "Cyber Cyan",
+    icon: "🔵",
+    primary: "#00f5ff",
+    secondary: "#7b2fff",
+    accent: "#ff6b35",
+  },
+  {
+    id: "amber",
+    name: "Solar Amber",
+    icon: "🟡",
+    primary: "#ffd700",
+    secondary: "#ff8c00",
+    accent: "#ff2d78",
+  },
+  {
+    id: "purple",
+    name: "Void Purple",
+    icon: "🟣",
+    primary: "#b44fff",
+    secondary: "#00f5ff",
+    accent: "#ff2d78",
+  },
+  {
+    id: "red",
+    name: "Crimson Edge",
+    icon: "🔴",
+    primary: "#ff3b5c",
+    secondary: "#ff8c00",
+    accent: "#00f5ff",
+  },
+  {
+    id: "custom",
+    name: "Custom",
+    icon: "🎨",
+    primary: "#39ff14",
+    secondary: "#00f5ff",
+    accent: "#ff2d78",
+  },
+];
+
+const DEFAULT_MODEL_ID = "meta-llama/llama-3.3-70b-instruct:free";
+
 const defaultSettings = {
   scanlines: true,
-  font: "fira",     // 'fira' | 'jetbrains'
+  font: "fira",              // 'fira' | 'jetbrains' | 'cascadia'
+  fontSize: 14,              // 12–18
   sounds: false,
+  compactMode: false,
+  showTimestamps: false,
+  autoScroll: true,
+  streamingIndicator: true,
+  animations: true,
+  showToolbar: true,
+  showAvatars: false,
+  showHintBar: true,
+  theme: "green",            // theme id from THEMES
+  customTheme: { primary: "#39ff14", secondary: "#00f5ff", accent: "#ff2d78" },
   activeSkillId: "general",
-  activeModelId: "deepseek/deepseek-chat:free",
+  activeModelId: DEFAULT_MODEL_ID,
+  responseLength: "balanced", // 'short' | 'balanced' | 'detailed'
+  temperature: 0.7,           // 0.0–1.5
+  systemPromptPrefix: "",     // appended to every skill system prompt
 };
 
 export function ChatsProvider({ children }) {
@@ -165,7 +261,48 @@ export function ChatsProvider({ children }) {
 
   useEffect(() => {
     localStorage.setItem("ChatForge_Settings", JSON.stringify(settings));
+
+    // Auto-migrate any defunct model IDs to the default
+    const liveModelIds = MODELS.map((m) => m.id);
+    if (!liveModelIds.includes(settings.activeModelId)) {
+      setSettings((prev) => ({ ...prev, activeModelId: DEFAULT_MODEL_ID }));
+    }
   }, [settings]);
+
+  // ── Custom Skills ────────────────────────────────────────────────────
+  const [customSkills, setCustomSkills] = useState(() => {
+    try {
+      const stored = localStorage.getItem("ChatForge_CustomSkills");
+      return stored ? JSON.parse(stored) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ChatForge_CustomSkills", JSON.stringify(customSkills));
+  }, [customSkills]);
+
+  const addCustomSkill = useCallback((skill) => {
+    const newSkill = {
+      id: `custom_${uuid()}`,
+      name: skill.name || "My Skill",
+      icon: skill.icon || "⭐",
+      description: skill.description || "A custom AI skill.",
+      systemPrompt: skill.systemPrompt || "You are a helpful assistant.",
+      isCustom: true,
+    };
+    setCustomSkills((prev) => [...prev, newSkill]);
+    return newSkill.id;
+  }, []);
+
+  const deleteCustomSkill = useCallback((id) => {
+    setCustomSkills((prev) => prev.filter((s) => s.id !== id));
+    // If the deleted skill was active, reset to general
+    setSettings((prev) =>
+      prev.activeSkillId === id ? { ...prev, activeSkillId: "general" } : prev
+    );
+  }, []);
 
   // ── Sessions ────────────────────────────────────────────────────────
   const makeSession = (overrides = {}) => ({
@@ -222,18 +359,20 @@ export function ChatsProvider({ children }) {
   const setChats = useCallback((updater) => {
     setSessions((prev) =>
       prev.map((s) =>
-        s.id === (activeSession?.id) 
+        s.id === (activeSession?.id)
           ? {
               ...s,
               messages: typeof updater === "function" ? updater(s.messages) : updater,
               // Auto-title from first user message
-              title: s.title === "New Chat"
-                ? (() => {
-                    const msgs = typeof updater === "function" ? updater(s.messages) : updater;
-                    const first = msgs.find((m) => m.type === "ch" && m.question);
-                    return first ? first.question.slice(0, 40) : "New Chat";
-                  })()
-                : s.title,
+              title:
+                s.title === "New Chat"
+                  ? (() => {
+                      const msgs =
+                        typeof updater === "function" ? updater(s.messages) : updater;
+                      const first = msgs.find((m) => m.type === "ch" && m.question);
+                      return first ? first.question.slice(0, 40) : "New Chat";
+                    })()
+                  : s.title,
             }
           : s
       )
@@ -263,6 +402,28 @@ export function ChatsProvider({ children }) {
     });
   }, [activeSessionId]);
 
+  const clearAllSessions = useCallback(() => {
+    const fresh = makeSession();
+    setSessions([fresh]);
+    setActiveSessionId(fresh.id);
+  }, []);
+
+  const importSessions = useCallback((incoming) => {
+    if (!Array.isArray(incoming) || incoming.length === 0) return false;
+    setSessions((prev) => {
+      const merged = [...incoming, ...prev];
+      // deduplicate by id
+      const seen = new Set();
+      return merged.filter((s) => {
+        if (seen.has(s.id)) return false;
+        seen.add(s.id);
+        return true;
+      });
+    });
+    setActiveSessionId(incoming[0].id);
+    return true;
+  }, []);
+
   const clearCurrentChat = useCallback(() => {
     setChats(WELCOME_MESSAGES);
   }, [setChats]);
@@ -290,6 +451,11 @@ export function ChatsProvider({ children }) {
         // settings
         settings,
         setSettings,
+        // custom skills
+        customSkills,
+        setCustomSkills,
+        addCustomSkill,
+        deleteCustomSkill,
         // sessions
         sessions,
         setSessions,
@@ -299,6 +465,8 @@ export function ChatsProvider({ children }) {
         createNewSession,
         deleteSession,
         clearCurrentChat,
+        clearAllSessions,
+        importSessions,
       }}
     >
       {children}

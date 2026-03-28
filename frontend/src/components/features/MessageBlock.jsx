@@ -7,8 +7,9 @@ import {
   RefreshCcwIcon,
   AlertTriangleIcon,
 } from "lucide-react";
-import { useState } from "react";
+import { useState, useContext } from "react";
 import { Response } from "../ui/shadcn-io/ai/response";
+import { chatsContext } from "../../context/chatsContext";
 
 function formatTime(isoString) {
   if (!isoString) return "";
@@ -31,13 +32,15 @@ export function MessageBlock({
   onRetry,
 }) {
   const [reaction, setReaction] = useState(null); // 'up' | 'down' | null
+  const { settings } = useContext(chatsContext);
 
   const isError = obj.type === "error";
   const hasAnswer = !!obj.answer;
+  const compact = settings?.compactMode;
 
   return (
     <motion.div
-      className="message-block msg-enter"
+      className={`message-block msg-enter ${compact ? "message-compact" : ""}`}
       initial={{ opacity: 0, y: 14 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.3, delay: index * 0.02 }}
@@ -55,8 +58,8 @@ export function MessageBlock({
             {obj.question}
           </p>
         </div>
-        {obj.timestamp && (
-          <span className="message-timestamp flex-shrink-0 mt-0.5">
+        {obj.timestamp && settings?.showTimestamps && (
+          <span className="message-timestamp visible flex-shrink-0 mt-0.5">
             {formatTime(obj.timestamp)}
           </span>
         )}

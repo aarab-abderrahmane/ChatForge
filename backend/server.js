@@ -122,54 +122,95 @@ export async function check_key_Exists(userId){
 }
 
 
+// All reliable free models across different upstream providers
+export const FREE_MODELS = [
+  "meta-llama/llama-3.3-70b-instruct:free",        // Venice / Together
+  "mistralai/mistral-small-3.1-24b-instruct:free",  // Mistral provider
+  "nousresearch/hermes-3-llama-3.1-405b:free",      // Nous / Together
+  "meta-llama/llama-3.1-405b-instruct:free",        // Together AI
+  "meta-llama/llama-3.2-3b-instruct:free",          // Lightweight fallback
+  "stepfun/step-3.5-flash:free",                    // StepFun provider
+  "arcee-ai/trinity-large-preview:free",             // Arcee provider
+];
+
 export async function askAI(messages, key, options = {}) {
   const { 
-    model = "openai/gpt-3.5-turbo", 
+    models = FREE_MODELS,
     systemPrompt = "You are a helpful AI assistant.",
     temperature = 0.7,
     stream = false
   } = options;
 
-  try {
+  const fullMessages = [
+    { role: "system", content: systemPrompt },
+    ...messages
+  ];
+
+  const triedErrors = [];
+
+  // Sequential fallback: try each model one by one on our server
+  for (const model of models) {
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000); // 30s timeout
+    const timeout = setTimeout(() => controller.abort(), 30000);
 
-    const fullMessages = [
-      { role: "system", content: systemPrompt },
-      ...messages
-    ];
+    try {
+      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${key}`,
+          "Content-Type": "application/json",
+          "HTTP-Referer": "http://localhost:5000",
+          "X-OpenRouter-Title": "ChatForge"
+        },
+        body: JSON.stringify({
+          model: model,   // single model per request — we handle fallback ourselves
+          messages: fullMessages,
+          stream: stream,
+          temperature: temperature
+        }),
+        signal: controller.signal
+      });
 
-    const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${key}`,
-        "Content-Type": "application/json",
-        "HTTP-Referer": "https://chatforge.ai",
-        "X-Title": "ChatForge"
-      },
-      body: JSON.stringify({
-        model: model,
-        messages: fullMessages,
-        temperature: temperature,
-        max_tokens: 2000,
-        stream: stream
-      }),
-      signal: controller.signal
-    });
+      clearTimeout(timeout);
 
-    clearTimeout(timeout);
+      if (!response.ok) {
+        const errorData = await response.json();
+        const code = errorData?.error?.code || response.status;
+        const msg  = errorData?.error?.message || `HTTP ${response.status}`;
+        console.warn(`[ChatForge] Model "${model}" failed (${code}): ${msg}`);
+        triedErrors.push(`${model}: ${msg}`);
 
-    if (!response.ok) {
-      const errorData = await response.json();
-      throw new Error(errorData?.error?.message || `API error: ${response.status}`);
+        // Retryable / skip-to-next errors
+        if ([400, 404, 429, 500, 503].includes(Number(code)) ||
+            msg.includes("rate-limit") || msg.includes("Provider returned error") ||
+            msg.includes("No endpoints")) {
+          continue; // try the next model
+        }
+
+        // Non-retryable (e.g. auth error 401) — throw immediately
+        throw new Error(msg);
+      }
+
+      console.log(`[ChatForge] ✓ Serving response via: ${model}`);
+      return response;
+
+    } catch (err) {
+      clearTimeout(timeout);
+      if (err.name === 'AbortError') {
+        console.warn(`[ChatForge] Model "${model}" timed out, trying next...`);
+        triedErrors.push(`${model}: timed out`);
+        continue;
+      }
+      // If it's our own throw from non-retryable, re-throw
+      if (!triedErrors.find(e => e.startsWith(model))) throw err;
+      // Otherwise continue to next model
     }
-
-    return response; // Return the raw response for streaming or .json()
-  } catch (err) {
-    if (err.name === 'AbortError') throw new Error("AI request timed out.");
-    console.error("Error fetching AI:", err);
-    throw err;
   }
+
+  // All models exhausted
+  const summary = triedErrors.join(' | ');
+  console.error(`[ChatForge] All models failed: ${summary}`);
+  throw new Error(`All AI models are currently unavailable. Please try again later.`);
 }
 
 
@@ -189,15 +230,22 @@ app.post("/api/chat", async (req, res) => {
   res.flushHeaders();
 
   try {
+    // Build the Model Fallback List
+    // We prioritize the user's choice, then add highly stable free models as backups
+    // Start with user-chosen model, then fall back through all free models
+    const finalModels = model
+      ? [model, ...FREE_MODELS.filter(m => m !== model)]
+      : FREE_MODELS;
+
     const options = {
-      model: model || "deepseek/deepseek-chat:free",
+      models: finalModels,
       systemPrompt: skillPrompt || "You are ChatForge AI.",
       stream: true
     };
 
     const aiRes = await askAI(messages, keyStatus.res, options);
     
-    // Read the stream from OpenRouter and pipe it to our response
+    // Read the stream from OpenRouter...
     const reader = aiRes.body.getReader();
     const decoder = new TextDecoder();
     
@@ -206,7 +254,7 @@ app.post("/api/chat", async (req, res) => {
       if (done) break;
 
       const chunk = decoder.decode(value, { stream: true });
-      res.write(chunk); // OpenRouter sends SSE chunks compatible with our client
+      res.write(chunk); 
     }
     
     res.end();
@@ -229,12 +277,19 @@ app.post('/api/test',async (req,res)=>{
 
 
   try{
-    const answer = await askAI([{ role: "user", content: "how are you?" }], cleanKey)
+    // Test using full fallback chain — succeeds as long as any model is available
+    const aiRes = await askAI([{ role: "user", content: "Say hello in one sentence." }], cleanKey, {
+      models: FREE_MODELS,
+      systemPrompt: "You are a helpful assistant. Answer concisely."
+    })
+    
+    // We must parse the JSON for the test verification
+    const answer = await aiRes.json();
 
     if(answer.error || !answer.choices?.[0]?.message?.content){
-        console.log("API key test failed, full response:", answer);
+        console.log("API key test failed, check your terminal for the Full OpenRouter Error Response!");
         return res.json({
-        response: "⚠️ The provided API key is invalid or the AI service is unreachable.",
+        response: `⚠️ AI Service Error: ${answer.error?.message || "Provider rejected the request."}`,
         type: "error"
          });
     }else{
