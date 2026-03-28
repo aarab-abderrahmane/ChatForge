@@ -42,12 +42,13 @@ export const api = {
 
 
   // send message
-  chat: async (userId, messages, skillPrompt, model, parameters) => {
+  chat: async (userId, messages, skillPrompt, model, parameters, signal) => {
     try {
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, messages, skillPrompt, model, parameters }),
+        signal,
       });
       return res; // Return raw response for streaming
     } catch (error) {

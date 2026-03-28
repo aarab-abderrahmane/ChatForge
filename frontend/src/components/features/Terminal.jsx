@@ -69,6 +69,8 @@ const COMMANDS = [
   { cmd: "//>summarize", desc: "Summarize this conversation", icon: "📋" },
   { cmd: "//>translate", desc: "Translate text", icon: "🌍" },
   { cmd: "//>quiz", desc: "Generate a quiz (e.g. //>quiz React)", icon: "🎯" },
+  { cmd: "//>flashcards", desc: "Generate flashcards (e.g. //>flashcards Python)", icon: "🎴" },
+  { cmd: "//>mindmap", desc: "Generate a mindmap (e.g. //>mindmap AI)", icon: "🧠" },
   { cmd: "//>retry", desc: "Retry the last message", icon: "🔄" },
   { cmd: "//>stats", desc: "Show session statistics", icon: "📊" },
   { cmd: "//>export", desc: "Export this chat as .txt file", icon: "📤" },
@@ -123,6 +125,7 @@ export const Terminal = ({
   className,
   onRetry,
   onEditSubmit,
+  onStopAI,
 }) => {
   const COMMAND_PREFIX = "//>";
 
@@ -681,25 +684,27 @@ export const Terminal = ({
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className="flex items-center gap-2 py-3"
+                    className="flex justify-between items-center py-3"
                   >
-                    <span
-                      className="loading-spin text-lg inline-block"
-                      style={{ color: "var(--neon-green)" }}
-                    >
-                      ⟳
-                    </span>
-                    <span
-                      className="text-xs"
-                      style={{ color: "rgba(200,255,192,0.4)" }}
-                    >
-                      AI is thinking
-                      <span className="loading-dots">
-                        <span>.</span>
-                        <span>.</span>
-                        <span>.</span>
+                    <div className="flex items-center gap-2">
+                      <span
+                        className="loading-spin text-lg inline-block"
+                        style={{ color: "var(--neon-green)" }}
+                      >
+                        ⟳
                       </span>
-                    </span>
+                      <span
+                        className="text-xs"
+                        style={{ color: "rgba(200,255,192,0.4)" }}
+                      >
+                        AI is thinking
+                        <span className="loading-dots">
+                          <span>.</span>
+                          <span>.</span>
+                          <span>.</span>
+                        </span>
+                      </span>
+                    </div>
                   </motion.div>
                 )}
               </AnimatePresence>
@@ -736,7 +741,6 @@ export const Terminal = ({
                         <div className="ai-tool-bar flex-col items-start gap-2 pt-1" ref={toolbarScrollRef}>
                           {TOOL_GROUPS.map((group, gi) => (
                             <div key={gi} className="flex flex-wrap items-center gap-2">
-                              {/* Separators are no longer needed as group elements are wrapped in rows, but keeping for inline view if preferred, actually we can drop the separator if we use rows */}
                               {group.map((tool) => (
                                 <button
                                   key={tool.id}
@@ -822,35 +826,42 @@ export const Terminal = ({
                   )}
                 </div>
 
-                {/* Send button */}
+                {/* Dynamic Action Button (Send / Stop) */}
                 <button
                   onClick={() => {
-                    if (!query.trim() || loading) return;
+                    if (loading) {
+                      onStopAI?.();
+                      return;
+                    }
+                    if (!query.trim()) return;
                     const syntheticEvent = {
                       target: { value: query },
                       key: "Enter",
                     };
                     executeCommand(query) || doSend(syntheticEvent);
                   }}
-                  disabled={loading || !query.trim()}
-                  className="flex-shrink-0 mb-1 p-1.5 rounded-lg transition-all"
+                  disabled={!loading && !query.trim()}
+                  className="flex-shrink-0 mb-1 p-1.5 rounded-lg transition-all active:scale-90"
                   style={{
-                    background:
-                      query.trim() && !loading
+                    background: loading
+                      ? "rgba(255,45,120,0.15)"
+                      : query.trim()
                         ? "rgba(57,255,20,0.15)"
                         : "transparent",
-                    border: `1px solid ${query.trim() && !loading ? "var(--neon-green)" : "var(--border-green)"}`,
-                    color:
-                      query.trim() && !loading
-                        ? "var(--neon-green)"
-                        : "rgba(200,255,192,0.2)",
-                    opacity: loading ? 0.4 : 1,
-                    boxShadow:
-                      query.trim() && !loading ? "var(--glow-green)" : "none",
+                    border: `1px solid ${loading ? "var(--neon-magenta)" : query.trim() ? "var(--neon-green)" : "var(--border-green)"}`,
+                    color: loading ? "var(--neon-magenta)" : query.trim() ? "var(--neon-green)" : "rgba(200,255,192,0.2)",
+                    boxShadow: (loading || query.trim()) ? `0 0 10px ${loading ? "rgba(255,45,120,0.2)" : "rgba(57,255,20,0.2)"}` : "none",
                   }}
-                  title="Send (Enter)"
+                  title={loading ? "Stop Generation" : "Send Message"}
                 >
-                  <SendHorizonal size={14} />
+                  {loading ? (
+                    <div className="flex items-center gap-1 px-1">
+                      <XIcon size={16} />
+                      <span className="text-[10px] font-bold uppercase tracking-tighter">Stop</span>
+                    </div>
+                  ) : (
+                    <SendHorizonal size={16} />
+                  )}
                 </button>
               </div>
 

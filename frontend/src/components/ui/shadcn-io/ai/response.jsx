@@ -24,6 +24,8 @@ import remarkMath from 'remark-math';
 import { CodeBlock, CodeBlockCopyButton } from './code-block';
 import { MermaidBlock } from './mermaid-block';
 import { QuizBlock } from './quiz-block';
+import { FlashcardBlock } from './flashcard-block';
+import { MindmapBlock } from './mindmap-block';
 import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
 
@@ -465,6 +467,14 @@ const components = {
     // Render quiz blocks inline
     if (language === 'quiz') {
       return <QuizBlock code={code} />;
+    }
+
+    if (language === 'flashcards') {
+      return <FlashcardBlock code={code} />;
+    }
+
+    if (language === 'mindmap') {
+      return <MindmapBlock code={code} />;
     }
 
     return (

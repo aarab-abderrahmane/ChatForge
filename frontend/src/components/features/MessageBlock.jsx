@@ -16,6 +16,8 @@ import {
 import { useState, useContext, useRef } from "react";
 import { Response } from "../ui/shadcn-io/ai/response";
 import { QuizBlock } from "../ui/shadcn-io/ai/quiz-block";
+import { FlashcardBlock } from "../ui/shadcn-io/ai/flashcard-block";
+import { MindmapBlock } from "../ui/shadcn-io/ai/mindmap-block";
 import { chatsContext } from "../../context/chatsContext";
 
 function formatTime(isoString) {
@@ -56,7 +58,10 @@ export function MessageBlock({
   const hasAnswer = !!obj.answer;
   const compact = settings?.compactMode;
   const isStarred = starredMessages?.has(obj.id);
-  const isQuiz = obj.question?.trim().toLowerCase().startsWith("//> quiz") || obj.question?.trim().toLowerCase().startsWith("//>quiz");
+  const qLower = obj.question?.trim().toLowerCase() || "";
+  const isQuiz = qLower.startsWith("//> quiz") || qLower.startsWith("//>quiz");
+  const isFlashcards = qLower.startsWith("//> flashcards") || qLower.startsWith("//>flashcards");
+  const isMindmap = qLower.startsWith("//> mindmap") || qLower.startsWith("//>mindmap");
 
   const startEdit = () => {
     setEditValue(obj.question);
@@ -177,7 +182,10 @@ export function MessageBlock({
                   {obj.answer}
                 </pre>
               ) : (
-                isQuiz ? <QuizBlock code={obj.answer} /> : <Response>{obj.answer}</Response>
+                isQuiz ? <QuizBlock code={obj.answer} /> :
+                  isFlashcards ? <FlashcardBlock code={obj.answer} /> :
+                    isMindmap ? <MindmapBlock code={obj.answer} /> :
+                      <Response>{obj.answer}</Response>
               )}
             </div>
           )}

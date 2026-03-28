@@ -23,6 +23,7 @@ function App() {
   } = useContext(chatsContext);
 
   const messagesEndRef = useRef(null);
+  const abortControllerRef = useRef(null);
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
 
   // All skills (built-in + custom)
@@ -111,6 +112,11 @@ function App() {
   async function askAI(question, id, overrideSkillId = null) {
     setLoading(true);
 
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+    }
+    abortControllerRef.current = new AbortController();
+
     // Find active skill (including custom skills)
     const skillId = overrideSkillId || settings.activeSkillId;
     const activeSkill = allSkills.find((s) => s.id === skillId) || SKILLS[0];
@@ -144,14 +150,13 @@ function App() {
           frequency_penalty: settings.frequencyPenalty,
           presence_penalty: settings.presencePenalty,
           max_tokens: settings.maxTokens
-        }
+        },
+        abortControllerRef.current.signal
       );
 
       if (!response.ok) {
         throw new Error("Failed to connect to AI service.");
       }
-
-      setLoading(false);
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -191,18 +196,33 @@ function App() {
           }
         }
       }
+      setLoading(false);
     } catch (error) {
+      if (error.name === "AbortError") {
+        console.log("AI request stopped by user.");
+        setLoading(false);
+        return;
+      }
+
       console.error("AI stream error:", error);
       setLoading(false);
 
       let errMsg = error.message || "Connection lost.";
+      const lowerErr = errMsg.toLowerCase();
+
       if (
-        errMsg.toLowerCase().includes("no endpoints") ||
-        errMsg.toLowerCase().includes("at capacity") ||
-        errMsg.toLowerCase().includes("all ai models")
+        lowerErr.includes("no endpoints") ||
+        lowerErr.includes("at capacity") ||
+        lowerErr.includes("all ai models") ||
+        lowerErr.includes("429")
       ) {
-        errMsg =
-          "⚠️ All AI models are currently rate-limited. Please wait a moment and try again, or switch models in Settings (⚙️).";
+        errMsg = "⚠️ AI models are currently rate-limited. Please wait 10-20 seconds and try again, or switch models in Settings (⚙️).";
+      } else if (
+        lowerErr.includes("fetch failed") ||
+        lowerErr.includes("getaddrinfo") ||
+        lowerErr.includes("eai_again")
+      ) {
+        errMsg = "🌐 Network Error: Unable to reach OpenRouter. This is usually a temporary DNS or internet issue. Please check your connection and try again in a moment.";
       }
 
       setChats((prev) =>
@@ -218,6 +238,25 @@ function App() {
       );
     }
   }
+
+  // ── Stop AI handler ─────────────────────────────────────────
+  const handleStopAI = useCallback(() => {
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+      setLoading(false);
+
+      // Find the last user message and restore it to input
+      setChats((prev) => {
+        const lastMsg = [...prev].reverse().find((m) => m.type === "ch");
+        if (lastMsg) {
+          setQuery(lastMsg.question);
+          return prev.filter((m) => m.id !== lastMsg.id);
+        }
+        return prev;
+      });
+    }
+  }, [setLoading, setChats, setQuery]);
 
   // ── Retry handler ────────────────────────────────────────────
   const handleRetry = (question, id) => {
@@ -247,7 +286,7 @@ function App() {
     }
     if (cmd === "//> help" || cmd === "//>help") {
       return {
-        question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: //>clear, //>new, //>summarize, //>translate, //>retry, //>stats, //>export, //>help, //>skill, //>model, and //>quiz [topic]. Also mention: Enter to send, Shift+Enter for newline.`,
+        question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: //>clear, //>new, //>summarize, //>translate, //>retry, //>stats, //>export, //>help, //>skill, //>model, //>quiz [topic], //>flashcards [topic], and //>mindmap [topic]. Also mention: Enter to send, Shift+Enter for newline.`,
         skillId: "general",
       };
     }
@@ -284,6 +323,44 @@ function App() {
 }
 \`\`\`
 Provide ONLY this JSON block. Do not include any other text.`,
+        skillId: "general",
+      };
+    }
+
+    if (cmd.startsWith("//> flashcards ") || cmd.startsWith("//>flashcards ")) {
+      const topic = text.substring(text.indexOf("flashcards") + 10).trim();
+      return {
+        question: `Generate a set of 5 interactive flashcards about: ${topic}. Format your response exactly as JSON using THIS STRICT STRUCTURE:
+\`\`\`flashcards
+{
+  "topic": "${topic}",
+  "cards": [
+    {
+      "front": "Term or Question",
+      "back": "Definition or Answer"
+    }
+  ]
+}
+\`\`\`
+Provide ONLY this JSON block. Do not include any other text.`,
+        skillId: "general",
+      };
+    }
+
+    if (cmd.startsWith("//> mindmap ") || cmd.startsWith("//>mindmap ")) {
+      const topic = text.substring(text.indexOf("mindmap") + 7).trim();
+      return {
+        question: `Create a structured mindmap for the topic "${topic}".
+Output ONLY a valid JSON object wrapped in \`\`\`mindmap code blocks.
+Structure:
+{
+  "label": "Topic Name",
+  "children": [
+    { "label": "Subtopic 1", "children": [...] },
+    { "label": "Subtopic 2", "children": [] }
+  ]
+}
+No preamble, no extra text.`,
         skillId: "general",
       };
     }
@@ -377,6 +454,7 @@ Provide ONLY this JSON block. Do not include any other text.`,
             setQuery={setQuery}
             messagesEndRef={messagesEndRef}
             onRetry={handleRetry}
+            onStopAI={handleStopAI}
           />
         )}
       </div>
