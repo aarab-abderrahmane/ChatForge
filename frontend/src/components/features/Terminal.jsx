@@ -441,11 +441,12 @@ export const Terminal = ({
 
         {/* ── Header ──────────────────────────────────── */}
         <div
-          className="sticky top-0 z-20 flex items-center gap-3 px-4 py-3 border-b"
+          className="sticky top-0 z-30 flex items-center gap-2 md:gap-3 px-4 py-3 md:py-3 border-b"
           style={{
             background: "var(--bg-header)",
             borderColor: "var(--border-green)",
             boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+            paddingTop: isMobile ? "calc(0.75rem + env(safe-area-inset-top))" : "0.75rem",
           }}
         >
           {/* Traffic lights */}
