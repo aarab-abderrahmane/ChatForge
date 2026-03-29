@@ -61,8 +61,24 @@ export const AnimatedSpan = ({ children, delay = 0, className, ...props }) => (
   </motion.div>
 );
 
-
-
+// ──────────────────────────────────────────────────────────────
+// Command palette data
+// ──────────────────────────────────────────────────────────────
+const COMMANDS = [
+  { cmd: "//>clear", desc: "Clear current chat history", icon: "🗑" },
+  { cmd: "//>new", desc: "Start a new chat session", icon: "✨" },
+  { cmd: "//>summarize", desc: "Summarize this conversation", icon: "📋" },
+  { cmd: "//>translate", desc: "Translate text", icon: "🌍" },
+  { cmd: "//>quiz", desc: "Generate a quiz (e.g. //>quiz React)", icon: "🎯" },
+  { cmd: "//>flashcards", desc: "Generate flashcards (e.g. //>flashcards Python)", icon: "🎴" },
+  { cmd: "//>mindmap", desc: "Generate a mindmap (e.g. //>mindmap AI)", icon: "🧠" },
+  { cmd: "//>retry", desc: "Retry the last message", icon: "🔄" },
+  { cmd: "//>stats", desc: "Show session statistics", icon: "📊" },
+  { cmd: "//>export", desc: "Export this chat as .txt file", icon: "📤" },
+  { cmd: "//>help", desc: "Show keyboard shortcuts & tips", icon: "❓" },
+  { cmd: "//>skill", desc: "Show current AI skill info", icon: "🤖" },
+  { cmd: "//>model", desc: "Show current AI model info", icon: "🧠" },
+];
 
 // ──────────────────────────────────────────────────────────────
 // Main Terminal component

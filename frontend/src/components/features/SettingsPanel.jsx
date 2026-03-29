@@ -1,3 +1,4 @@
+// Trigger Vite HMR Reload
 import { useContext, useState, useRef } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
@@ -158,10 +159,11 @@ function CustomSkillForm({ onSave, onCancel }) {
 
 // ── Custom AI Tool Form ───────────────────────────────────────
 function CustomAIToolForm({ onSave, onCancel, initialData }) {
-  const [form, setForm] = useState(initialData || { icon: "🔧", label: "", prompt: "", cmd: "" });
+  const [form, setForm] = useState(initialData || { icon: "🔧", label: "", prompt: "" });
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
 
-  const valid = form.label.trim().length > 0 && (form.prompt.trim().length > 0 || form.cmd.trim().length > 0);
+  // They must have a label and prompt
+  const valid = form.label.trim().length > 0 && (form.prompt || "").trim().length > 0;
 
   return (
     <motion.div
@@ -216,19 +218,11 @@ function CustomAIToolForm({ onSave, onCancel, initialData }) {
         </div>
         <textarea
           placeholder="Prompt template (e.g. 'Fix grammar for: ')"
-          value={form.prompt}
-          onChange={(e) => setForm((p) => ({ ...p, prompt: e.target.value, cmd: "" }))}
-          rows={2}
+          value={form.prompt || ""}
+          onChange={(e) => setForm((p) => ({ ...p, prompt: e.target.value }))}
+          rows={3}
           className="w-full bg-transparent border rounded px-2 py-2 text-xs outline-none resize-none"
           style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.85)", lineHeight: 1.5 }}
-        />
-        <input
-          type="text"
-          placeholder="OR System Command (e.g. //>clear)"
-          value={form.cmd}
-          onChange={(e) => setForm((p) => ({ ...p, cmd: e.target.value, prompt: "" }))}
-          className="w-full bg-transparent border rounded px-2 text-xs outline-none"
-          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.7)", height: 32 }}
         />
         <div className="flex gap-2">
           <button
