@@ -1,3 +1,4 @@
+// Trigger Vite HMR Reload
 import { motion, AnimatePresence } from "motion/react";
 import {
   CheckIcon,
@@ -12,6 +13,9 @@ import {
   EyeOff,
   X,
   Check,
+  Wand2,
+  AlignLeft,
+  Layers,
 } from "lucide-react";
 import { useState, useContext, useRef } from "react";
 import { Response } from "../ui/shadcn-io/ai/response";
@@ -40,11 +44,14 @@ export function MessageBlock({
   copyToClipboard,
   onRetry,
   onEditSubmit,
+  onMergeDrafts,
+  onSummarizeDrafts,
 }) {
   const [reaction, setReaction] = useState(null); // 'up' | 'down' | null
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [showRaw, setShowRaw] = useState(false);
+  const [selectedDrafts, setSelectedDrafts] = useState([]);
   const editRef = useRef(null);
 
   const {
@@ -157,8 +164,8 @@ export function MessageBlock({
       </div>
 
       {/* Answer */}
-      {hasAnswer && (
-        <div className="pl-4 border-l-2" style={{ borderColor: "var(--border-green)" }}>
+      {(hasAnswer || obj.isMulti) && (
+        <div className={`pl-4 border-l-2 ${obj.isMulti ? "border-l-[rgba(0,245,255,0.3)]" : "border-l-[var(--border-green)]"}`}>
           {isError ? (
             <div className="flex items-start gap-2">
               <AlertTriangleIcon
@@ -171,6 +178,38 @@ export function MessageBlock({
               >
                 {obj.answer}
               </p>
+            </div>
+          ) : obj.isMulti ? (
+            <div className="flex flex-col gap-3 py-1">
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 w-full">
+                {obj.answers?.map((ans, idx) => (
+                  <div key={idx} className={`relative p-3 rounded-lg border transition-colors flex flex-col max-h-[400px] ${selectedDrafts.includes(idx) ? "bg-[rgba(57,255,20,0.05)] border-[var(--neon-green)] shadow-[0_0_10px_rgba(57,255,20,0.1)]" : "bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)]"}`}>
+                    <div className="flex justify-between items-center mb-2 border-b border-white/5 pb-2 shrink-0">
+                      <span className="text-[10px] text-[var(--neon-cyan)] font-bold uppercase tracking-widest flex items-center gap-1"><Layers size={10} /> Draft {idx + 1}</span>
+                      <input type="checkbox" className="w-3.5 h-3.5 accent-[var(--neon-green)] cursor-pointer" checked={selectedDrafts.includes(idx)} onChange={(e) => {
+                        if (e.target.checked) setSelectedDrafts(p => [...p, idx]);
+                        else setSelectedDrafts(p => p.filter(x => x !== idx));
+                      }} title="Select draft for synthesis" />
+                    </div>
+                    <div className="message-answer text-xs overflow-y-auto pr-2 custom-scrollbar flex-1">
+                      {ans ? <Response>{ans}</Response> : <div className="loading-dots text-[10px] text-white/30 pt-1"><span>.</span><span>.</span><span>.</span></div>}
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <AnimatePresence>
+                {selectedDrafts.length > 0 && (
+                  <motion.div initial={{ opacity: 0, y: -10, height: 0 }} animate={{ opacity: 1, y: 0, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="flex flex-wrap gap-2 pt-2 items-center">
+                    <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="text-[10px] bg-[rgba(57,255,20,0.1)] text-[var(--neon-green)] px-3 py-1.5 rounded border border-[var(--neon-green)] hover:bg-[rgba(57,255,20,0.2)] font-bold uppercase tracking-widest flex items-center gap-1 transition-all">
+                      <Wand2 size={12} /> Merge Selected ({selectedDrafts.length})
+                    </button>
+                    <button onClick={() => onSummarizeDrafts(obj.id, selectedDrafts)} className="text-[10px] bg-[rgba(0,245,255,0.1)] text-[var(--neon-cyan)] px-3 py-1.5 rounded border border-[var(--neon-cyan)] hover:bg-[rgba(0,245,255,0.2)] font-bold uppercase tracking-widest flex items-center gap-1 transition-all">
+                      <AlignLeft size={12} /> Summarize
+                    </button>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
           ) : (
             <div className="message-answer">
@@ -191,15 +230,15 @@ export function MessageBlock({
           )}
 
           {/* Action bar */}
-          <div className="message-actions">
+          <div className="message-actions mt-2">
             {/* Copy */}
-            {hasAnswer && !isError && (
+            {((hasAnswer || obj.isMulti) && !isError) && (
               isCopied.state && isCopied.idMes === obj.id ? (
                 <div className="reaction-btn active-up" style={{ pointerEvents: "none" }}>
                   <CheckIcon size={11} />
                   <span>copied</span>
                 </div>
-              ) : (
+              ) : !obj.isMulti ? (
                 <button
                   className="reaction-btn"
                   onClick={() => copyToClipboard(obj.id)}
@@ -208,11 +247,11 @@ export function MessageBlock({
                   <CopyIcon size={11} />
                   <span>copy</span>
                 </button>
-              )
+              ) : null
             )}
 
             {/* Raw toggle */}
-            {hasAnswer && !isError && (
+            {(hasAnswer && !isError && !obj.isMulti) && (
               <button
                 className={`reaction-btn ${showRaw ? "active-up" : ""}`}
                 onClick={() => setShowRaw((p) => !p)}
@@ -283,7 +322,7 @@ export function MessageBlock({
       )}
 
       {/* Streaming placeholder */}
-      {!hasAnswer && (
+      {(!hasAnswer && !obj.isMulti) && (
         <div className="pl-4 border-l-2" style={{ borderColor: "var(--border-green)" }}>
           <div className="loading-dots text-sm" style={{ color: "rgba(200,255,192,0.4)" }}>
             <span>.</span><span>.</span><span>.</span>

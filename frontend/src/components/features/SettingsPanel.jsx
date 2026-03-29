@@ -32,6 +32,7 @@ import {
   CaseSensitive,
   Layers,
   Wrench,
+  Smile,
 } from "lucide-react";
 import { chatsContext, SKILLS, MODELS, THEMES } from "../../context/chatsContext";
 

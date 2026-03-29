@@ -41,6 +41,8 @@ import {
   Zap,
   Mail,
   Menu,
+  AlignLeft,
+  Layers,
 } from "lucide-react";
 
 // Context
@@ -96,6 +98,8 @@ export const Terminal = ({
   onRetry,
   onEditSubmit,
   onStopAI,
+  onMergeDrafts,
+  onSummarizeDrafts,
 }) => {
   const COMMAND_PREFIX = "//>";
 
@@ -125,7 +129,8 @@ export const Terminal = ({
   const [searchQuery, setSearchQuery] = useState("");
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator?.onLine ?? true);
-  const [isToolbarExpanded, setIsToolbarExpanded] = useState(false);
+  const [isToolbarExpanded, setIsToolbarExpanded] = useState(true);
+  const [draftCount, setDraftCount] = useState(1);
 
   // Resize listener
   useEffect(() => {
@@ -242,14 +247,14 @@ export const Terminal = ({
   const handleToolClick = (tool) => {
     if (tool.cmd) {
       // Direct command execution
-      executeCommand(tool.cmd) || handleSend({ target: { value: tool.cmd } });
+      executeCommand(tool.cmd) || handleSend({ target: { value: tool.cmd } }, draftCount);
       setQuery("");
       setCharCount(0);
     } else if (tool.prompt) {
       // Power action: If user has typed something, submit immediately
       if (query.trim().length > 0) {
         const fullPrompt = `${tool.prompt}\n\n${query.trim()}`;
-        handleSend({ target: { value: fullPrompt } });
+        handleSend({ target: { value: fullPrompt } }, draftCount);
         setQuery("");
         setCharCount(0);
       } else {
@@ -284,7 +289,7 @@ export const Terminal = ({
     setQuery("");
     setCharCount(0);
     setPromptHistIdx(-1);
-    handleSend(e);
+    handleSend(e, draftCount);
   };
 
   // Execute built-in commands; returns true if consumed (no AI call needed)
@@ -693,6 +698,8 @@ export const Terminal = ({
                     onEditSubmit={onEditSubmit || ((newQuestion, id) => {
                       executeCommand(newQuestion) || onRetry(newQuestion, id);
                     })}
+                    onMergeDrafts={onMergeDrafts}
+                    onSummarizeDrafts={onSummarizeDrafts}
                   />
                 );
               })}
@@ -737,7 +744,7 @@ export const Terminal = ({
 
               {/* AI Tools Bar */}
               {settings.showToolbar !== false && (
-                <div className="ai-toolbar-wrapper mb-2">
+                <div className={` ${isToolbarExpanded ? "ai-toolbar-wrapper" : ""} mb-2`}>
                   <div className="flex items-center mb-1">
                     <button
                       onClick={() => setIsToolbarExpanded((p) => !p)}
@@ -843,6 +850,19 @@ export const Terminal = ({
                     </span>
                   )}
                 </div>
+
+                {/* Draft Toggle */}
+                <button
+                  type="button"
+                  title={draftCount > 1 ? "Multi-Draft: 3 Variants" : "Single Draft"}
+                  onClick={(e) => { e.preventDefault(); setDraftCount(d => d === 1 ? 3 : 1); }}
+                  className={`w-9 h-9 rounded flex items-center justify-center transition-all flex-shrink-0 border ${draftCount > 1 ? "bg-[rgba(57,255,20,0.1)] text-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_10px_rgba(57,255,20,0.2)]" : "text-gray-500 border-[rgba(255,255,255,0.1)] hover:bg-white/5 hover:text-white"}`}
+                >
+                  <div className="relative flex items-center justify-center">
+                    <Layers size={15} />
+                    {draftCount > 1 && <span className="absolute -top-1 -right-2 text-[8px] font-black bg-[var(--neon-green)] text-black px-[3px] rounded-sm leading-none py-[1px]">3</span>}
+                  </div>
+                </button>
 
                 {/* Dynamic Action Button (Send / Stop) */}
                 <button

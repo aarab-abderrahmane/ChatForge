@@ -24,6 +24,7 @@ function App() {
 
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const streamCountRef = useRef(0);
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
 
   // All skills (built-in + custom)
@@ -109,25 +110,20 @@ function App() {
     ]);
 
   // ── Core AI call ────────────────────────────────────────────
-  async function askAI(question, id, overrideSkillId = null) {
+  async function startStream(question, id, skillId, draftIndex, signal) {
+    streamCountRef.current += 1;
     setLoading(true);
 
-    if (abortControllerRef.current) {
-      abortControllerRef.current.abort();
-    }
-    abortControllerRef.current = new AbortController();
-
-    // Find active skill (including custom skills)
-    const skillId = overrideSkillId || settings.activeSkillId;
     const activeSkill = allSkills.find((s) => s.id === skillId) || SKILLS[0];
     const activeModelId = settings.activeModelId || "meta-llama/llama-3.3-70b-instruct:free";
 
-    // Build system prompt (skill + optional prefix)
     const basePrompt = activeSkill?.systemPrompt || "You are a helpful assistant.";
     const prefix = settings.systemPromptPrefix?.trim();
     const fullSystemPrompt = prefix ? `${basePrompt}\n\n[User context]: ${prefix}` : basePrompt;
 
-    // Response length instruction
+    // Slightly bump temperature to ensure varied alternatives if draftIndex > 0
+    const draftTemp = draftIndex > 0 ? Math.min((settings.temperature || 0.7) + (draftIndex * 0.15), 1.5) : (settings.temperature || 0.7);
+
     const lengthInstruction =
       settings.responseLength === "short" ? " Be concise and brief in your response."
         : settings.responseLength === "detailed" ? " Provide a thorough and detailed response."
@@ -145,18 +141,16 @@ function App() {
         fullSystemPrompt,
         activeModelId,
         {
-          temperature: settings.temperature,
+          temperature: draftTemp,
           top_p: settings.topP,
           frequency_penalty: settings.frequencyPenalty,
           presence_penalty: settings.presencePenalty,
           max_tokens: settings.maxTokens
         },
-        abortControllerRef.current.signal
+        signal
       );
 
-      if (!response.ok) {
-        throw new Error("Failed to connect to AI service.");
-      }
+      if (!response.ok) throw new Error("Failed to connect to AI service.");
 
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
@@ -169,14 +163,12 @@ function App() {
 
         const chunk = decoder.decode(value, { stream: true });
         buffer += chunk;
-
         const lines = buffer.split("\n");
         buffer = lines.pop();
 
         for (const line of lines) {
           const trimmed = line.trim();
           if (!trimmed || !trimmed.startsWith("data: ")) continue;
-
           const dataStr = trimmed.slice(6);
           if (dataStr === "[DONE]") continue;
 
@@ -186,56 +178,73 @@ function App() {
             if (content) {
               fullContent += content;
               setChats((prev) =>
-                prev.map((obj) =>
-                  obj.id === id ? { ...obj, answer: fullContent } : obj
-                )
+                prev.map((obj) => {
+                  if (obj.id === id) {
+                    if (draftIndex >= 0) {
+                      const newAnsws = [...(obj.answers || [])];
+                      newAnsws[draftIndex] = fullContent;
+                      return { ...obj, answers: newAnsws, isMulti: true };
+                    }
+                    return { ...obj, answer: fullContent };
+                  }
+                  return obj;
+                })
               );
             }
-          } catch (e) {
-            // Fragmented JSON - ignore
-          }
+          } catch (e) { }
         }
       }
-      setLoading(false);
     } catch (error) {
-      if (error.name === "AbortError") {
-        console.log("AI request stopped by user.");
+      if (error.name !== "AbortError") {
+        console.error("AI stream error:", error);
+        let errMsg = error.message || "Connection lost.";
+        const lowerErr = errMsg.toLowerCase();
+
+        if (lowerErr.includes("no endpoints") || lowerErr.includes("at capacity") || lowerErr.includes("429")) {
+          errMsg = "⚠️ AI models are currently rate-limited. Please wait 10-20 seconds and try again, or switch models in Settings (⚙️).";
+        } else if (lowerErr.includes("fetch failed") || lowerErr.includes("getaddrinfo")) {
+          errMsg = "🌐 Network Error: Unable to reach OpenRouter. This is usually a temporary DNS or internet issue.";
+        }
+
+        setChats((prev) =>
+          prev.map((obj) => {
+            if (obj.id === id) {
+              if (draftIndex >= 0) {
+                const newAnsws = [...(obj.answers || [])];
+                newAnsws[draftIndex] = `[Error] ${errMsg}`;
+                return { ...obj, answers: newAnsws, isMulti: true, type: "error" };
+              }
+              return { ...obj, type: "error", answer: errMsg };
+            }
+            return obj;
+          })
+        );
+      }
+    } finally {
+      streamCountRef.current -= 1;
+      if (streamCountRef.current <= 0) {
+        streamCountRef.current = 0;
         setLoading(false);
-        return;
       }
+    }
+  }
 
-      console.error("AI stream error:", error);
-      setLoading(false);
+  async function askAI(question, id, overrideSkillId = null, draftCount = 1) {
+    if (abortControllerRef.current) abortControllerRef.current.abort();
+    abortControllerRef.current = new AbortController();
+    streamCountRef.current = 0;
 
-      let errMsg = error.message || "Connection lost.";
-      const lowerErr = errMsg.toLowerCase();
-
-      if (
-        lowerErr.includes("no endpoints") ||
-        lowerErr.includes("at capacity") ||
-        lowerErr.includes("all ai models") ||
-        lowerErr.includes("429")
-      ) {
-        errMsg = "⚠️ AI models are currently rate-limited. Please wait 10-20 seconds and try again, or switch models in Settings (⚙️).";
-      } else if (
-        lowerErr.includes("fetch failed") ||
-        lowerErr.includes("getaddrinfo") ||
-        lowerErr.includes("eai_again")
-      ) {
-        errMsg = "🌐 Network Error: Unable to reach OpenRouter. This is usually a temporary DNS or internet issue. Please check your connection and try again in a moment.";
-      }
-
+    if (draftCount > 1) {
       setChats((prev) =>
         prev.map((obj) =>
-          obj.id === id
-            ? {
-              ...obj,
-              type: "error",
-              answer: errMsg,
-            }
-            : obj
+          obj.id === id ? { ...obj, isMulti: true, answers: Array(draftCount).fill("") } : obj
         )
       );
+      for (let i = 0; i < draftCount; i++) {
+        startStream(question, id, overrideSkillId, i, abortControllerRef.current.signal);
+      }
+    } else {
+      startStream(question, id, overrideSkillId, -1, abortControllerRef.current.signal);
     }
   }
 
@@ -260,12 +269,14 @@ function App() {
 
   // ── Retry handler ────────────────────────────────────────────
   const handleRetry = (question, id) => {
+    const msg = chats.find((c) => c.id === id);
+    const dCount = msg?.isMulti ? (msg?.answers?.length || 3) : 1;
     setChats((prev) =>
       prev.map((obj) =>
-        obj.id === id ? { ...obj, type: "ch", answer: undefined } : obj
+        obj.id === id ? { ...obj, type: "ch", answer: undefined, answers: obj.isMulti ? Array(dCount).fill("") : undefined } : obj
       )
     );
-    askAI(question, id);
+    askAI(question, id, null, dCount);
   };
 
   // ── Transform //> commands into AI requests ──────────────────
@@ -369,7 +380,7 @@ No preamble, no extra text.`,
   };
 
   // ── Send handler ─────────────────────────────────────────────
-  const handleSend = (e) => {
+  const handleSend = (e, draftCount = 1) => {
     const newId = new Date();
     const text = (e.target?.value ?? e.target?.innerText ?? query).trim();
     if (!text) return;
@@ -384,10 +395,12 @@ No preamble, no extra text.`,
           type: "ch",
           question: displayQuestion,
           answer: undefined,
+          answers: draftCount > 1 ? Array(draftCount).fill("") : undefined,
+          isMulti: draftCount > 1,
           timestamp: new Date().toISOString(),
         };
         setChats((prev) => [...prev, newMsg]);
-        askAI(transformed.question, newId, transformed.skillId);
+        askAI(transformed.question, newId, transformed.skillId, draftCount);
         return;
       }
       // Unknown //>command — don't send to AI
@@ -399,11 +412,27 @@ No preamble, no extra text.`,
       type: "ch",
       question: text,
       answer: undefined,
+      answers: draftCount > 1 ? Array(draftCount).fill("") : undefined,
+      isMulti: draftCount > 1,
       timestamp: new Date().toISOString(),
     };
 
     setChats((prev) => [...prev, newMsg]);
-    askAI(text, newId);
+    askAI(text, newId, null, draftCount);
+  };
+
+  const handleMergeDrafts = (msgId, indices) => {
+    const msg = chats.find(c => c.id === msgId);
+    if (!msg) return;
+    const selected = indices.map(i => msg.answers[i]).join("\n\n---\n\n");
+    setQuery(`Merge and synthesize the following drafts into ONE cohesive and unified response. Extract the best ideas from each:\n\n${selected}`);
+  };
+
+  const handleSummarizeDrafts = (msgId, indices) => {
+    const msg = chats.find(c => c.id === msgId);
+    if (!msg) return;
+    const selected = indices.map(i => msg.answers[i]).join("\n\n---\n\n");
+    setQuery(`Summarize the key differences and insights from these alternate drafts:\n\n${selected}`);
   };
 
   // ── Copy to clipboard ────────────────────────────────────────
@@ -455,6 +484,8 @@ No preamble, no extra text.`,
             messagesEndRef={messagesEndRef}
             onRetry={handleRetry}
             onStopAI={handleStopAI}
+            onMergeDrafts={handleMergeDrafts}
+            onSummarizeDrafts={handleSummarizeDrafts}
           />
         )}
       </div>
