@@ -435,6 +435,22 @@ No preamble, no extra text.`,
     setQuery(`Summarize the key differences and insights from these alternate drafts:\n\n${selected}`);
   };
 
+  const handleKeepDraft = (msgId, index) => {
+    setChats((prev) =>
+      prev.map((c) => {
+        if (c.id === msgId && c.isMulti) {
+          return {
+            ...c,
+            isMulti: false,
+            answer: c.answers[index],
+            answers: undefined,
+          };
+        }
+        return c;
+      })
+    );
+  };
+
   // ── Copy to clipboard ────────────────────────────────────────
   const copyToClipboard = async (idMes) => {
     const targetMes = chats.find((ch) => ch.type === "ch" && ch.id === idMes);
@@ -486,6 +502,7 @@ No preamble, no extra text.`,
             onStopAI={handleStopAI}
             onMergeDrafts={handleMergeDrafts}
             onSummarizeDrafts={handleSummarizeDrafts}
+            onKeepDraft={handleKeepDraft}
           />
         )}
       </div>

@@ -100,6 +100,7 @@ export const Terminal = ({
   onStopAI,
   onMergeDrafts,
   onSummarizeDrafts,
+  onKeepDraft,
 }) => {
   const COMMAND_PREFIX = "//>";
 
@@ -695,11 +696,10 @@ export const Terminal = ({
                     isCopied={isCopied}
                     copyToClipboard={copyToClipboard}
                     onRetry={onRetry}
-                    onEditSubmit={onEditSubmit || ((newQuestion, id) => {
-                      executeCommand(newQuestion) || onRetry(newQuestion, id);
-                    })}
+                    onEditSubmit={onEditSubmit || ((newQ) => handleSend({ target: { value: newQ } }, draftCount))}
                     onMergeDrafts={onMergeDrafts}
                     onSummarizeDrafts={onSummarizeDrafts}
+                    onKeepDraft={onKeepDraft}
                   />
                 );
               })}

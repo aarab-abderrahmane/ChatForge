@@ -46,6 +46,7 @@ export function MessageBlock({
   onEditSubmit,
   onMergeDrafts,
   onSummarizeDrafts,
+  onKeepDraft,
 }) {
   const [reaction, setReaction] = useState(null); // 'up' | 'down' | null
   const [isEditing, setIsEditing] = useState(false);
@@ -180,19 +181,34 @@ export function MessageBlock({
               </p>
             </div>
           ) : obj.isMulti ? (
-            <div className="flex flex-col gap-3 py-1">
-              <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 w-full">
+            <div className="flex flex-col gap-4 py-2">
+              <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory custom-scrollbar" style={{ scrollPadding: "0 20px" }}>
                 {obj.answers?.map((ans, idx) => (
-                  <div key={idx} className={`relative p-3 rounded-lg border transition-colors flex flex-col max-h-[400px] ${selectedDrafts.includes(idx) ? "bg-[rgba(57,255,20,0.05)] border-[var(--neon-green)] shadow-[0_0_10px_rgba(57,255,20,0.1)]" : "bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.1)]"}`}>
-                    <div className="flex justify-between items-center mb-2 border-b border-white/5 pb-2 shrink-0">
-                      <span className="text-[10px] text-[var(--neon-cyan)] font-bold uppercase tracking-widest flex items-center gap-1"><Layers size={10} /> Draft {idx + 1}</span>
-                      <input type="checkbox" className="w-3.5 h-3.5 accent-[var(--neon-green)] cursor-pointer" checked={selectedDrafts.includes(idx)} onChange={(e) => {
-                        if (e.target.checked) setSelectedDrafts(p => [...p, idx]);
-                        else setSelectedDrafts(p => p.filter(x => x !== idx));
-                      }} title="Select draft for synthesis" />
+                  <div key={idx} className={`relative shrink-0 w-[300px] sm:w-[350px] snap-center p-4 rounded-xl border transition-all flex flex-col min-h-[200px] max-h-[450px] ${selectedDrafts.includes(idx) ? "bg-[rgba(57,255,20,0.04)] border-[var(--neon-green)] shadow-[0_0_20px_rgba(57,255,20,0.1)]" : "bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.05)] hover:border-[rgba(255,255,255,0.12)]"}`}>
+                    <div className="flex justify-between items-center mb-3 border-b border-white/5 pb-2 shrink-0">
+                      <span className="text-[10px] text-[var(--neon-cyan)] font-black uppercase tracking-[0.2em] flex items-center gap-2"><Layers size={12} /> Draft {idx + 1}</span>
+                      <div className="flex items-center gap-3">
+                        <button
+                          onClick={() => onKeepDraft(obj.id, idx)}
+                          className="text-[9px] font-bold text-white/40 hover:text-[var(--neon-green)] transition-colors uppercase tracking-widest flex items-center gap-1"
+                          title="Discard others and keep this response"
+                        >
+                          <Check size={12} /> Keep
+                        </button>
+                        <input type="checkbox" className="w-4 h-4 rounded-full border-white/20 accent-[var(--neon-green)] cursor-pointer" checked={selectedDrafts.includes(idx)} onChange={(e) => {
+                          if (e.target.checked) setSelectedDrafts(p => [...p, idx]);
+                          else setSelectedDrafts(p => p.filter(x => x !== idx));
+                        }} title="Select draft for synthesis" />
+                      </div>
                     </div>
-                    <div className="message-answer text-xs overflow-y-auto pr-2 custom-scrollbar flex-1">
-                      {ans ? <Response>{ans}</Response> : <div className="loading-dots text-[10px] text-white/30 pt-1"><span>.</span><span>.</span><span>.</span></div>}
+                    <div className="message-answer text-xs overflow-y-auto pr-1 custom-scrollbar flex-1 leading-relaxed">
+                      {ans ? <Response>{ans}</Response> : (
+                        <div className="space-y-3 pt-1">
+                          <div className="h-3 bg-white/5 rounded animate-pulse w-full"></div>
+                          <div className="h-3 bg-white/5 rounded animate-pulse w-[90%]"></div>
+                          <div className="h-3 bg-white/5 rounded animate-pulse w-[40%]"></div>
+                        </div>
+                      )}
                     </div>
                   </div>
                 ))}
@@ -200,12 +216,13 @@ export function MessageBlock({
 
               <AnimatePresence>
                 {selectedDrafts.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: -10, height: 0 }} animate={{ opacity: 1, y: 0, height: "auto" }} exit={{ opacity: 0, height: 0 }} className="flex flex-wrap gap-2 pt-2 items-center">
-                    <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="text-[10px] bg-[rgba(57,255,20,0.1)] text-[var(--neon-green)] px-3 py-1.5 rounded border border-[var(--neon-green)] hover:bg-[rgba(57,255,20,0.2)] font-bold uppercase tracking-widest flex items-center gap-1 transition-all">
-                      <Wand2 size={12} /> Merge Selected ({selectedDrafts.length})
+                  <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 10 }} className="flex flex-wrap gap-3 items-center bg-white/[0.03] p-2 rounded-lg border border-white/5">
+                    <span className="text-[9px] uppercase tracking-widest text-white/30 px-2 font-bold">{selectedDrafts.length} Selected</span>
+                    <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="text-[10px] bg-[rgba(57,255,20,0.1)] text-[var(--neon-green)] px-4 py-2 rounded-md border border-[var(--neon-green)] hover:bg-[rgba(57,255,20,0.2)] font-black uppercase tracking-widest flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(57,255,20,0.1)]">
+                      <Wand2 size={13} /> Merge via AI
                     </button>
-                    <button onClick={() => onSummarizeDrafts(obj.id, selectedDrafts)} className="text-[10px] bg-[rgba(0,245,255,0.1)] text-[var(--neon-cyan)] px-3 py-1.5 rounded border border-[var(--neon-cyan)] hover:bg-[rgba(0,245,255,0.2)] font-bold uppercase tracking-widest flex items-center gap-1 transition-all">
-                      <AlignLeft size={12} /> Summarize
+                    <button onClick={() => onSummarizeDrafts(obj.id, selectedDrafts)} className="text-[10px] bg-[rgba(0,245,255,0.1)] text-[var(--neon-cyan)] px-4 py-2 rounded-md border border-[var(--neon-cyan)] hover:bg-[rgba(0,245,255,0.2)] font-black uppercase tracking-widest flex items-center gap-2 transition-all">
+                      <AlignLeft size={13} /> Summarize
                     </button>
                   </motion.div>
                 )}
