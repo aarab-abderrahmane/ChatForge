@@ -28,9 +28,9 @@ import {
   LayoutList,
   Wand2,
   Gauge,
-  Smile,
   CaseSensitive,
   Layers,
+  Wrench,
 } from "lucide-react";
 import { chatsContext, SKILLS, MODELS, THEMES } from "../../context/chatsContext";
 
@@ -156,6 +156,108 @@ function CustomSkillForm({ onSave, onCancel }) {
   );
 }
 
+// ── Custom AI Tool Form ───────────────────────────────────────
+function CustomAIToolForm({ onSave, onCancel, initialData }) {
+  const [form, setForm] = useState(initialData || { icon: "🔧", label: "", prompt: "", cmd: "" });
+  const [showEmojiPicker, setShowEmojiPicker] = useState(false);
+
+  const valid = form.label.trim().length > 0 && (form.prompt.trim().length > 0 || form.cmd.trim().length > 0);
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, height: 0 }}
+      animate={{ opacity: 1, height: "auto" }}
+      exit={{ opacity: 0, height: 0 }}
+      transition={{ duration: 0.2 }}
+      className="mx-3 mb-3 rounded-lg border overflow-hidden"
+      style={{ borderColor: "var(--neon-cyan-dim)", background: "rgba(0,245,255,0.03)" }}
+    >
+      <div className="p-3 space-y-2">
+        <div className="flex gap-2">
+          <div className="relative">
+            <button
+              onClick={() => setShowEmojiPicker((p) => !p)}
+              className="w-9 h-9 text-xl rounded-lg border flex items-center justify-center hover:bg-white/5 transition-all"
+              style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}
+            >
+              {form.icon}
+            </button>
+            <AnimatePresence>
+              {showEmojiPicker && (
+                <motion.div
+                  initial={{ opacity: 0, scale: 0.9 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.9 }}
+                  className="absolute top-10 left-0 z-50 p-2 rounded-lg border grid grid-cols-5 gap-1"
+                  style={{ background: "var(--bg-panel)", borderColor: "var(--border-green)" }}
+                >
+                  {EMOJI_OPTIONS.map((e) => (
+                    <button
+                      key={e}
+                      onClick={() => { setForm((p) => ({ ...p, icon: e })); setShowEmojiPicker(false); }}
+                      className="w-7 h-7 text-base rounded hover:bg-white/10 transition-all flex items-center justify-center"
+                    >
+                      {e}
+                    </button>
+                  ))}
+                </motion.div>
+              )}
+            </AnimatePresence>
+          </div>
+          <input
+            type="text"
+            placeholder="Tool Label…"
+            maxLength={16}
+            value={form.label}
+            onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
+            className="flex-1 bg-transparent border rounded px-2 text-xs outline-none"
+            style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.9)", height: 36 }}
+          />
+        </div>
+        <textarea
+          placeholder="Prompt template (e.g. 'Fix grammar for: ')"
+          value={form.prompt}
+          onChange={(e) => setForm((p) => ({ ...p, prompt: e.target.value, cmd: "" }))}
+          rows={2}
+          className="w-full bg-transparent border rounded px-2 py-2 text-xs outline-none resize-none"
+          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.85)", lineHeight: 1.5 }}
+        />
+        <input
+          type="text"
+          placeholder="OR System Command (e.g. //>clear)"
+          value={form.cmd}
+          onChange={(e) => setForm((p) => ({ ...p, cmd: e.target.value, prompt: "" }))}
+          className="w-full bg-transparent border rounded px-2 text-xs outline-none"
+          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.7)", height: 32 }}
+        />
+        <div className="flex gap-2">
+          <button
+            onClick={() => valid && onSave(form)}
+            disabled={!valid}
+            className="flex-1 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest transition-all"
+            style={{
+              background: valid ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.03)",
+              color: valid ? "var(--neon-green)" : "rgba(200,255,192,0.2)",
+              border: `1px solid ${valid ? "var(--neon-green)" : "rgba(255,255,255,0.05)"}`,
+              cursor: valid ? "pointer" : "not-allowed",
+              boxShadow: valid ? "var(--glow-green)" : "none",
+            }}
+          >
+            ✓ Save Tool
+          </button>
+          <button
+            onClick={onCancel}
+            className="px-3 py-1.5 rounded text-[10px] transition-all hover:bg-white/5"
+            style={{ color: "rgba(200,255,192,0.4)", border: "1px solid rgba(255,255,255,0.05)" }}
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </motion.div>
+  );
+}
+
 // ── Section Header ────────────────────────────────────────────
 function SectionHeader({ label, danger = false, action, actionLabel }) {
   return (
@@ -220,6 +322,7 @@ function ColorRow({ label, value, onChange }) {
 const TABS = [
   { id: "appearance", label: "Appearance", icon: Palette },
   { id: "ai", label: "AI", icon: Bot },
+  { id: "tools", label: "Tools", icon: Wrench },
   { id: "interface", label: "Interface", icon: Settings2 },
   { id: "data", label: "Data", icon: Database },
 ];
@@ -237,10 +340,16 @@ export function SettingsPanel({ onClose }) {
     customSkills,
     addCustomSkill,
     deleteCustomSkill,
+    aiTools,
+    addAITool,
+    updateAITool,
+    deleteAITool,
   } = useContext(chatsContext);
 
   const [activeTab, setActiveTab] = useState("appearance");
   const [showSkillForm, setShowSkillForm] = useState(false);
+  const [showToolForm, setShowToolForm] = useState(false);
+  const [editingTool, setEditingTool] = useState(null);
   const [showModels, setShowModels] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fileInputRef = useRef(null);
@@ -512,6 +621,75 @@ export function SettingsPanel({ onClose }) {
                     <AlignJustify size={14} style={{ color: "var(--neon-green)" }} />
                     <span className="flex-1 text-xs" style={{ color: "rgba(200,255,192,0.8)" }}>Compact mode</span>
                     <Toggle value={settings.compactMode} onToggle={() => toggle("compactMode")} />
+                  </div>
+                </>
+              )}
+
+              {/* ══════════════════════════════════════════════
+                  TAB: TOOLS
+              ══════════════════════════════════════════════ */}
+              {activeTab === "tools" && (
+                <>
+                  <SectionHeader
+                    label="AI Action Tools"
+                    action={() => { setEditingTool(null); setShowToolForm((p) => !p); }}
+                    actionLabel="New Tool"
+                  />
+
+                  <AnimatePresence>
+                    {showToolForm && (
+                      <CustomAIToolForm
+                        initialData={editingTool}
+                        onSave={(form) => {
+                          if (editingTool) {
+                            updateAITool(editingTool.id, form);
+                          } else {
+                            addAITool(form);
+                          }
+                          setShowToolForm(false);
+                          setEditingTool(null);
+                        }}
+                        onCancel={() => { setShowToolForm(false); setEditingTool(null); }}
+                      />
+                    )}
+                  </AnimatePresence>
+
+                  <div className="px-3 pb-3 flex flex-col gap-2">
+                    {aiTools.map((tool) => (
+                      <div
+                        key={tool.id}
+                        className="flex items-center justify-between p-2 rounded-lg border group transition-all hover:bg-white/5"
+                        style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.02)" }}
+                      >
+                        <div className="flex items-center gap-3">
+                          <span style={{ fontSize: 16 }}>{tool.icon}</span>
+                          <div className="flex flex-col">
+                            <span className="text-[11px] font-semibold" style={{ color: "var(--neon-cyan)" }}>
+                              {tool.label}
+                            </span>
+                            <span className="text-[9px]" style={{ color: "rgba(200,255,192,0.4)" }}>
+                              {tool.prompt ? `Prompt: ${tool.prompt.substring(0, 35)}${tool.prompt.length > 35 ? "..." : ""}` : `Command: ${tool.cmd}`}
+                            </span>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                          <button
+                            onClick={() => { setEditingTool(tool); setShowToolForm(true); }}
+                            className="p-1 rounded hover:bg-white/10"
+                            style={{ color: "var(--neon-green)" }}
+                          >
+                            <Settings2 size={12} />
+                          </button>
+                          <button
+                            onClick={() => deleteAITool(tool.id)}
+                            className="p-1 rounded hover:bg-white/10"
+                            style={{ color: "rgba(255,45,120,0.8)" }}
+                          >
+                            <Trash2 size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </>
               )}

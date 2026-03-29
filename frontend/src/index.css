@@ -957,13 +957,40 @@ pre code {
 .ai-toolbar-wrapper {
   position: relative;
   margin-bottom: 12px;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  padding: 8px 12px;
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  box-shadow: 0 4px 24px rgba(0, 0, 0, 0.2);
+  transition: all 0.3s ease;
+}
+
+.ai-toolbar-wrapper:hover {
+  border-color: rgba(57, 255, 20, 0.15);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3), 0 0 16px rgba(57, 255, 20, 0.05);
 }
 
 .ai-tool-bar {
   display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 4px 0;
+}
+
+.ai-tool-group {
+  display: flex;
   flex-wrap: wrap;
   gap: 8px;
-  padding: 4px;
+  align-items: center;
+  padding-bottom: 8px;
+  border-bottom: 1px dashed rgba(255, 255, 255, 0.05);
+}
+
+.ai-tool-group:last-child {
+  border-bottom: none;
+  padding-bottom: 0;
 }
 
 .ai-tool-separator {
@@ -977,32 +1004,35 @@ pre code {
 .ai-tool-btn {
   white-space: nowrap;
   font-size: 10px;
-  color: rgba(200, 255, 192, 0.45);
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  padding: 4px 10px;
-  border-radius: 8px;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: rgba(200, 255, 192, 0.6);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.03), rgba(255, 255, 255, 0.01));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 6px 14px;
+  border-radius: 99px;
+  transition: all 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
   cursor: pointer;
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   text-transform: uppercase;
   letter-spacing: 0.05em;
-  font-weight: 500;
+  font-weight: 600;
   flex-shrink: 0;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
 }
 
 .ai-tool-btn:hover {
   background: color-mix(in srgb, var(--theme-primary), transparent 88%);
   border-color: color-mix(in srgb, var(--theme-primary), transparent 50%);
   color: var(--theme-primary);
-  transform: translateY(-1px);
-  box-shadow: 0 4px 12px color-mix(in srgb, var(--theme-primary), transparent 82%);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 4px 16px color-mix(in srgb, var(--theme-primary), transparent 82%), inset 0 0 8px color-mix(in srgb, var(--theme-primary), transparent 90%);
 }
 
 .ai-tool-btn:active {
-  transform: translateY(0);
+  transform: translateY(0) scale(0.98);
 }
 
 .ai-tool-btn svg {

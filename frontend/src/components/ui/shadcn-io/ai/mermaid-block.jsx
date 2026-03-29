@@ -8,6 +8,7 @@ function ensureInit() {
   _initialized = true;
   mermaid.initialize({
     startOnLoad: false,
+    suppressErrorRendering: true,
     theme: "dark",
     themeVariables: {
       darkMode: true,
@@ -44,8 +45,8 @@ function ensureInit() {
       critBkgColor: "#2b071a",
       todayLineColor: "#ffd700",
     },
-    flowchart: { 
-      curve: "basis", 
+    flowchart: {
+      curve: "basis",
       htmlLabels: false,
       nodeSpacing: 15,
       rankSpacing: 15,
@@ -70,9 +71,9 @@ export function MermaidBlock({ code }) {
 
   useEffect(() => {
     // Force re-init to ensure my dev changes take effect
-    _initialized = false; 
+    _initialized = false;
     ensureInit();
-    
+
     let cancelled = false;
 
     setSvgHtml("");
@@ -83,7 +84,12 @@ export function MermaidBlock({ code }) {
 
     const run = async () => {
       try {
-        const { svg } = await mermaid.render(id, code.trim());
+        let cleanCode = code.trim();
+        cleanCode = cleanCode.replace(/^```mermaid\s*/i, "");
+        cleanCode = cleanCode.replace(/^```\w*\s*/i, "");
+        cleanCode = cleanCode.replace(/```$/i, "").trim();
+
+        const { svg } = await mermaid.render(id, cleanCode);
         if (cancelled) return;
 
         // Extreme scale reduction:
@@ -92,7 +98,7 @@ export function MermaidBlock({ code }) {
         const patched = svg
           .replace(/width="[^"]*"/, "")
           .replace(/height="[^"]*"/, "")
-          .replace(/font-size: \d+px/g, "font-size: 9px") 
+          .replace(/font-size: \d+px/g, "font-size: 9px")
           .replace(
             "<svg ",
             '<svg style="max-width:400px; width:100%; height:auto; display:block; margin:0 auto; filter:drop-shadow(0 0 4px rgba(57,255,20,0.1))" '

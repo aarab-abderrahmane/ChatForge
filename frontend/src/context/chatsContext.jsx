@@ -13,7 +13,15 @@ const check_key_exists = async (setPreferences, preferences) => {
 };
 
 function uuid() {
-  return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && crypto.randomUUID) {
+    return crypto.randomUUID();
+  }
+  // Fallback for non-secure contexts (HTTP)
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+    const r = (Math.random() * 16) | 0;
+    const v = c === "x" ? r : (r & 0x3) | 0x8;
+    return v.toString(16);
+  });
 }
 
 const WELCOME_MESSAGES = [
@@ -149,6 +157,19 @@ export const MODELS = [
     icon: "🐇",
     description: "Tiny but fast. Best for simple, quick queries.",
   },
+];
+
+// ── Default AI Tools ────────────────────────────────────────────
+export const DEFAULT_AI_TOOLS = [
+  { id: "improve", label: "Improve", icon: "✨", prompt: "Improve and polish this text: " },
+  { id: "explain", label: "Explain", icon: "💡", prompt: "Explain this concept in simple terms: " },
+  { id: "grammar", label: "Fix Grammar", icon: "📝", prompt: "Fix the grammar and spelling: " },
+  { id: "proTone", label: "Pro Tone", icon: "💼", prompt: "Rewrite in a professional tone: " },
+  { id: "debug", label: "Debug", icon: "🐛", prompt: "Help me debug this code: " },
+  { id: "writecode", label: "Write Code", icon: "💻", prompt: "Write code for: " },
+  { id: "analyze", label: "Analyze", icon: "📊", prompt: "Analyze this data and provide insights: " },
+  { id: "clear", label: "Clear Context", icon: "🗑️", cmd: "//>clear" },
+  { id: "stats", label: "Session Stats", icon: "📈", cmd: "//>stats" },
 ];
 
 // ── Themes ──────────────────────────────────────────────────────
@@ -305,6 +326,39 @@ export function ChatsProvider({ children }) {
     setSettings((prev) =>
       prev.activeSkillId === id ? { ...prev, activeSkillId: "general" } : prev
     );
+  }, []);
+
+  // ── AI Tools ─────────────────────────────────────────────────────────
+  const [aiTools, setAiTools] = useState(() => {
+    try {
+      const stored = localStorage.getItem("ChatForge_AITools");
+      return stored ? JSON.parse(stored) : DEFAULT_AI_TOOLS;
+    } catch { return DEFAULT_AI_TOOLS; }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ChatForge_AITools", JSON.stringify(aiTools));
+  }, [aiTools]);
+
+  const addAITool = useCallback((tool) => {
+    const newTool = {
+      id: `tool_${uuid()}`,
+      label: tool.label || "Custom Tool",
+      icon: tool.icon || "🔧",
+      prompt: tool.prompt || "",
+      cmd: tool.cmd || "",
+      isCustom: true,
+    };
+    setAiTools((prev) => [...prev, newTool]);
+    return newTool.id;
+  }, []);
+
+  const updateAITool = useCallback((id, updates) => {
+    setAiTools((prev) => prev.map((t) => (t.id === id ? { ...t, ...updates } : t)));
+  }, []);
+
+  const deleteAITool = useCallback((id) => {
+    setAiTools((prev) => prev.filter((t) => t.id !== id));
   }, []);
 
   // ── Pinned Sessions ─────────────────────────────────────────────────
@@ -536,6 +590,12 @@ export function ChatsProvider({ children }) {
         clearAllSessions,
         importSessions,
         editMessage,
+        // ai tools
+        aiTools,
+        setAiTools,
+        addAITool,
+        updateAITool,
+        deleteAITool,
         // pinned sessions
         pinnedSessions,
         pinSession,

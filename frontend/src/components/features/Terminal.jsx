@@ -61,54 +61,7 @@ export const AnimatedSpan = ({ children, delay = 0, className, ...props }) => (
   </motion.div>
 );
 
-// ──────────────────────────────────────────────────────────────
-// Command palette data
-// ──────────────────────────────────────────────────────────────
-const COMMANDS = [
-  { cmd: "//>clear", desc: "Clear current chat history", icon: "🗑" },
-  { cmd: "//>new", desc: "Start a new chat session", icon: "✨" },
-  { cmd: "//>summarize", desc: "Summarize this conversation", icon: "📋" },
-  { cmd: "//>translate", desc: "Translate text", icon: "🌍" },
-  { cmd: "//>quiz", desc: "Generate a quiz (e.g. //>quiz React)", icon: "🎯" },
-  { cmd: "//>flashcards", desc: "Generate flashcards (e.g. //>flashcards Python)", icon: "🎴" },
-  { cmd: "//>mindmap", desc: "Generate a mindmap (e.g. //>mindmap AI)", icon: "🧠" },
-  { cmd: "//>retry", desc: "Retry the last message", icon: "🔄" },
-  { cmd: "//>stats", desc: "Show session statistics", icon: "📊" },
-  { cmd: "//>export", desc: "Export this chat as .txt file", icon: "📤" },
-  { cmd: "//>help", desc: "Show keyboard shortcuts & tips", icon: "❓" },
-  { cmd: "//>skill", desc: "Show current AI skill info", icon: "🤖" },
-  { cmd: "//>model", desc: "Show current AI model info", icon: "🧠" },
-];
 
-const TOOL_GROUPS = [
-  // Group 1 — Writing & Polish
-  [
-    { id: "improve", label: "Improve", icon: Wand2, prompt: "Improve and polish this text: " },
-    { id: "explain", label: "Explain", icon: Lightbulb, prompt: "Explain this concept in simple terms: " },
-    { id: "grammar", label: "Fix Grammar", icon: PenLine, prompt: "Fix the grammar and spelling: " },
-    { id: "proTone", label: "Pro Tone", icon: Briefcase, prompt: "Rewrite in a professional tone: " },
-  ],
-  // Group 2 — Formatting & Drafts
-  [
-    { id: "bullets", label: "Bullet Pts", icon: List, prompt: "Convert this to bullet points: " },
-    { id: "email", label: "Draft Email", icon: Mail, prompt: "Draft a professional email for: " },
-    { id: "qa", label: "Q&A", icon: MessageSquare, prompt: "Answer these questions clearly: " },
-    { id: "stories", label: "Storytell", icon: Sparkles, prompt: "Write a creative story about: " },
-  ],
-  // Group 3 — Dev & Architecture
-  [
-    { id: "debug", label: "Debug", icon: Bug, prompt: "Help me debug this code: " },
-    { id: "writecode", label: "Write Code", icon: Code2, prompt: "Write code for: " },
-    { id: "mindmap", label: "Mindmap", icon: Network, prompt: "Create a mindmap outline for: " },
-    { id: "refactor", label: "Refactor", icon: GitMerge, prompt: "Suggest a better structure for: " },
-  ],
-  // Group 4 — Analysis & Planning
-  [
-    { id: "analyze", label: "Analyze", icon: PieChart, prompt: "Analyze this data and provide insights: " },
-    { id: "plan", label: "Plan", icon: Target, prompt: "Create an action plan for: " },
-    { id: "brainstorm", label: "Brainstorm", icon: Zap, prompt: "Generate creative ideas for: " },
-  ]
-];
 
 
 // ──────────────────────────────────────────────────────────────
@@ -139,6 +92,7 @@ export const Terminal = ({
     customSkills,
     promptHistory,
     addToPromptHistory,
+    aiTools,
   } = useContext(chatsContext);
 
   const allSkills = [...SKILLS, ...(customSkills || [])];
@@ -276,14 +230,35 @@ export const Terminal = ({
       setQuery("");
       setCharCount(0);
     } else if (tool.prompt) {
-      // Prompt injection
-      const newVal = tool.prompt;
-      setQuery(newVal);
-      setCharCount(newVal.length);
-      setTimeout(() => {
-        textareaRef.current?.focus();
-        resizeTextarea();
-      }, 0);
+      // Power action: If user has typed something, submit immediately
+      if (query.trim().length > 0) {
+        const fullPrompt = `${tool.prompt}\n\n${query.trim()}`;
+        handleSend({ target: { value: fullPrompt } });
+        setQuery("");
+        setCharCount(0);
+      } else {
+        // If empty, grab the last AI message as context
+        const lastChat = [...chats].reverse().find((c) => c.type === "ch" && c.answer);
+        if (lastChat && lastChat.answer) {
+          const contextText = lastChat.answer.length > 800 ? lastChat.answer.substring(0, 800) + "\n...[truncated]" : lastChat.answer;
+          const combined = `${tool.prompt}\n\n"${contextText}"`;
+          setQuery(combined);
+          setCharCount(combined.length);
+          setTimeout(() => {
+            textareaRef.current?.focus();
+            resizeTextarea();
+          }, 0);
+        } else {
+          // Fallback if no context available
+          const newVal = tool.prompt;
+          setQuery(newVal);
+          setCharCount(newVal.length);
+          setTimeout(() => {
+            textareaRef.current?.focus();
+            resizeTextarea();
+          }, 0);
+        }
+      }
     }
   };
 
@@ -627,7 +602,7 @@ export const Terminal = ({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="border-b overflow-hidden"
+              className="sticky top-[53px] z-30 border-b overflow-hidden"
               style={{ borderColor: "rgba(0,245,255,0.1)", background: "rgba(0,245,255,0.02)" }}
             >
               <div className="px-4 py-2 flex items-center justify-between gap-3">
@@ -767,22 +742,20 @@ export const Terminal = ({
                         transition={{ duration: 0.2 }}
                         className="overflow-hidden"
                       >
-                        <div className="ai-tool-bar flex-col items-start gap-2 pt-1" ref={toolbarScrollRef}>
-                          {TOOL_GROUPS.map((group, gi) => (
-                            <div key={gi} className="flex flex-wrap items-center gap-2">
-                              {group.map((tool) => (
-                                <button
-                                  key={tool.id}
-                                  onClick={() => handleToolClick(tool)}
-                                  className="ai-tool-btn"
-                                  title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
-                                >
-                                  <tool.icon size={10} />
-                                  <span>{tool.label}</span>
-                                </button>
-                              ))}
-                            </div>
-                          ))}
+                        <div className="ai-tool-bar" ref={toolbarScrollRef}>
+                          <div className="ai-tool-group">
+                            {aiTools.map((tool) => (
+                              <button
+                                key={tool.id}
+                                onClick={() => handleToolClick(tool)}
+                                className="ai-tool-btn group"
+                                title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
+                              >
+                                <span className="text-[11px] transition-transform group-hover:scale-110 flex items-center">{tool.icon}</span>
+                                <span>{tool.label}</span>
+                              </button>
+                            ))}
+                          </div>
                         </div>
                       </motion.div>
                     )}
