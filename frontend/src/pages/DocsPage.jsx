@@ -27,6 +27,7 @@ import {
     MousePointerClick,
     AlignLeft,
     LayoutList,
+    Layers,
     Smile,
     Sparkles,
     Gauge,
@@ -72,6 +73,9 @@ const THEMES = [
 const COMMANDS = [
     { cmd: "//>summarize", desc: "AI summarizes the entire current conversation into bullet points." },
     { cmd: "//>translate", desc: "Switch to Translator mode and start translating text." },
+    { cmd: "//>quiz [topic]", desc: "Generates an interactive multiple choice quiz about the given topic." },
+    { cmd: "//>flashcards [topic]", desc: "Generates interactive study flashcards about the topic." },
+    { cmd: "//>mindmap [topic]", desc: "Creates a visual mindmap structure for exploring the topic." },
     { cmd: "//>help", desc: "Shows a Markdown table of all available commands and shortcuts." },
     { cmd: "//>skill", desc: "The active AI skill describes itself and gives 3 example prompts." },
     { cmd: "//>model", desc: "The active AI model introduces itself and its strengths." },
@@ -378,6 +382,7 @@ export function DocsPage() {
                                 { icon: <Star size={16} />, title: "Star Message", color: "pink", desc: "Adds a glowing neon border to the message, making it easy to spot when scrolling through long conversations." },
                                 { icon: <Eye size={16} />, title: "Raw Markdown", color: "cyan", desc: "Toggle between rendered Markdown and the raw source text. Useful when the renderer mangles tables or code." },
                                 { icon: <Copy size={16} />, title: "Copy Response", color: "green", desc: "Instantly copies the full AI response text to your clipboard. A ✓ flash confirms the copy." },
+                                { icon: <Layers size={16} />, title: "Multi-Drafts", color: "cyan", desc: "Toggle multiple drafts above the input to generate 3 AI responses simultaneously. Choose the best, or use AI to merge and summarize them." },
                                 { icon: <Terminal size={16} />, title: "Avatars", color: "pink", desc: "Enable 'Message avatars' in Settings → Interface to show user and AI avatar icons on every message block." },
                             ].map(({ icon, title, color, desc }) => (
                                 <Card key={title} glow>
