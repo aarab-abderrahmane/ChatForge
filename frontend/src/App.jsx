@@ -3,6 +3,8 @@ import "./index.css";
 
 import { Terminal } from "./components/features/Terminal";
 import { DocsPage } from "./pages/DocsPage";
+import { WorkspaceDashboard } from "./pages/WorkspaceDashboard";
+import { WorkspaceView } from "./pages/WorkspaceView";
 import { chatsContext, SKILLS, MODELS, THEMES } from "./context/chatsContext";
 import { api } from "./services/api";
 
@@ -507,6 +509,10 @@ No preamble, no extra text.`,
       <div className="relative z-10 w-screen h-screen flex justify-center items-center">
         {preferences.currentPage === "docs" ? (
           <DocsPage />
+        ) : preferences.currentPage === "workspaces" ? (
+          <WorkspaceDashboard />
+        ) : preferences.currentPage === "workspace_view" ? (
+          <WorkspaceView />
         ) : (
           <Terminal
             copyToClipboard={copyToClipboard}

@@ -575,6 +575,21 @@ export const Terminal = ({
               </button>
             )}
 
+            {/* Workspaces Link */}
+            <button
+              onClick={() => {
+                setPreferences((prev) => ({
+                  ...prev,
+                  _prevPage: prev.currentPage,
+                  currentPage: "workspaces",
+                }));
+              }}
+              className="btn-ghost"
+              title="Workspaces"
+            >
+              <Briefcase size={14} />
+            </button>
+
             {/* Docs Page Link */}
             <button
               onClick={() => {
