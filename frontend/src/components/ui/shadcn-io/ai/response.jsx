@@ -21,7 +21,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import { CodeBlock, CodeBlockCopyButton } from './code-block';
+import { CodeBlock, CodeBlockCopyButton, CodeBlockContext } from './code-block';
 import { MermaidBlock } from './mermaid-block';
 import { QuizBlock } from './quiz-block';
 import { FlashcardBlock } from './flashcard-block';

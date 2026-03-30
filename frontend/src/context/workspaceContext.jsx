@@ -125,6 +125,24 @@ export function WorkspaceProvider({ children }) {
         );
     }, [activeWorkspaceId]);
 
+    const completeTaskByTitle = useCallback((title) => {
+        if (!activeWorkspaceId) return;
+        setWorkspaces((prev) =>
+            prev.map((ws) => {
+                if (ws.id === activeWorkspaceId) {
+                    const normalizedTitle = title.trim().toLowerCase();
+                    const updatedTasks = ws.tasks.map(t =>
+                        t.title.trim().toLowerCase() === normalizedTitle
+                            ? { ...t, status: "completed" }
+                            : t
+                    );
+                    return { ...ws, tasks: updatedTasks };
+                }
+                return ws;
+            })
+        );
+    }, [activeWorkspaceId]);
+
     const deleteTask = useCallback((taskId) => {
         if (!activeWorkspaceId) return;
         setWorkspaces((prev) =>
@@ -143,8 +161,19 @@ export function WorkspaceProvider({ children }) {
         setWorkspaces((prev) =>
             prev.map((ws) => {
                 if (ws.id === activeWorkspaceId) {
-                    const newOutput = { id: uuid(), filename, content, createdAt: new Date().toISOString() };
-                    return { ...ws, outputs: [...ws.outputs, newOutput] };
+                    const existingIndex = ws.outputs.findIndex(o => o.filename === filename);
+                    if (existingIndex >= 0) {
+                        const updatedOutputs = [...ws.outputs];
+                        updatedOutputs[existingIndex] = {
+                            ...updatedOutputs[existingIndex],
+                            content,
+                            updatedAt: new Date().toISOString()
+                        };
+                        return { ...ws, outputs: updatedOutputs };
+                    } else {
+                        const newOutput = { id: uuid(), filename, content, createdAt: new Date().toISOString() };
+                        return { ...ws, outputs: [...ws.outputs, newOutput] };
+                    }
                 }
                 return ws;
             })
@@ -189,6 +218,7 @@ export function WorkspaceProvider({ children }) {
                 deleteWorkspace,
                 addTask,
                 updateTaskStatus,
+                completeTaskByTitle,
                 deleteTask,
                 saveOutput,
                 deleteOutput,
