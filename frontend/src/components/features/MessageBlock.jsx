@@ -151,6 +151,13 @@ export function MessageBlock({
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
+          {/* Router Badge */}
+          {obj.provider && (
+            <span className={`router-badge provider-${obj.provider}`} title={`Served by ${obj.provider}`}>
+              {obj.provider === "groq" ? "⚡ Groq" : obj.provider === "gemini" ? "🧠 Gemini" : "🌐 OpenRouter"}
+            </span>
+          )}
+
           {/* Star indicator */}
           {isStarred && (
             <span style={{ fontSize: 10, color: "#ffd700" }} title="Starred">⭐</span>

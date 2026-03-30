@@ -145,7 +145,8 @@ function App() {
           top_p: settings.topP,
           frequency_penalty: settings.frequencyPenalty,
           presence_penalty: settings.presencePenalty,
-          max_tokens: settings.maxTokens
+          max_tokens: settings.maxTokens || 2048,
+          routingMode: settings.routingMode || "smart",
         },
         signal
       );
@@ -174,6 +175,22 @@ function App() {
 
           try {
             const data = JSON.parse(dataStr);
+
+            // Capture provider badge from final server event
+            if (data.done && data.provider) {
+              setChats((prev) =>
+                prev.map((obj) =>
+                  obj.id === id ? { ...obj, provider: data.provider } : obj
+                )
+              );
+              continue;
+            }
+
+            // Error event
+            if (data.error) {
+              throw new Error(data.error);
+            }
+
             const content = data.choices?.[0]?.delta?.content || "";
             if (content) {
               fullContent += content;
@@ -191,7 +208,9 @@ function App() {
                 })
               );
             }
-          } catch (e) { }
+          } catch (e) {
+            if (e.message && e.message !== "undefined") throw e;
+          }
         }
       }
     } catch (error) {

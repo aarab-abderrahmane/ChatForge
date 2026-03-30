@@ -4,8 +4,10 @@ import { api } from "../services/api";
 export const chatsContext = createContext();
 
 const check_key_exists = async (setPreferences, preferences) => {
-  const data = await api.checkKeyExists(preferences.userId);
-  if (data.exists) {
+  // Check if any provider key exists (multi-key aware)
+  const status = await api.getKeysStatus(preferences.userId);
+  const hasAnyKey = status.openrouter || status.groq || status.gemini;
+  if (hasAnyKey) {
     setPreferences((prev) => ({ ...prev, currentPage: "chat" }));
   } else {
     setPreferences((prev) => ({ ...prev, currentPage: "guide" }));
@@ -248,12 +250,15 @@ const defaultSettings = {
   topP: 1.0,
   frequencyPenalty: 0.0,
   presencePenalty: 0.0,
-  maxTokens: 2048,
   systemPromptPrefix: "",     // appended to every skill system prompt
+  routingMode: "smart",       // 'smart' | 'groq' | 'gemini' | 'openrouter'
 };
 
 export function ChatsProvider({ children }) {
   const [loading, setLoading] = useState(false);
+
+  // ── Provider status (which AI providers are configured) ─────────────
+  const [providerStatus, setProviderStatus] = useState({ openrouter: false, groq: false, gemini: false });
 
   // ── Preferences (userId, currentPage) ──────────────────────────────
   const defaultPreferences = {
@@ -549,10 +554,12 @@ export function ChatsProvider({ children }) {
     setChats(WELCOME_MESSAGES);
   }, [setChats]);
 
-  // ── Key check on mount ──────────────────────────────────────────────
+  // ── Key check + provider status on mount ────────────────────────────
   useEffect(() => {
     const run = async () => {
       await check_key_exists(setPreferences, preferences);
+      const status = await api.getKeysStatus(preferences.userId);
+      setProviderStatus(status);
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -605,6 +612,9 @@ export function ChatsProvider({ children }) {
         // prompt history
         promptHistory,
         addToPromptHistory,
+        // provider status
+        providerStatus,
+        setProviderStatus,
       }}
     >
       {children}

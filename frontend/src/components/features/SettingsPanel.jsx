@@ -33,8 +33,14 @@ import {
   Layers,
   Wrench,
   Smile,
+  CheckCircle,
+  AlertCircle,
+  Loader,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 import { chatsContext, SKILLS, MODELS, THEMES } from "../../context/chatsContext";
+import { api } from "../../services/api";
 
 // ── Inline Toggle ────────────────────────────────────────────
 function Toggle({ value, onToggle }) {
@@ -320,6 +326,7 @@ const TABS = [
   { id: "tools", label: "Tools", icon: Wrench },
   { id: "interface", label: "Interface", icon: Settings2 },
   { id: "data", label: "Data", icon: Database },
+  { id: "keys", label: "Keys", icon: Key },
 ];
 
 // ── Main Settings Panel ───────────────────────────────────────
@@ -328,6 +335,7 @@ export function SettingsPanel({ onClose }) {
     settings,
     setSettings,
     setPreferences,
+    preferences,
     sessions,
     clearCurrentChat,
     clearAllSessions,
@@ -339,15 +347,44 @@ export function SettingsPanel({ onClose }) {
     addAITool,
     updateAITool,
     deleteAITool,
+    providerStatus,
+    setProviderStatus,
   } = useContext(chatsContext);
 
   const [activeTab, setActiveTab] = useState("appearance");
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [showToolForm, setShowToolForm] = useState(false);
   const [editingTool, setEditingTool] = useState(null);
+  const [showRouting, setShowRouting] = useState(false);
   const [showModels, setShowModels] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fileInputRef = useRef(null);
+
+  // ── Keys tab state ────────────────────────────────────────────
+  const [keyValues, setKeyValues] = useState({ openrouter: "", groq: "", gemini: "" });
+  const [keyVisible, setKeyVisible] = useState({ openrouter: false, groq: false, gemini: false });
+  const [keySaving, setKeySaving] = useState({ openrouter: false, groq: false, gemini: false });
+  const [keyResults, setKeyResults] = useState({});
+
+  const handleSaveKey = async (provider) => {
+    const key = keyValues[provider]?.trim();
+    if (!key) return;
+    setKeySaving((p) => ({ ...p, [provider]: true }));
+    setKeyResults((p) => ({ ...p, [provider]: null }));
+    try {
+      const res = await api.saveKeys(preferences.userId, { [provider]: key });
+      const result = res?.results?.[provider];
+      setKeyResults((p) => ({ ...p, [provider]: result }));
+      if (result?.ok) {
+        setProviderStatus((p) => ({ ...p, [provider]: true }));
+        setPreferences((p) => ({ ...p, currentPage: "chat" }));
+      }
+    } catch {
+      setKeyResults((p) => ({ ...p, [provider]: { ok: false, error: "Network error" } }));
+    } finally {
+      setKeySaving((p) => ({ ...p, [provider]: false }));
+    }
+  };
 
   const toggle = (key) => setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
 
@@ -749,8 +786,74 @@ export function SettingsPanel({ onClose }) {
                     })}
                   </div>
 
+                  {/* Routing Strategy */}
+                  <SectionHeader label="Routing Strategy" actionLabel={settings.routingMode === "smart" ? "⚡ Auto" : "🔒 Forced"} />
+
+                  <button
+                    id="routing-picker-toggle"
+                    onClick={() => setShowRouting((p) => !p)}
+                    className="w-full flex items-center justify-between px-3 py-2 hover:bg-white/5 transition-all mb-2"
+                  >
+                    <div className="flex items-center gap-2">
+                      <span style={{ fontSize: 16 }}>
+                        {settings.routingMode === "smart" ? "🔄" : settings.routingMode === "groq" ? "⚡" : settings.routingMode === "gemini" ? "🧠" : "🌐"}
+                      </span>
+                      <span className="text-xs font-bold" style={{ color: "var(--neon-green)" }}>
+                        {settings.routingMode === "smart" ? "Smart Router (Auto)" : settings.routingMode === "groq" ? "Force Groq" : settings.routingMode === "gemini" ? "Force Gemini" : "Force OpenRouter"}
+                      </span>
+                    </div>
+                    {showRouting
+                      ? <ChevronUp size={12} style={{ color: "rgba(200,255,192,0.3)" }} />
+                      : <ChevronDown size={12} style={{ color: "rgba(200,255,192,0.3)" }} />}
+                  </button>
+
+                  <AnimatePresence>
+                    {showRouting && (
+                      <motion.div
+                        initial={{ opacity: 0, height: 0 }}
+                        animate={{ opacity: 1, height: "auto" }}
+                        exit={{ opacity: 0, height: 0 }}
+                        transition={{ duration: 0.2 }}
+                        className="overflow-hidden mb-4"
+                      >
+                        <div className="px-3 pb-3 flex flex-col gap-1.5">
+                          {[
+                            { id: "smart", label: "Smart Router (Auto)", icon: "🔄", desc: "Shorts → Groq, Code → Gemini, Long → OpenRouter." },
+                            { id: "groq", label: "Force Groq", icon: "⚡", desc: "Send everything to Groq (requires Groq key)." },
+                            { id: "gemini", label: "Force Gemini", icon: "🧠", desc: "Send everything to Gemini (requires Gemini key)." },
+                            { id: "openrouter", label: "Force OpenRouter", icon: "🌐", desc: "Send everything to OpenRouter (mandatory fallback)." },
+                          ].map((route) => {
+                            const isActive = settings.routingMode === route.id;
+                            const isMissingKey = route.id !== "smart" && !providerStatus[route.id];
+                            return (
+                              <div
+                                key={route.id}
+                                onClick={() => !isMissingKey && setSettings((prev) => ({ ...prev, routingMode: route.id }))}
+                                className={`flex items-center gap-3 p-2 rounded-lg border transition-all ${isMissingKey ? "opacity-40 cursor-not-allowed" : "cursor-pointer hover:bg-white/5"}`}
+                                style={{
+                                  background: isActive ? "rgba(57,255,20,0.06)" : "rgba(255,255,255,0.02)",
+                                  borderColor: isActive ? "var(--neon-green)" : "rgba(255,255,255,0.05)",
+                                }}
+                              >
+                                <span style={{ fontSize: 16 }}>{route.icon}</span>
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-[11px] font-semibold" style={{ color: isActive ? "var(--neon-green)" : "rgba(200,255,192,0.8)" }}>{route.label}</span>
+                                    {isMissingKey && <span className="text-[7px] text-[var(--neon-magenta)] border border-[var(--neon-magenta)] px-1 rounded uppercase">key missing</span>}
+                                  </div>
+                                  <div className="text-[9px]" style={{ color: "rgba(200,255,192,0.3)" }}>{route.desc}</div>
+                                </div>
+                                {isActive && <span className="text-[8px] px-1.5 py-0.5 rounded" style={{ background: "rgba(57,255,20,0.1)", color: "var(--neon-green)" }}>active</span>}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </motion.div>
+                    )}
+                  </AnimatePresence>
+
                   {/* AI Model */}
-                  <SectionHeader label="AI Intelligence / Model" />
+                  <SectionHeader label="OpenRouter Fallback Model" />
 
                   <button
                     id="model-picker-toggle"
@@ -1124,6 +1227,154 @@ export function SettingsPanel({ onClose }) {
                   >
                     <Key size={14} style={{ color: "var(--neon-magenta)" }} />
                     <span className="flex-1 text-xs" style={{ color: "rgba(255,45,120,0.7)" }}>Reset API key</span>
+                  </div>
+                </>
+              )}
+
+              {/* ════════════════════════════════════════════
+                  TAB: KEYS
+              ════════════════════════════════════════════ */}
+              {activeTab === "keys" && (
+                <>
+                  {/* Info banner */}
+                  <div className="mx-3 mt-3 mb-1 p-3 rounded-lg border" style={{ borderColor: "rgba(0,245,255,0.15)", background: "rgba(0,245,255,0.04)" }}>
+                    <p className="text-[10px] leading-relaxed" style={{ color: "rgba(200,255,192,0.6)" }}>
+                      🔑 You provide your own API keys — they are encrypted and stored securely.
+                      <br />
+                      <span style={{ color: "var(--neon-cyan)" }}>OpenRouter</span> is <strong>required</strong>.
+                      &nbsp;<span style={{ color: "rgba(200,255,192,0.5)" }}>Groq</span> and <span style={{ color: "rgba(200,255,192,0.5)" }}>Gemini</span> are optional but enable smarter routing.
+                    </p>
+                  </div>
+
+                  {/* Provider blocks */}
+                  {[
+                    {
+                      id: "openrouter",
+                      label: "OpenRouter",
+                      icon: "🌐",
+                      required: true,
+                      placeholder: "sk-or-v1-...",
+                      hint: "Required. Powers the primary AI fallback chain.",
+                      link: "https://openrouter.ai/settings/keys",
+                    },
+                    {
+                      id: "groq",
+                      label: "Groq",
+                      icon: "⚡",
+                      required: false,
+                      placeholder: "gsk_...",
+                      hint: "Optional. Used for short & fast queries.",
+                      link: "https://console.groq.com/keys",
+                    },
+                    {
+                      id: "gemini",
+                      label: "Gemini",
+                      icon: "🧠",
+                      required: false,
+                      placeholder: "AIza...",
+                      hint: "Optional. Used for code & programming tasks.",
+                      link: "https://aistudio.google.com/app/apikey",
+                    },
+                  ].map((prov) => {
+                    const isActive = providerStatus[prov.id];
+                    const result = keyResults[prov.id];
+                    const saving = keySaving[prov.id];
+                    const visible = keyVisible[prov.id];
+                    return (
+                      <div key={prov.id} className="mx-3 my-2 p-3 rounded-lg border" style={{ borderColor: isActive ? "rgba(57,255,20,0.2)" : "rgba(255,255,255,0.06)", background: "rgba(255,255,255,0.02)" }}>
+                        {/* Header row */}
+                        <div className="flex items-center justify-between mb-2">
+                          <div className="flex items-center gap-2">
+                            <span style={{ fontSize: 16 }}>{prov.icon}</span>
+                            <span className="text-xs font-bold" style={{ color: isActive ? "var(--neon-green)" : "rgba(200,255,192,0.7)" }}>
+                              {prov.label}
+                            </span>
+                            {prov.required && (
+                              <span className="text-[8px] px-1 rounded" style={{ background: "rgba(255,45,120,0.15)", color: "var(--neon-magenta)" }}>required</span>
+                            )}
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            {isActive ? (
+                              <span className="flex items-center gap-1 text-[9px]" style={{ color: "var(--neon-green)" }}>
+                                <CheckCircle size={10} /> Active
+                              </span>
+                            ) : (
+                              <span className="flex items-center gap-1 text-[9px]" style={{ color: "rgba(200,255,192,0.3)" }}>
+                                <AlertCircle size={10} /> Not set
+                              </span>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Input */}
+                        <div className="flex gap-2 mb-1">
+                          <div className="relative flex-1">
+                            <input
+                              type={visible ? "text" : "password"}
+                              placeholder={prov.placeholder}
+                              value={keyValues[prov.id]}
+                              onChange={(e) => setKeyValues((p) => ({ ...p, [prov.id]: e.target.value }))}
+                              className="w-full bg-transparent border rounded px-2 pr-7 text-[10px] outline-none"
+                              style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.9)", height: 30, fontFamily: "monospace" }}
+                              onKeyDown={(e) => e.key === "Enter" && handleSaveKey(prov.id)}
+                            />
+                            <button
+                              onClick={() => setKeyVisible((p) => ({ ...p, [prov.id]: !p[prov.id] }))}
+                              className="absolute right-1.5 top-1/2 -translate-y-1/2"
+                              style={{ color: "rgba(200,255,192,0.3)" }}
+                            >
+                              {visible ? <EyeOff size={11} /> : <Eye size={11} />}
+                            </button>
+                          </div>
+                          <button
+                            disabled={!keyValues[prov.id]?.trim() || saving}
+                            onClick={() => handleSaveKey(prov.id)}
+                            className="px-3 rounded text-[9px] font-bold uppercase tracking-widest transition-all flex items-center gap-1"
+                            style={{
+                              height: 30,
+                              background: keyValues[prov.id]?.trim() ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.03)",
+                              color: keyValues[prov.id]?.trim() ? "var(--neon-green)" : "rgba(200,255,192,0.2)",
+                              border: `1px solid ${keyValues[prov.id]?.trim() ? "var(--neon-green)" : "rgba(255,255,255,0.05)"}`,
+                              cursor: keyValues[prov.id]?.trim() && !saving ? "pointer" : "not-allowed",
+                            }}
+                          >
+                            {saving ? <Loader size={10} className="animate-spin" /> : "Save"}
+                          </button>
+                        </div>
+
+                        {/* Feedback */}
+                        {result && (
+                          <div className="text-[9px] mt-1" style={{ color: result.ok ? "var(--neon-green)" : "rgba(255,45,120,0.8)" }}>
+                            {result.ok ? "✓ Key saved successfully" : `✗ ${result.error}`}
+                          </div>
+                        )}
+
+                        {/* Hint + link */}
+                        <div className="flex items-center justify-between mt-1.5">
+                          <span className="text-[9px]" style={{ color: "rgba(200,255,192,0.3)" }}>{prov.hint}</span>
+                          <a href={prov.link} target="_blank" rel="noreferrer" className="text-[9px]" style={{ color: "var(--neon-cyan)" }}>Get key ↗</a>
+                        </div>
+                      </div>
+                    );
+                  })}
+
+                  {/* Smart Router info */}
+                  <div className="mx-3 mt-2 mb-3 p-3 rounded-lg border" style={{ borderColor: "rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.2)" }}>
+                    <div className="text-[9px] uppercase tracking-widest mb-2" style={{ color: "rgba(200,255,192,0.3)" }}>Smart Router</div>
+                    <div className="flex flex-col gap-1.5">
+                      <div className="flex items-center gap-2 text-[9px]" style={{ color: "rgba(200,255,192,0.5)" }}>
+                        <span>⚡</span><span><strong style={{ color: "rgba(200,255,192,0.8)" }}>Short messages</strong> → Groq (fastest)</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px]" style={{ color: "rgba(200,255,192,0.5)" }}>
+                        <span>🧠</span><span><strong style={{ color: "rgba(200,255,192,0.8)" }}>Code &amp; programming</strong> → Gemini</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px]" style={{ color: "rgba(200,255,192,0.5)" }}>
+                        <span>🌐</span><span><strong style={{ color: "rgba(200,255,192,0.8)" }}>Creative &amp; long text</strong> → OpenRouter</span>
+                      </div>
+                      <div className="flex items-center gap-2 text-[9px] mt-1 pt-1" style={{ color: "rgba(200,255,192,0.3)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                        <span>🔄</span><span>If a provider fails, it auto-falls back to the next available one.</span>
+                      </div>
+                    </div>
                   </div>
                 </>
               )}

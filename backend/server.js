@@ -1,138 +1,112 @@
 import cors from "cors";
-// import dotenv from "dotenv";
-
-
-// import {client,connectDB} from './db.js'
-// dotenv.config();
-
-import express from "express"
-import { connectDB } from "./db.js"
+import express from "express";
+import { connectDB } from "./db.js";
+import { askGroq, validateGroqKey } from "./groqClient.js";
+import { askGeminiStream, validateGeminiKey } from "./geminiClient.js";
 
 const app = express();
 app.use(cors());
-
 app.use(express.json());
 
-
-
-
-export async function saveUserKey(encryptedKey, userId) {
-
-  const client = await connectDB()
-
-  const db = client.db(process.env.APP_NAME)
-  const collection = db.collection("apikeys") // like table in sql 
-
-
-
-  await collection.updateOne(
-    { userId },
-    { $set: { encryptedKey } }, // update key if the user already exist
-    { upsert: true } // add new key 
-  )
-
-
-  // fs.writeFileSync(
-  //   "keys.json",
-  //   JSON.stringify({ key: encryptedKey }, null, 2)
-  // );
-}
-
-
-
+// ─────────────────────────────────────────────
+// Crypto helpers
+// ─────────────────────────────────────────────
 export function encrypt(text) {
-
-  return Buffer.from(text).toString('base64')
+  return Buffer.from(text).toString("base64");
 }
 
 export function decrypt(text) {
-  return Buffer.from(text, "base64").toString('utf8')
+  return Buffer.from(text, "base64").toString("utf8");
 }
 
-
+// ─────────────────────────────────────────────
+// Single-key helpers (legacy — OpenRouter only)
+// ─────────────────────────────────────────────
+export async function saveUserKey(encryptedKey, userId) {
+  const client = await connectDB();
+  const db = client.db(process.env.APP_NAME);
+  await db.collection("apikeys").updateOne(
+    { userId },
+    { $set: { encryptedKey } },
+    { upsert: true }
+  );
+}
 
 export async function getUserKey(userId) {
   try {
-
-    const client = await connectDB()
-
-    const db = client.db(process.env.APP_NAME)
-    const collection = db.collection('apikeys');
-
-    const user = await collection.findOne({ userId: userId })
-    const decryptedkey = decrypt(user.encryptedKey).trim()
-
-
-    if (user) {
-
-      return { exists: true, res: decryptedkey }
-
-    } else {
-
-
-      return { exists: false, res: "User not found. Please provide a valid API key ⚠️." }
-
+    const client = await connectDB();
+    const db = client.db(process.env.APP_NAME);
+    const user = await db.collection("apikeys").findOne({ userId });
+    if (user && user.encryptedKey) {
+      return { exists: true, res: decrypt(user.encryptedKey).trim() };
     }
-
-  } catch (err) {
-
-    return { exists: false, res: "Unable to fetch user key due to a server error .Please try again later ❌." }
-
+    return { exists: false, res: "User not found. Please provide a valid API key ⚠️." };
+  } catch {
+    return { exists: false, res: "Unable to fetch user key. Please try again later ❌." };
   }
-  // if (!fs.existsSync("keys.json")) return "";
-
-  // const data = JSON.parse(fs.readFileSync("keys.json"));
-  // return decrypt(data.key);
 }
-
-
 
 export async function check_key_Exists(userId) {
   try {
-
-    const client = await connectDB()
-
-    const db = client.db(process.env.APP_NAME)
-    const collection = db.collection('apikeys');
-
-    const user = await collection.findOne({ userId: userId })
-
-
-    if (user && user.encryptedKey) {
-
-      return { exists: true, res: "key Exists" }
-
-    } else if (user && (!user.encryptedKey || user.encryptedKey.trim().length === 0)) {
-
-      return { exists: false, res: "User found, but API key is missing or empty." }
-
-    } else {
-
-
-      return { exists: false, res: "User not found. Please provide a valid API key ⚠️." }
-
-    }
-
-  } catch (err) {
-
-    return { exists: false, res: "Unable to fetch user key due to a server error .Please try again later ❌." }
-
+    const client = await connectDB();
+    const db = client.db(process.env.APP_NAME);
+    const user = await db.collection("apikeys").findOne({ userId });
+    if (user && user.encryptedKey) return { exists: true, res: "key Exists" };
+    return { exists: false, res: "User not found. Please provide a valid API key ⚠️." };
+  } catch {
+    return { exists: false, res: "Unable to fetch user key. Please try again later ❌." };
   }
-
 }
 
+// ─────────────────────────────────────────────
+// Multi-provider key helpers
+// ─────────────────────────────────────────────
+export async function saveUserKeys(userId, keys) {
+  const client = await connectDB();
+  const db = client.db(process.env.APP_NAME);
+  const update = {};
+  if (keys.openrouter !== undefined) update.encryptedKey = encrypt(keys.openrouter);
+  if (keys.groq !== undefined) update.encryptedGroq = encrypt(keys.groq);
+  if (keys.gemini !== undefined) update.encryptedGemini = encrypt(keys.gemini);
+  await db.collection("apikeys").updateOne(
+    { userId },
+    { $set: update },
+    { upsert: true }
+  );
+}
 
-// All reliable free models across different upstream providers
+export async function getUserKeys(userId) {
+  try {
+    const client = await connectDB();
+    const db = client.db(process.env.APP_NAME);
+    const user = await db.collection("apikeys").findOne({ userId });
+    if (!user) return { openrouter: null, groq: null, gemini: null };
+    return {
+      openrouter: user.encryptedKey ? decrypt(user.encryptedKey).trim() : null,
+      groq: user.encryptedGroq ? decrypt(user.encryptedGroq).trim() : null,
+      gemini: user.encryptedGemini ? decrypt(user.encryptedGemini).trim() : null,
+    };
+  } catch {
+    return { openrouter: null, groq: null, gemini: null };
+  }
+}
+
+// ─────────────────────────────────────────────
+// OpenRouter free models (fallback list)
+// ─────────────────────────────────────────────
 export const FREE_MODELS = [
-  "meta-llama/llama-3.3-70b-instruct:free",        // Venice / Together
-  "mistralai/mistral-small-3.1-24b-instruct:free",  // Mistral provider
-  "nousresearch/hermes-3-llama-3.1-405b:free",      // Nous / Together
-  "meta-llama/llama-3.1-405b-instruct:free",        // Together AI
-  "meta-llama/llama-3.2-3b-instruct:free",          // Lightweight fallback
-  "stepfun/step-3.5-flash:free",                    // StepFun provider
-  "arcee-ai/trinity-large-preview:free",             // Arcee provider
+  "meta-llama/llama-3.3-70b-instruct:free",
+  "mistralai/mistral-small-3.1-24b-instruct:free",
+  "nousresearch/hermes-3-llama-3.1-405b:free",
+  "meta-llama/llama-3.1-405b-instruct:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
+  "stepfun/step-3.5-flash:free",
+  "arcee-ai/trinity-large-preview:free",
 ];
 
+// ─────────────────────────────────────────────
+// OpenRouter call (streaming)
+// ─────────────────────────────────────────────
 export async function askAI(messages, key, options = {}) {
   const {
     models = FREE_MODELS,
@@ -142,17 +116,12 @@ export async function askAI(messages, key, options = {}) {
     top_p,
     frequency_penalty,
     presence_penalty,
-    max_tokens
+    max_tokens,
   } = options;
 
-  const fullMessages = [
-    { role: "system", content: systemPrompt },
-    ...messages
-  ];
-
+  const fullMessages = [{ role: "system", content: systemPrompt }, ...messages];
   const triedErrors = [];
 
-  // Sequential fallback: try each model one by one on our server
   for (const model of models) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -161,22 +130,22 @@ export async function askAI(messages, key, options = {}) {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          "Authorization": `Bearer ${key}`,
+          Authorization: `Bearer ${key}`,
           "Content-Type": "application/json",
           "HTTP-Referer": "http://localhost:5000",
-          "X-OpenRouter-Title": "ChatForge"
+          "X-OpenRouter-Title": "ChatForge",
         },
         body: JSON.stringify({
-          model: model,   // single model per request — we handle fallback ourselves
+          model,
           messages: fullMessages,
-          stream: stream,
-          temperature: temperature,
-          top_p: top_p,
-          frequency_penalty: frequency_penalty,
-          presence_penalty: presence_penalty,
-          max_tokens: max_tokens
+          stream,
+          temperature,
+          top_p,
+          frequency_penalty,
+          presence_penalty,
+          max_tokens,
         }),
-        signal: controller.signal
+        signal: controller.signal,
       });
 
       clearTimeout(timeout);
@@ -187,87 +156,163 @@ export async function askAI(messages, key, options = {}) {
         const msg = errorData?.error?.message || `HTTP ${response.status}`;
         console.warn(`[ChatForge] Model "${model}" failed (${code}): ${msg}`);
         triedErrors.push(`${model}: ${msg}`);
-
-        // Retryable / skip-to-next errors
         if ([400, 404, 429, 500, 503].includes(Number(code)) ||
           msg.includes("rate-limit") || msg.includes("Provider returned error") ||
-          msg.includes("No endpoints")) {
-          continue; // try the next model
-        }
-
-        // Non-retryable (e.g. auth error 401) — throw immediately
+          msg.includes("No endpoints")) continue;
         throw new Error(msg);
       }
 
-      console.log(`[ChatForge] ✓ Serving response via: ${model}`);
+      console.log(`[ChatForge] ✓ Serving via OpenRouter: ${model}`);
       return response;
-
     } catch (err) {
       clearTimeout(timeout);
-      if (err.name === 'AbortError') {
-        console.warn(`[ChatForge] Model "${model}" timed out, trying next...`);
+      if (err.name === "AbortError") {
         triedErrors.push(`${model}: timed out`);
         continue;
       }
-      // If it's our own throw from non-retryable, re-throw
-      if (!triedErrors.find(e => e.startsWith(model))) throw err;
-      // Otherwise continue to next model
+      if (!triedErrors.find((e) => e.startsWith(model))) throw err;
     }
   }
 
-  // All models exhausted
-  const summary = triedErrors.join(' | ');
-  console.error(`[ChatForge] All models failed: ${summary}`);
-  throw new Error(`All AI models are currently unavailable. Please try again later.`);
+  throw new Error("All AI models are currently unavailable. Please try again later.");
 }
 
+// ─────────────────────────────────────────────
+// Task-type detection
+// ─────────────────────────────────────────────
+const CODE_KEYWORDS = [
+  "function", "class ", "def ", "const ", "let ", "var ", "import ",
+  "export ", "return", "async ", "await ", "=>", "error", "bug", "debug",
+  "code", "script", "program", "compile", "syntax", "algorithm",
+  "```", "loop", "array", "object", "api", "http", "sql", "query",
+];
 
+function detectTaskType(text) {
+  const lower = text.toLowerCase();
+  const hasCode = CODE_KEYWORDS.some((kw) => lower.includes(kw));
+  if (hasCode) return "code";
+  if (text.trim().length < 80) return "short";
+  return "creative";
+}
 
-app.post("/api/chat", async (req, res) => {
-  const { userId, messages, skillPrompt, model, parameters } = req.body;
-  const keyStatus = await getUserKey(userId);
+// ─────────────────────────────────────────────
+// Smart Router — picks provider, then falls back
+// ─────────────────────────────────────────────
+/**
+ * Route a chat request to the best available provider.
+ * Returns { stream, provider } where:
+ *   - stream is a ReadableStream (for Groq/OpenRouter) or AsyncGenerator (for Gemini)
+ *   - provider is "groq" | "gemini" | "openrouter"
+ */
+export async function smartRouter(messages, keys, options = {}) {
+  const taskType = detectTaskType(messages[messages.length - 1]?.content || "");
 
-  if (!keyStatus.exists) {
-    return res.status(401).json({ response: `API key not found!`, type: "error" });
+  // Determine priority order based on task type OR forced routing mode
+  const routingMode = options.routingMode || "smart";
+  let order;
+
+  if (routingMode !== "smart") {
+    // User forced a specific provider. We still keep fallbacks just in case the forced one fails
+    if (routingMode === "groq") order = ["groq", "openrouter", "gemini"];
+    else if (routingMode === "gemini") order = ["gemini", "openrouter", "groq"];
+    else order = ["openrouter", "gemini", "groq"];
+  } else {
+    // Smart Router mode
+    if (taskType === "short") {
+      order = ["groq", "gemini", "openrouter"];
+    } else if (taskType === "code") {
+      order = ["gemini", "groq", "openrouter"];
+    } else {
+      // creative / long
+      order = ["openrouter", "gemini", "groq"];
+    }
   }
 
-  // Set headers for SSE (Streaming)
-  res.setHeader('Content-Type', 'text/event-stream');
-  res.setHeader('Cache-Control', 'no-cache');
-  res.setHeader('Connection', 'keep-alive');
+  const errors = [];
+
+  for (const provider of order) {
+    const key = keys[provider];
+    if (!key) {
+      errors.push(`${provider}: no key configured`);
+      continue;
+    }
+
+    try {
+      if (provider === "groq") {
+        const res = await askGroq(messages, key, options);
+        return { stream: res, provider: "groq", isGenerator: false };
+      }
+
+      if (provider === "gemini") {
+        const gen = askGeminiStream(messages, key, options);
+        return { stream: gen, provider: "gemini", isGenerator: true };
+      }
+
+      if (provider === "openrouter") {
+        const finalModels = options.model
+          ? [options.model, ...FREE_MODELS.filter((m) => m !== options.model)]
+          : FREE_MODELS;
+        const res = await askAI(messages, key, { ...options, models: finalModels, stream: true });
+        return { stream: res, provider: "openrouter", isGenerator: false };
+      }
+    } catch (err) {
+      console.warn(`[SmartRouter] ${provider} failed: ${err.message}`);
+      errors.push(`${provider}: ${err.message}`);
+      // continue to next provider
+    }
+  }
+
+  throw new Error(
+    `All providers failed. Please check your API keys in Settings.\n${errors.join(" | ")}`
+  );
+}
+
+// ─────────────────────────────────────────────
+// POST /api/chat — main chat endpoint
+// ─────────────────────────────────────────────
+app.post("/api/chat", async (req, res) => {
+  const { userId, messages, skillPrompt, model, parameters } = req.body;
+
+  const keys = await getUserKeys(userId);
+
+  // Must have at least one key
+  if (!keys.openrouter && !keys.groq && !keys.gemini) {
+    return res.status(401).json({ response: "No API keys found! Please add at least one key in Settings.", type: "error" });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
   res.flushHeaders();
 
   try {
-    // Build the Model Fallback List
-    // We prioritize the user's choice, then add highly stable free models as backups
-    // Start with user-chosen model, then fall back through all free models
-    const finalModels = model
-      ? [model, ...FREE_MODELS.filter(m => m !== model)]
-      : FREE_MODELS;
-
     const options = {
-      models: finalModels,
       systemPrompt: skillPrompt || "You are ChatForge AI.",
-      stream: true,
-      ...(parameters || {})
+      model,
+      ...(parameters || {}),
     };
 
-    const aiRes = await askAI(messages, keyStatus.res, options);
+    const { stream, provider, isGenerator } = await smartRouter(messages, keys, options);
 
-    // Read the stream from OpenRouter...
-    const reader = aiRes.body.getReader();
-    const decoder = new TextDecoder();
-
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-
-      const chunk = decoder.decode(value, { stream: true });
-      res.write(chunk);
+    if (isGenerator) {
+      // Gemini: async generator of SSE strings
+      for await (const chunk of stream) {
+        res.write(chunk);
+      }
+    } else {
+      // Groq / OpenRouter: raw fetch Response with SSE body
+      const reader = stream.body.getReader();
+      const decoder = new TextDecoder();
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        res.write(decoder.decode(value, { stream: true }));
+      }
     }
 
+    // Send provider info as final SSE event so the frontend can display the badge
+    res.write(`data: ${JSON.stringify({ provider, done: true })}\n\n`);
     res.end();
-
   } catch (error) {
     console.error("Chat API error:", error);
     res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
@@ -275,102 +320,143 @@ app.post("/api/chat", async (req, res) => {
   }
 });
 
-
-app.post('/api/test', async (req, res) => {
-
-  const { APIkey, userId } = req.body
-  const cleanKey = APIkey?.trim()
+// ─────────────────────────────────────────────
+// POST /api/test — validate & save OpenRouter key (legacy)
+// ─────────────────────────────────────────────
+app.post("/api/test", async (req, res) => {
+  const { APIkey, userId } = req.body;
+  const cleanKey = APIkey?.trim();
   if (!cleanKey) {
     return res.status(400).json({ type: "error", response: "API Key is required." });
   }
 
-
   try {
-    // Test using full fallback chain — succeeds as long as any model is available
-    const aiRes = await askAI([{ role: "user", content: "Say hello in one sentence." }], cleanKey, {
-      models: FREE_MODELS,
-      systemPrompt: "You are a helpful assistant. Answer concisely."
-    })
-
-    // We must parse the JSON for the test verification
+    const aiRes = await askAI(
+      [{ role: "user", content: "Say hello in one sentence." }],
+      cleanKey,
+      { models: FREE_MODELS, systemPrompt: "You are a helpful assistant. Answer concisely." }
+    );
     const answer = await aiRes.json();
-
     if (answer.error || !answer.choices?.[0]?.message?.content) {
-      console.log("API key test failed, check your terminal for the Full OpenRouter Error Response!");
       return res.json({
         response: `⚠️ AI Service Error: ${answer.error?.message || "Provider rejected the request."}`,
-        type: "error"
+        type: "error",
       });
-    } else {
-
-
-
-      const encryptedKey = encrypt(cleanKey)
-      await saveUserKey(encryptedKey, userId)
-
-
-      res.json({
-        response: "ok",
-        type: "success"
-      });
-
     }
-
-
-
-
+    await saveUserKey(encrypt(cleanKey), userId);
+    res.json({ response: "ok", type: "success" });
   } catch (error) {
-    console.error("Error during API key test:", error);
-    res.status(500).json({
-      response: "⚠️ Internal server error while trying to validate key.",
-      type: "error"
-    });
+    console.error("API key test error:", error);
+    res.status(500).json({ response: "⚠️ Internal server error while validating key.", type: "error" });
+  }
+});
+
+// ─────────────────────────────────────────────
+// POST /api/keys — save all provider keys
+// ─────────────────────────────────────────────
+app.post("/api/keys", async (req, res) => {
+  const { userId, openrouter, groq, gemini } = req.body;
+  if (!userId) return res.status(400).json({ type: "error", response: "userId is required." });
+
+  const results = {};
+  const toSave = {};
+
+  // Validate & save openrouter
+  if (openrouter !== undefined) {
+    const key = openrouter.trim();
+    if (key) {
+      try {
+        const aiRes = await askAI(
+          [{ role: "user", content: "Say hi." }],
+          key,
+          { models: [FREE_MODELS[0]], systemPrompt: "Be concise." }
+        );
+        const data = await aiRes.json();
+        if (data?.choices?.[0]?.message?.content) {
+          toSave.openrouter = key;
+          results.openrouter = { ok: true };
+        } else {
+          results.openrouter = { ok: false, error: data?.error?.message || "Validation failed" };
+        }
+      } catch (e) {
+        results.openrouter = { ok: false, error: e.message };
+      }
+    }
   }
 
-})
+  // Validate & save groq
+  if (groq !== undefined) {
+    const key = groq.trim();
+    if (key) {
+      const valid = await validateGroqKey(key);
+      if (valid) {
+        toSave.groq = key;
+        results.groq = { ok: true };
+      } else {
+        results.groq = { ok: false, error: "Invalid Groq API key" };
+      }
+    }
+  }
 
+  // Validate & save gemini
+  if (gemini !== undefined) {
+    const key = gemini.trim();
+    if (key) {
+      const valid = await validateGeminiKey(key);
+      if (valid) {
+        toSave.gemini = key;
+        results.gemini = { ok: true };
+      } else {
+        results.gemini = { ok: false, error: "Invalid Gemini API key" };
+      }
+    }
+  }
 
-app.get('/', (_, res) => {
-  res.json({ message: "Welcome to chatForge " })
-})
+  if (Object.keys(toSave).length > 0) {
+    await saveUserKeys(userId, toSave);
+  }
 
+  res.json({ type: "success", results });
+});
 
-// check if the user have key in database 
+// ─────────────────────────────────────────────
+// POST /api/keys-status — returns which providers are active
+// ─────────────────────────────────────────────
+app.post("/api/keys-status", async (req, res) => {
+  const { userId } = req.body;
+  if (!userId) return res.status(400).json({ type: "error" });
 
-app.post("/api/key-exists", async (request, res) => {
+  const keys = await getUserKeys(userId);
+  res.json({
+    openrouter: !!keys.openrouter,
+    groq: !!keys.groq,
+    gemini: !!keys.gemini,
+  });
+});
 
-  const { userId } = request.body
+// ─────────────────────────────────────────────
+// POST /api/key-exists — legacy check (OpenRouter)
+// ─────────────────────────────────────────────
+app.post("/api/key-exists", async (req, res) => {
+  const { userId } = req.body;
+  const keystatus = await check_key_Exists(userId);
+  res.json(keystatus);
+});
 
-  const keystatus = await check_key_Exists(userId)
+app.get("/", (_, res) => res.json({ message: "Welcome to ChatForge" }));
 
-  // if(keystatus.exists && keystatus.res.length>0){
-  //   res.json(keystatus)
-  // }else{
-  //   res.json(keystatus)
-  // }
-
-  res.json(keystatus)
-
-})
-
-
-
-
-export default app;
-
-
-
-
-
+// ─────────────────────────────────────────────
+// Start server
+// ─────────────────────────────────────────────
 async function startServer() {
   try {
     await connectDB();
     app.listen(5000, () => console.log("Server running on port 5000"));
   } catch (err) {
-    console.error("Failed to start server due to DB connection error:", err);
-    // Exit process if DB not connected
+    console.error("Failed to start server:", err);
     process.exit(1);
   }
 }
 
+export default app;
 startServer();

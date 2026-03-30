@@ -669,6 +669,44 @@
 }
 
 /* ─────────────────────────────────────────
+   ROUTER BADGE
+───────────────────────────────────────── */
+.router-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-size: 9px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  font-family: 'Fira Code', monospace;
+  border: 1px solid transparent;
+  opacity: 0.8;
+}
+
+.provider-groq {
+  color: #f55036;
+  /* Groq Orange/Red */
+  background: rgba(245, 80, 54, 0.1);
+  border-color: rgba(245, 80, 54, 0.3);
+}
+
+.provider-gemini {
+  color: #1a73e8;
+  /* Google Blue */
+  background: rgba(26, 115, 232, 0.1);
+  border-color: rgba(26, 115, 232, 0.3);
+}
+
+.provider-openrouter {
+  color: var(--neon-cyan);
+  background: rgba(0, 245, 255, 0.1);
+  border-color: rgba(0, 245, 255, 0.3);
+}
+
+/* ─────────────────────────────────────────
    REACTION BUTTONS
 ───────────────────────────────────────── */
 .reaction-btn {
