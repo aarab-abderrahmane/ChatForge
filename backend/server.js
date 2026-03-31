@@ -271,9 +271,12 @@ export async function smartRouter(messages, keys, options = {}) {
 // POST /api/chat — main chat endpoint
 // ─────────────────────────────────────────────
 app.post("/api/chat", async (req, res) => {
-  const { userId, messages, skillPrompt, model, parameters } = req.body;
+  const { userId, messages, skillPrompt, model, parameters, clientKeys } = req.body;
 
-  const keys = await getUserKeys(userId);
+  let keys = clientKeys;
+  if (!keys || (!keys.openrouter && !keys.groq && !keys.gemini)) {
+    keys = await getUserKeys(userId);
+  }
 
   // Must have at least one key
   if (!keys.openrouter && !keys.groq && !keys.gemini) {
