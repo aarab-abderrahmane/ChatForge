@@ -145,7 +145,7 @@ function App() {
           top_p: settings.topP,
           frequency_penalty: settings.frequencyPenalty,
           presence_penalty: settings.presencePenalty,
-          max_tokens: settings.maxTokens || 2048,
+          max_tokens: settings.maxTokens || 1024,
           routingMode: finalRoutingMode,
         },
         signal

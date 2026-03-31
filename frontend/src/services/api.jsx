@@ -51,13 +51,20 @@ export const api = {
   },
 
   // ── Send message (streaming) ────────────────────────────────────
-  chat: async (userId, messages, skillPrompt, model, parameters, signal) => {
+  chat: async (userId, messages, skillPrompt, model, parameters = {}, signal) => {
     try {
       const clientKeys = await KeysService.getKeys();
+
+      // Ensure max_tokens is reasonable to avoid 413 or excessive costs
+      const safeParams = {
+        ...parameters,
+        max_tokens: Math.min(parameters.max_tokens || 2048, 4096)
+      };
+
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, messages, skillPrompt, model, parameters, clientKeys }),
+        body: JSON.stringify({ userId, messages, skillPrompt, model, parameters: safeParams, clientKeys }),
         signal,
       });
       return res;
