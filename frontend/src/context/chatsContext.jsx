@@ -7,7 +7,7 @@ export const chatsContext = createContext();
 const check_key_exists = async (setPreferences, preferences) => {
   // Check if any provider key exists in IndexedDB (frontend-centric)
   const status = await KeysService.getStatus();
-  const hasAnyKey = status.openrouter || status.groq || status.gemini;
+  const hasAnyKey = status.openrouter || status.groq || status.gemini || status.huggingface;
   if (hasAnyKey) {
     setPreferences((prev) => ({ ...prev, currentPage: "chat" }));
   } else {
@@ -160,6 +160,20 @@ export const MODELS = [
     icon: "🐇",
     description: "Tiny but fast. Best for simple, quick queries.",
   },
+  {
+    id: "mistralai/Mistral-7B-Instruct-v0.3",
+    name: "Mistral 7B v0.3",
+    provider: "HuggingFace",
+    icon: "🤗",
+    description: "Efficient and capable model from Hugging Face.",
+  },
+  {
+    id: "google/gemma-2-9b-it",
+    name: "Gemma 2 9B",
+    provider: "HuggingFace",
+    icon: "💎",
+    description: "Google's lightweight, state-of-the-art model.",
+  },
 ];
 
 // ── Default AI Tools ────────────────────────────────────────────
@@ -259,7 +273,7 @@ export function ChatsProvider({ children }) {
   const [loading, setLoading] = useState(false);
 
   // ── Provider status (which AI providers are configured) ─────────────
-  const [providerStatus, setProviderStatus] = useState({ openrouter: false, groq: false, gemini: false });
+  const [providerStatus, setProviderStatus] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false });
 
   // ── Preferences (userId, currentPage) ──────────────────────────────
   const defaultPreferences = {

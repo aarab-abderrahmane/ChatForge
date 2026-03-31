@@ -80,6 +80,7 @@ export const KeysService = {
         if (keys.openrouter) encrypted.openrouter = await encryptKey(keys.openrouter);
         if (keys.groq) encrypted.groq = await encryptKey(keys.groq);
         if (keys.gemini) encrypted.gemini = await encryptKey(keys.gemini);
+        if (keys.huggingface) encrypted.huggingface = await encryptKey(keys.huggingface);
 
         const existing = await idb.get(stores.KEYS, 'user_keys') || {};
         await idb.put(stores.KEYS, { ...existing, ...encrypted });
@@ -90,6 +91,7 @@ export const KeysService = {
         if (encrypted.openrouter) decrypted.openrouter = await decryptKey(encrypted.openrouter);
         if (encrypted.groq) decrypted.groq = await decryptKey(encrypted.groq);
         if (encrypted.gemini) decrypted.gemini = await decryptKey(encrypted.gemini);
+        if (encrypted.huggingface) decrypted.huggingface = await decryptKey(encrypted.huggingface);
         return decrypted;
     },
     getStatus: async () => {
@@ -98,6 +100,21 @@ export const KeysService = {
             openrouter: !!keys.openrouter,
             groq: !!keys.groq,
             gemini: !!keys.gemini,
+            huggingface: !!keys.huggingface,
+        };
+    }
+};
+
+export const StorageService = {
+    getUsage: async () => {
+        if (!navigator.storage || !navigator.storage.estimate) {
+            return { used: 0, quota: 0, percentage: 0 };
+        }
+        const { usage, quota } = await navigator.storage.estimate();
+        return {
+            used: usage || 0,
+            quota: quota || 0,
+            percentage: quota ? ((usage / quota) * 100).toFixed(2) : 0
         };
     }
 };

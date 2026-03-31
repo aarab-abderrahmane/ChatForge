@@ -41,6 +41,8 @@ import {
 } from "lucide-react";
 import { chatsContext, SKILLS, MODELS, THEMES } from "../../context/chatsContext";
 import { api } from "../../services/api";
+import { StorageService } from "../../services/db";
+import { useEffect as useAppEffect } from "react";
 
 // ── Inline Toggle ────────────────────────────────────────────
 function Toggle({ value, onToggle }) {
@@ -361,10 +363,22 @@ export function SettingsPanel({ onClose }) {
   const fileInputRef = useRef(null);
 
   // ── Keys tab state ────────────────────────────────────────────
-  const [keyValues, setKeyValues] = useState({ openrouter: "", groq: "", gemini: "" });
-  const [keyVisible, setKeyVisible] = useState({ openrouter: false, groq: false, gemini: false });
-  const [keySaving, setKeySaving] = useState({ openrouter: false, groq: false, gemini: false });
+  const [keyValues, setKeyValues] = useState({ openrouter: "", groq: "", gemini: "", huggingface: "" });
+  const [keyVisible, setKeyVisible] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false });
+  const [keySaving, setKeySaving] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false });
   const [keyResults, setKeyResults] = useState({});
+  const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0, percentage: 0 });
+
+  const fetchStorageUsage = async () => {
+    const usage = await StorageService.getUsage();
+    setStorageUsage(usage);
+  };
+
+  useAppEffect(() => {
+    if (activeTab === "data") {
+      fetchStorageUsage();
+    }
+  }, [activeTab]);
 
   const handleSaveKey = async (provider) => {
     const key = keyValues[provider]?.trim();
@@ -1175,6 +1189,43 @@ export function SettingsPanel({ onClose }) {
                     </div>
                   </div>
 
+                  {/* Storage Usage */}
+                  <SectionHeader
+                    label="Disk Storage Usage"
+                    action={fetchStorageUsage}
+                    actionLabel="Refresh"
+                  />
+                  <div className="px-4 py-2 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-[10px]" style={{ color: "rgba(200,255,192,0.6)" }}>
+                        IndexedDB usage
+                      </span>
+                      <span className="text-[10px] font-bold" style={{ color: "var(--neon-cyan)" }}>
+                        {storageUsage.percentage}%
+                      </span>
+                    </div>
+
+                    <div
+                      className="h-1 w-full rounded-full overflow-hidden"
+                      style={{ background: "rgba(255,255,255,0.05)" }}
+                    >
+                      <motion.div
+                        initial={{ width: 0 }}
+                        animate={{ width: `${storageUsage.percentage}%` }}
+                        className="h-full"
+                        style={{
+                          background: "linear-gradient(90deg, var(--neon-cyan), var(--neon-green))",
+                          boxShadow: "0 0 8px var(--neon-cyan)",
+                        }}
+                      />
+                    </div>
+
+                    <div className="flex justify-between text-[8px] uppercase tracking-widest" style={{ color: "rgba(200,255,192,0.3)" }}>
+                      <span>Used: {(storageUsage.used / (1024 * 1024)).toFixed(2)} MB</span>
+                      <span>Quota: {(storageUsage.quota / (1024 * 1024)).toFixed(0)} MB</span>
+                    </div>
+                  </div>
+
                   {/* Export */}
                   <SectionHeader label="Export" />
 
@@ -1274,6 +1325,15 @@ export function SettingsPanel({ onClose }) {
                       placeholder: "AIza...",
                       hint: "Optional. Used for code & programming tasks.",
                       link: "https://aistudio.google.com/app/apikey",
+                    },
+                    {
+                      id: "huggingface",
+                      label: "Hugging Face",
+                      icon: "🤗",
+                      required: false,
+                      placeholder: "hf_...",
+                      hint: "Optional. Specialized open source models.",
+                      link: "https://huggingface.co/settings/tokens",
                     },
                   ].map((prov) => {
                     const isActive = providerStatus[prov.id];

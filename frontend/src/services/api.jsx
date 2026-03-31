@@ -46,19 +46,26 @@ export const api = {
     try {
       return await KeysService.getStatus();
     } catch {
-      return { openrouter: false, groq: false, gemini: false };
+      return { openrouter: false, groq: false, gemini: false, huggingface: false };
     }
   },
 
   // ── Send message (streaming) ────────────────────────────────────
   chat: async (userId, messages, skillPrompt, model, parameters = {}, signal) => {
     try {
-      const clientKeys = await KeysService.getKeys();
+      const keys = await KeysService.getKeys();
 
       // Ensure max_tokens is reasonable to avoid 413 or excessive costs
       const safeParams = {
         ...parameters,
         max_tokens: Math.min(parameters.max_tokens || 2048, 4096)
+      };
+
+      const clientKeys = {
+        openrouter: keys.openrouter,
+        groq: keys.groq,
+        gemini: keys.gemini,
+        huggingface: keys.huggingface,
       };
 
       const res = await fetch(`${BASE_URL}/chat`, {

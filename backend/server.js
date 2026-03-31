@@ -3,6 +3,7 @@ import express from "express";
 import { connectDB } from "./db.js";
 import { askGroq, validateGroqKey } from "./groqClient.js";
 import { askGeminiStream, validateGeminiKey } from "./geminiClient.js";
+import { askHuggingFace, validateHuggingFaceKey } from "./huggingfaceClient.js";
 
 const app = express();
 app.use(cors());
@@ -68,6 +69,7 @@ export async function saveUserKeys(userId, keys) {
   if (keys.openrouter !== undefined) update.encryptedKey = encrypt(keys.openrouter);
   if (keys.groq !== undefined) update.encryptedGroq = encrypt(keys.groq);
   if (keys.gemini !== undefined) update.encryptedGemini = encrypt(keys.gemini);
+  if (keys.huggingface !== undefined) update.encryptedHuggingFace = encrypt(keys.huggingface);
   await db.collection("apikeys").updateOne(
     { userId },
     { $set: update },
@@ -80,14 +82,15 @@ export async function getUserKeys(userId) {
     const client = await connectDB();
     const db = client.db(process.env.APP_NAME);
     const user = await db.collection("apikeys").findOne({ userId });
-    if (!user) return { openrouter: null, groq: null, gemini: null };
+    if (!user) return { openrouter: null, groq: null, gemini: null, huggingface: null };
     return {
       openrouter: user.encryptedKey ? decrypt(user.encryptedKey).trim() : null,
       groq: user.encryptedGroq ? decrypt(user.encryptedGroq).trim() : null,
       gemini: user.encryptedGemini ? decrypt(user.encryptedGemini).trim() : null,
+      huggingface: user.encryptedHuggingFace ? decrypt(user.encryptedHuggingFace).trim() : null,
     };
   } catch {
-    return { openrouter: null, groq: null, gemini: null };
+    return { openrouter: null, groq: null, gemini: null, huggingface: null };
   }
 }
 
@@ -213,18 +216,18 @@ export async function smartRouter(messages, keys, options = {}) {
 
   if (routingMode !== "smart") {
     // User forced a specific provider. We still keep fallbacks just in case the forced one fails
-    if (routingMode === "groq") order = ["groq", "openrouter", "gemini"];
-    else if (routingMode === "gemini") order = ["gemini", "openrouter", "groq"];
-    else order = ["openrouter", "gemini", "groq"];
+    if (routingMode === "groq") order = ["groq", "openrouter", "gemini", "huggingface"];
+    else if (routingMode === "gemini") order = ["gemini", "openrouter", "groq", "huggingface"];
+    else order = ["openrouter", "gemini", "groq", "huggingface"];
   } else {
     // Smart Router mode
     if (taskType === "short") {
-      order = ["groq", "gemini", "openrouter"];
+      order = ["groq", "gemini", "huggingface", "openrouter"];
     } else if (taskType === "code") {
-      order = ["gemini", "groq", "openrouter"];
+      order = ["gemini", "huggingface", "groq", "openrouter"];
     } else {
       // creative / long
-      order = ["openrouter", "gemini", "groq"];
+      order = ["openrouter", "gemini", "huggingface", "groq"];
     }
   }
 
@@ -255,6 +258,11 @@ export async function smartRouter(messages, keys, options = {}) {
         const res = await askAI(messages, key, { ...options, models: finalModels, stream: true });
         return { stream: res, provider: "openrouter", isGenerator: false };
       }
+
+      if (provider === "huggingface") {
+        const res = await askHuggingFace(messages, key, options);
+        return { stream: res, provider: "huggingface", isGenerator: false };
+      }
     } catch (err) {
       console.warn(`[SmartRouter] ${provider} failed: ${err.message}`);
       errors.push(`${provider}: ${err.message}`);
@@ -274,12 +282,12 @@ app.post("/api/chat", async (req, res) => {
   const { userId, messages, skillPrompt, model, parameters, clientKeys } = req.body;
 
   let keys = clientKeys;
-  if (!keys || (!keys.openrouter && !keys.groq && !keys.gemini)) {
+  if (!keys || (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface)) {
     keys = await getUserKeys(userId);
   }
 
   // Must have at least one key
-  if (!keys.openrouter && !keys.groq && !keys.gemini) {
+  if (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface) {
     return res.status(401).json({ response: "No API keys found! Please add at least one key in Settings.", type: "error" });
   }
 
@@ -358,7 +366,7 @@ app.post("/api/test", async (req, res) => {
 // POST /api/keys — save all provider keys
 // ─────────────────────────────────────────────
 app.post("/api/keys", async (req, res) => {
-  const { userId, openrouter, groq, gemini } = req.body;
+  const { userId, openrouter, groq, gemini, huggingface } = req.body;
   if (!userId) return res.status(400).json({ type: "error", response: "userId is required." });
 
   const results = {};
@@ -415,6 +423,20 @@ app.post("/api/keys", async (req, res) => {
     }
   }
 
+  // Validate & save huggingface
+  if (huggingface !== undefined) {
+    const key = huggingface.trim();
+    if (key) {
+      const valid = await validateHuggingFaceKey(key);
+      if (valid) {
+        toSave.huggingface = key;
+        results.huggingface = { ok: true };
+      } else {
+        results.huggingface = { ok: false, error: "Invalid Hugging Face API key" };
+      }
+    }
+  }
+
   if (Object.keys(toSave).length > 0) {
     await saveUserKeys(userId, toSave);
   }
@@ -434,6 +456,7 @@ app.post("/api/keys-status", async (req, res) => {
     openrouter: !!keys.openrouter,
     groq: !!keys.groq,
     gemini: !!keys.gemini,
+    huggingface: !!keys.huggingface,
   });
 });
 
