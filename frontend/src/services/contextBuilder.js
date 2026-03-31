@@ -10,9 +10,35 @@ const MAX_HISTORY_FOR_SUMMARY = 10;
 const MAX_SYSTEM_PROMPT_PROJECT_PART = 1500;
 const MAX_TOTAL_PAYLOAD_SIZE = 150000; // ~150KB threshold for warning
 
-const truncate = (text, max = MAX_MESSAGE_CONTENT) => {
+const truncate = (text, max = MAX_MESSAGE_CONTENT, isCode = false) => {
     if (!text) return "";
-    return text.length > max ? text.slice(0, max) + "..." : text;
+    // If it's code, we allow much more context (up to 5x)
+    const effectiveMax = isCode ? max * 5 : max;
+    return text.length > effectiveMax ? text.slice(0, effectiveMax) + "..." : text;
+};
+
+/**
+ * Detects if the message is a request to continue
+ */
+const isContinuation = (text) => {
+    const lower = text.toLowerCase().trim();
+    const keywords = [
+        "continue", "keep going", "finish", "more", "next", "استمر", "كمل", "تابع", "كود", "تكملة"
+    ];
+    return keywords.some(kw => lower.includes(kw)) && lower.length < 30;
+};
+
+/**
+ * Detects if a string contains significant code blocks or patterns
+ */
+const hasCodeHighDensity = (text) => {
+    if (!text) return false;
+    const codePatterns = [
+        "```", "function ", "const ", "let ", "var ", "import ", "export ", "class ",
+        "<html>", "<body>", "<div>", "return ", "await ", "async ", "=>"
+    ];
+    const count = codePatterns.reduce((acc, p) => acc + (text.includes(p) ? 1 : 0), 0);
+    return count >= 3 || text.includes("```");
 };
 
 /**
@@ -44,18 +70,22 @@ export const ContextBuilder = {
         let messages = [];
         let summary = truncate(currentSummary, MAX_SUMMARY_CONTENT);
 
+        // Check if we are in "Code Mode" based on recent history
+        const lastFewMessages = chatHistory.slice(-4);
+        const codeMode = lastFewMessages.some(c => hasCodeHighDensity(c.question) || hasCodeHighDensity(c.answer));
+
         // 10-message rule logic
         if (chatHistory.length <= 10) {
             messages = chatHistory.flatMap(c => [
-                { role: "user", content: truncate(c.question) },
-                ...(c.answer ? [{ role: "assistant", content: truncate(c.answer) }] : [])
+                { role: "user", content: truncate(c.question, MAX_MESSAGE_CONTENT, codeMode) },
+                ...(c.answer ? [{ role: "assistant", content: truncate(c.answer, MAX_MESSAGE_CONTENT, codeMode) }] : [])
             ]);
         } else {
             // Last 6 messages complete
             const lastSix = chatHistory.slice(-6);
             messages = lastSix.flatMap(c => [
-                { role: "user", content: truncate(c.question) },
-                ...(c.answer ? [{ role: "assistant", content: truncate(c.answer) }] : [])
+                { role: "user", content: truncate(c.question, MAX_MESSAGE_CONTENT, codeMode) },
+                ...(c.answer ? [{ role: "assistant", content: truncate(c.answer, MAX_MESSAGE_CONTENT, codeMode) }] : [])
             ]);
         }
 
@@ -100,14 +130,54 @@ export const ContextBuilder = {
      * @param {String} text - Current user message.
      * @returns {String} routingMode ('groq', 'gemini', 'openrouter')
      */
-    route: (text) => {
+    /**
+     * Smart Router logic (Client-side decision)
+     * @param {String} text - Current user message.
+     * @param {Object} providerStatus - Which providers have active keys.
+     * @returns {String} routingMode ('groq', 'gemini', 'openrouter')
+     */
+    route(text, providerStatus = { openrouter: true, gemini: true, groq: true }) {
         const lower = text.toLowerCase();
-        const CODE_KEYWORDS = ["function", "class", "const", "import", "package", "public", "private", "def ", "fn "];
-        const isCode = CODE_KEYWORDS.some(k => lower.includes(k)) || text.includes("```");
 
-        if (text.length < 150 && !isCode) return "groq"; // Short message -> Groq
-        if (isCode) return "gemini"; // Code/Programming -> Gemini
-        return "openrouter"; // Long text/Creative -> OpenRouter
+        // Helper to check if a provider is actually available
+        const isAvailable = (p) => providerStatus[p] === true;
+
+        // Ideal choice based on task type
+        let ideal = "openrouter";
+
+        // Priority 1: Continuation keywords
+        if (isContinuation(text)) ideal = "openrouter";
+        else {
+            // Heavy lifting / Long generation keywords
+            const isLongTask = [
+                "write a full", "build a", "create a", "develop", "implement", "complete code",
+                "full project", "entire", "landing page", "dashboard", "application", "script for",
+                "complete the", "continue the"
+            ].some(kw => lower.includes(kw));
+
+            if (isLongTask) ideal = "openrouter";
+            else {
+                // Programming / Logic keywords
+                const isCodeTask = [
+                    "function", "class", "react", "component", "debug", "error", "fix", "refactor",
+                    "sql", "api", "json", "algorithm", "how to", "why does", "explain", "```"
+                ].some(kw => lower.includes(kw)) || hasCodeHighDensity(text);
+
+                if (isCodeTask) ideal = "openrouter";
+                else if (text.trim().split(/\s+/).length < 15) ideal = "groq";
+                else ideal = "openrouter";
+            }
+        }
+
+        // FALLBACK LOGIC: If ideal is not available, try others in order of capability
+        if (isAvailable(ideal)) return ideal;
+
+        const fallbacks = ["openrouter", "gemini", "huggingface", "groq"];
+        for (const f of fallbacks) {
+            if (isAvailable(f)) return f;
+        }
+
+        return ideal; // Fallback to original recommendation if absolutely everything is missing (backend will handle)
     },
 
     /**

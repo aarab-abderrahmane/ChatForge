@@ -188,6 +188,8 @@ const CODE_KEYWORDS = [
   "export ", "return", "async ", "await ", "=>", "error", "bug", "debug",
   "code", "script", "program", "compile", "syntax", "algorithm",
   "```", "loop", "array", "object", "api", "http", "sql", "query",
+  "html", "css", "tailwind", "react", "component", "props", "state",
+  "npm", "node", "express", "json", "payload", "endpoint",
 ];
 
 function detectTaskType(text) {
@@ -215,10 +217,13 @@ export async function smartRouter(messages, keys, options = {}) {
   let order;
 
   if (routingMode !== "smart") {
-    // User forced a specific provider. We still keep fallbacks just in case the forced one fails
-    if (routingMode === "groq") order = ["groq", "openrouter", "gemini", "huggingface"];
-    else if (routingMode === "gemini") order = ["gemini", "openrouter", "groq", "huggingface"];
-    else order = ["openrouter", "gemini", "groq", "huggingface"];
+    // User forced a specific provider. 
+    // STRICT MODE: If a specific provider is forced, we ONLY use that one (no fallbacks to Groq if user wants Llama 70B)
+    if (routingMode === "groq") order = ["groq"];
+    else if (routingMode === "gemini") order = ["gemini"];
+    else if (routingMode === "openrouter") order = ["openrouter"];
+    else if (routingMode === "huggingface") order = ["huggingface"];
+    else order = [routingMode]; // fallback for custom strings if any
   } else {
     // Smart Router mode
     if (taskType === "short") {

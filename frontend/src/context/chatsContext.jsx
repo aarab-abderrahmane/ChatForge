@@ -435,9 +435,11 @@ export function ChatsProvider({ children }) {
   // ── Sessions ────────────────────────────────────────────────────────
   const makeSession = (overrides = {}) => ({
     id: uuid(),
-    title: "New Chat",
-    messages: WELCOME_MESSAGES,
+    title: overrides.title || "New Chat",
+    messages: overrides.messages || WELCOME_MESSAGES,
     createdAt: new Date().toISOString(),
+    summary: overrides.summary || "",
+    routingMode: overrides.routingMode || null, // Locked routing mode for this session
     ...overrides,
   });
 
@@ -550,9 +552,17 @@ export function ChatsProvider({ children }) {
   }, []);
 
   const updateSessionSummary = useCallback((id, summary) => {
-    setSessions((prev) =>
-      prev.map((s) => s.id === id ? { ...s, summary } : s)
-    );
+    setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, summary } : s)));
+  }, []);
+
+  const updateSessionRoute = useCallback((id, routingMode) => {
+    setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, routingMode } : s)));
+  }, []);
+
+  const clearCurrentChat = useCallback(() => {
+    const fresh = makeSession();
+    setSessions([fresh]);
+    setActiveSessionId(fresh.id);
   }, []);
 
   const clearAllSessions = useCallback(() => {
@@ -581,10 +591,6 @@ export function ChatsProvider({ children }) {
     setChats((prev) =>
       prev.map((m) => m.id === msgId ? { ...m, question: newQuestion.trim(), answer: undefined, type: "ch" } : m)
     );
-  }, [setChats]);
-
-  const clearCurrentChat = useCallback(() => {
-    setChats(WELCOME_MESSAGES);
   }, [setChats]);
 
   // ── Key check + provider status on mount ────────────────────────────
@@ -625,7 +631,8 @@ export function ChatsProvider({ children }) {
         // helpers
         createNewSession,
         deleteSession,
-        renameSession,
+        updateSessionSummary,
+        updateSessionRoute,
         clearCurrentChat,
         clearAllSessions,
         importSessions,

@@ -16,6 +16,7 @@ import {
   Wand2,
   AlignLeft,
   Layers,
+  ChevronDown,
 } from "lucide-react";
 import { useState, useContext, useRef } from "react";
 import { Response } from "../ui/shadcn-io/ai/response";
@@ -47,6 +48,7 @@ export function MessageBlock({
   onMergeDrafts,
   onSummarizeDrafts,
   onKeepDraft,
+  onContinue,
 }) {
   const [reaction, setReaction] = useState(null); // 'up' | 'down' | null
   const [isEditing, setIsEditing] = useState(false);
@@ -327,6 +329,19 @@ export function MessageBlock({
                 title="Bad response"
               >
                 <ThumbsDownIcon size={11} />
+              </button>
+            )}
+
+            {/* Continue — shown only for truncated messages */}
+            {obj.isTruncated && onContinue && (
+              <button
+                className="reaction-btn"
+                onClick={() => onContinue(obj.id)}
+                style={{ background: "rgba(0,245,255,0.1)", color: "var(--neon-cyan)", borderColor: "var(--neon-cyan)" }}
+                title="Continue generating"
+              >
+                <ChevronDown size={11} />
+                <span>continue</span>
               </button>
             )}
 

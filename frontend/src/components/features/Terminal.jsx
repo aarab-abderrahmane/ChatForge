@@ -101,6 +101,7 @@ export const Terminal = ({
   onMergeDrafts,
   onSummarizeDrafts,
   onKeepDraft,
+  onContinue,
 }) => {
   const COMMAND_PREFIX = "//>";
 
@@ -715,6 +716,7 @@ export const Terminal = ({
                     onMergeDrafts={onMergeDrafts}
                     onSummarizeDrafts={onSummarizeDrafts}
                     onKeepDraft={onKeepDraft}
+                    onContinue={onContinue}
                   />
                 );
               })}

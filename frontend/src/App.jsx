@@ -27,6 +27,9 @@ function App() {
     customSkills,
     sessions,
     updateSessionSummary,
+    updateSessionRoute,
+    activeSessionId,
+    providerStatus,
   } = useContext(chatsContext);
 
   const { activeWorkspace } = useContext(WorkspaceContext);
@@ -119,20 +122,37 @@ function App() {
 
     const basePrompt = activeSkill?.systemPrompt || "You are a helpful assistant.";
     const prefix = settings.systemPromptPrefix?.trim();
+    const isContinuationMsg = question.toLowerCase().includes("continue writing from where you left off") ||
+      (question.length < 30 && ["continue", "keep going", "استمر", "كمل"].some(kw => question.toLowerCase().includes(kw)));
 
-    const session = sessions.find(s => s.id === id) || { messages: chats, summary: "" };
+    const session = sessions.find(s => s.id === activeSessionId) || { messages: chats, summary: "" };
     const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } = await ContextBuilder.build(chats, activeWorkspace, session.summary);
 
-    const fullSystemPrompt = (prefix ? `${contextSystemPrompt}\n\n[User context]: ${prefix}` : contextSystemPrompt) || basePrompt;
+    let fullSystemPrompt = (prefix ? `${contextSystemPrompt}\n\n[User context]: ${prefix}` : contextSystemPrompt) || basePrompt;
+
+    if (isContinuationMsg) {
+      fullSystemPrompt += "\n\nCRITICAL: The user wants you to CONTINUE exactly from where you stopped. Do NOT repeat anything you already wrote. Do NOT start from the beginning. Simply provide the next part of the code or text.";
+    }
 
     // Slightly bump temperature to ensure varied alternatives if draftIndex > 0
     const draftTemp = draftIndex > 0 ? Math.min((settings.temperature || 0.7) + (draftIndex * 0.15), 1.5) : (settings.temperature || 0.7);
 
-    // Smart Routing
+    // Model Consistency & Locking
     let finalRoutingMode = settings.routingMode || "smart";
     if (finalRoutingMode === "smart") {
-      finalRoutingMode = ContextBuilder.route(question);
+      // If the session already has a locked route, use it
+      if (session.routingMode) {
+        finalRoutingMode = session.routingMode;
+      } else {
+        // Otherwise, calculate a new route and lock it for this session
+        finalRoutingMode = ContextBuilder.route(question, providerStatus);
+        updateSessionRoute(activeSessionId, finalRoutingMode);
+      }
     }
+
+    // Determine if it's a code task for max_tokens
+    const isCodeTask = finalRoutingMode === "openrouter" || finalRoutingMode === "gemini";
+    const maxTokens = isCodeTask ? 4096 : (settings.maxTokens || 1024);
 
     try {
       const response = await api.chat(
@@ -145,7 +165,7 @@ function App() {
           top_p: settings.topP,
           frequency_penalty: settings.frequencyPenalty,
           presence_penalty: settings.presencePenalty,
-          max_tokens: settings.maxTokens || 1024,
+          max_tokens: maxTokens,
           routingMode: finalRoutingMode,
         },
         signal
@@ -187,11 +207,13 @@ function App() {
             }
 
             // Error event
-            if (data.error) {
-              throw new Error(data.error);
-            }
+            if (data.error) throw new Error(data.error);
 
-            const content = data.choices?.[0]?.delta?.content || "";
+            // Handle content chunks
+            const choice = data.choices?.[0];
+            const content = choice?.delta?.content || choice?.message?.content || "";
+            const finishReason = choice?.finish_reason || data.candidates?.[0]?.finishReason;
+
             if (content) {
               fullContent += content;
               setChats((prev) =>
@@ -208,8 +230,15 @@ function App() {
                 })
               );
             }
+
+            // Detect truncation
+            if (finishReason === "length" || finishReason === "MAX_TOKENS") {
+              setChats((prev) =>
+                prev.map((obj) => (obj.id === id ? { ...obj, isTruncated: true } : obj))
+              );
+            }
           } catch (e) {
-            if (e.message && e.message !== "undefined") throw e;
+            // Ignore parse errors from non-JSON or partial lines
           }
         }
       }
@@ -298,13 +327,21 @@ function App() {
   // ── Retry handler ────────────────────────────────────────────
   const handleRetry = (question, id) => {
     const msg = chats.find((c) => c.id === id);
-    const dCount = msg?.isMulti ? (msg?.answers?.length || 3) : 1;
+    if (!msg) return;
+    askAI(question, id, msg.skillId, msg.isMulti ? msg.answers?.length : 1);
+  };
+
+  const handleContinue = (id) => {
+    const msg = chats.find((c) => c.id === id);
+    if (!msg) return;
+
+    // Remove isTruncated flag before retrying
     setChats((prev) =>
-      prev.map((obj) =>
-        obj.id === id ? { ...obj, type: "ch", answer: undefined, answers: obj.isMulti ? Array(dCount).fill("") : undefined } : obj
-      )
+      prev.map((obj) => (obj.id === id ? { ...obj, isTruncated: false } : obj))
     );
-    askAI(question, id, null, dCount);
+
+    // Send a "continue" prompt
+    askAI("Continue writing from where you left off. Do not repeat what you already wrote.", id, msg.skillId, msg.isMulti ? msg.answers?.length : 1);
   };
 
   // ── Transform //> commands into AI requests ──────────────────
@@ -446,7 +483,14 @@ No preamble, no extra text.`,
     };
 
     setChats((prev) => [...prev, newMsg]);
-    askAI(text, newId, null, draftCount);
+
+    // Intelligent continuation detection
+    const lowerText = text.toLowerCase().trim();
+    if (lowerText === "continue" || lowerText === "استمر" || lowerText === "كمل" || lowerText === "continue code") {
+      askAI("Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.", newId, null, draftCount);
+    } else {
+      askAI(text, newId, null, draftCount);
+    }
   };
 
   const handleMergeDrafts = (msgId, indices) => {
@@ -535,6 +579,7 @@ No preamble, no extra text.`,
             onMergeDrafts={handleMergeDrafts}
             onSummarizeDrafts={handleSummarizeDrafts}
             onKeepDraft={handleKeepDraft}
+            onContinue={handleContinue}
           />
         )}
       </div>
