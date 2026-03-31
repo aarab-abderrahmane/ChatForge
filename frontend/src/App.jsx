@@ -6,7 +6,10 @@ import { DocsPage } from "./pages/DocsPage";
 import { WorkspaceDashboard } from "./pages/WorkspaceDashboard";
 import { WorkspaceView } from "./pages/WorkspaceView";
 import { chatsContext, SKILLS, MODELS, THEMES } from "./context/chatsContext";
+import { WorkspaceContext } from "./context/workspaceContext";
 import { api } from "./services/api";
+import { ContextBuilder } from "./services/contextBuilder";
+import { ConversationsService } from "./services/db";
 
 
 
@@ -22,7 +25,11 @@ function App() {
     settings,
     setSettings,
     customSkills,
+    sessions,
+    updateSessionSummary,
   } = useContext(chatsContext);
+
+  const { activeWorkspace } = useContext(WorkspaceContext);
 
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -102,15 +109,6 @@ function App() {
     return () => window.removeEventListener("chatforge:stats", handleStats);
   }, [setChats]);
 
-  // Build clean history array for context
-  const historyMessages = chats
-    .filter((c) => c.type === "ch" && c.answer)
-    .slice(-10)
-    .flatMap((obj) => [
-      { role: "user", content: obj.question },
-      { role: "assistant", content: obj.answer },
-    ]);
-
   // ── Core AI call ────────────────────────────────────────────
   async function startStream(question, id, skillId, draftIndex, signal) {
     streamCountRef.current += 1;
@@ -121,25 +119,25 @@ function App() {
 
     const basePrompt = activeSkill?.systemPrompt || "You are a helpful assistant.";
     const prefix = settings.systemPromptPrefix?.trim();
-    const fullSystemPrompt = prefix ? `${basePrompt}\n\n[User context]: ${prefix}` : basePrompt;
+
+    const session = sessions.find(s => s.id === id) || { messages: chats, summary: "" };
+    const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } = await ContextBuilder.build(chats, activeWorkspace, session.summary);
+
+    const fullSystemPrompt = (prefix ? `${contextSystemPrompt}\n\n[User context]: ${prefix}` : contextSystemPrompt) || basePrompt;
 
     // Slightly bump temperature to ensure varied alternatives if draftIndex > 0
     const draftTemp = draftIndex > 0 ? Math.min((settings.temperature || 0.7) + (draftIndex * 0.15), 1.5) : (settings.temperature || 0.7);
 
-    const lengthInstruction =
-      settings.responseLength === "short" ? " Be concise and brief in your response."
-        : settings.responseLength === "detailed" ? " Provide a thorough and detailed response."
-          : "";
-
-    const messages = [
-      ...historyMessages,
-      { role: "user", content: question + lengthInstruction },
-    ];
+    // Smart Routing
+    let finalRoutingMode = settings.routingMode || "smart";
+    if (finalRoutingMode === "smart") {
+      finalRoutingMode = ContextBuilder.route(question);
+    }
 
     try {
       const response = await api.chat(
         preferences.userId,
-        messages,
+        contextMessages,
         fullSystemPrompt,
         activeModelId,
         {
@@ -148,7 +146,7 @@ function App() {
           frequency_penalty: settings.frequencyPenalty,
           presence_penalty: settings.presencePenalty,
           max_tokens: settings.maxTokens || 2048,
-          routingMode: settings.routingMode || "smart",
+          routingMode: finalRoutingMode,
         },
         signal
       );
@@ -214,6 +212,15 @@ function App() {
             if (e.message && e.message !== "undefined") throw e;
           }
         }
+      }
+
+      // After successful completion, check if summary update is needed
+      if (summaryUpdateNeeded && !draftIndex) {
+        ContextBuilder.summarize(preferences.userId, chats, session.summary).then(newSummary => {
+          if (newSummary && newSummary !== session.summary) {
+            updateSessionSummary(id, newSummary);
+          }
+        });
       }
     } catch (error) {
       if (error.name !== "AbortError") {

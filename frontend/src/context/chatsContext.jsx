@@ -1,11 +1,12 @@
-import { createContext, useState, useEffect, useCallback } from "react";
+import { createContext, useState, useEffect, useCallback, useMemo } from "react";
 import { api } from "../services/api";
+import { ConversationsService, KeysService } from "../services/db";
 
 export const chatsContext = createContext();
 
 const check_key_exists = async (setPreferences, preferences) => {
-  // Check if any provider key exists (multi-key aware)
-  const status = await api.getKeysStatus(preferences.userId);
+  // Check if any provider key exists in IndexedDB (frontend-centric)
+  const status = await KeysService.getStatus();
   const hasAnyKey = status.openrouter || status.groq || status.gemini;
   if (hasAnyKey) {
     setPreferences((prev) => ({ ...prev, currentPage: "chat" }));
@@ -447,18 +448,30 @@ export function ChatsProvider({ children }) {
   });
 
   // Ensure activeSessionId always points to a valid session
+  // Load sessions from IndexedDB on mount
   useEffect(() => {
-    if (sessions.length === 0) return;
-    const valid = sessions.find((s) => s.id === activeSessionId);
-    if (!valid) {
-      setActiveSessionId(sessions[0].id);
-    }
-  }, [sessions, activeSessionId]);
+    ConversationsService.getAllConversations().then(saved => {
+      if (saved && saved.length > 0) {
+        setSessions(saved);
+        const storedActiveId = localStorage.getItem("ChatForge_ActiveSession");
+        if (storedActiveId && saved.find(s => s.id === storedActiveId)) {
+          setActiveSessionId(storedActiveId);
+        } else {
+          setActiveSessionId(saved[0].id);
+        }
+      }
+    });
+  }, []);
 
+  // Sync sessions to IndexedDB
   useEffect(() => {
+    if (sessions.length > 0) {
+      sessions.forEach(s => ConversationsService.saveConversation(s));
+    }
     localStorage.setItem("ChatForge_Sessions", JSON.stringify(sessions));
   }, [sessions]);
 
+  // Sync activeSessionId to localStorage (still useful for UI state across tabs/reloads)
   useEffect(() => {
     if (activeSessionId) {
       localStorage.setItem("ChatForge_ActiveSession", activeSessionId);
@@ -519,6 +532,12 @@ export function ChatsProvider({ children }) {
     if (!newTitle?.trim()) return;
     setSessions((prev) =>
       prev.map((s) => s.id === id ? { ...s, title: newTitle.trim() } : s)
+    );
+  }, []);
+
+  const updateSessionSummary = useCallback((id, summary) => {
+    setSessions((prev) =>
+      prev.map((s) => s.id === id ? { ...s, summary } : s)
     );
   }, []);
 
@@ -615,6 +634,8 @@ export function ChatsProvider({ children }) {
         // provider status
         providerStatus,
         setProviderStatus,
+        // summary helper
+        updateSessionSummary,
       }}
     >
       {children}
