@@ -1,6 +1,8 @@
 import cors from "cors";
 import express from "express";
 import { connectDB } from "./db.js";
+import fs from "node:fs";
+import path from "node:path";
 import { askGroq, validateGroqKey } from "./groqClient.js";
 import { askGeminiStream, validateGeminiKey } from "./geminiClient.js";
 import { askHuggingFace, validateHuggingFaceKey } from "./huggingfaceClient.js";
@@ -8,6 +10,30 @@ import { askHuggingFace, validateHuggingFaceKey } from "./huggingfaceClient.js";
 const app = express();
 app.use(cors());
 app.use(express.json());
+
+// In-Memory Fallback Cache (for when MongoDB is down)
+const CACHE_FILE = path.join(process.cwd(), ".keys_cache.json");
+
+function loadMemoryCache() {
+  try {
+    if (fs.existsSync(CACHE_FILE)) {
+      return JSON.parse(fs.readFileSync(CACHE_FILE, "utf8"));
+    }
+  } catch (err) {
+    console.warn("Failed to load keys cache file:", err.message);
+  }
+  return { apikeys: {}, health: {} };
+}
+
+const BACKEND_MEMORY_CACHE = loadMemoryCache();
+
+function saveMemoryCache() {
+  try {
+    fs.writeFileSync(CACHE_FILE, JSON.stringify(BACKEND_MEMORY_CACHE, null, 2));
+  } catch (err) {
+    console.warn("Failed to save keys cache file:", err.message);
+  }
+}
 
 // ─────────────────────────────────────────────
 // Crypto helpers
@@ -50,6 +76,9 @@ export async function getUserKey(userId) {
 export async function check_key_Exists(userId) {
   try {
     const client = await connectDB();
+    if (!client) {
+      return { exists: !!BACKEND_MEMORY_CACHE.apikeys[userId]?.encryptedKey, res: "Memory Check" };
+    }
     const db = client.db(process.env.APP_NAME);
     const user = await db.collection("apikeys").findOne({ userId });
     if (user && user.encryptedKey) return { exists: true, res: "key Exists" };
@@ -63,35 +92,51 @@ export async function check_key_Exists(userId) {
 // Multi-provider key helpers
 // ─────────────────────────────────────────────
 export async function saveUserKeys(userId, keys) {
-  const client = await connectDB();
-  const db = client.db(process.env.APP_NAME);
   const update = {};
   if (keys.openrouter !== undefined) update.encryptedKey = encrypt(keys.openrouter);
   if (keys.groq !== undefined) update.encryptedGroq = encrypt(keys.groq);
   if (keys.gemini !== undefined) update.encryptedGemini = encrypt(keys.gemini);
   if (keys.huggingface !== undefined) update.encryptedHuggingFace = encrypt(keys.huggingface);
-  await db.collection("apikeys").updateOne(
-    { userId },
-    { $set: update },
-    { upsert: true }
-  );
+
+  // Fallback to Memory & Local File
+  BACKEND_MEMORY_CACHE.apikeys[userId] = { ...BACKEND_MEMORY_CACHE.apikeys[userId], ...update };
+  saveMemoryCache();
+
+  try {
+    const client = await connectDB();
+    if (!client) return; // Silent return, memory cache is already updated
+    const db = client.db(process.env.APP_NAME);
+    await db.collection("apikeys").updateOne(
+      { userId },
+      { $set: update },
+      { upsert: true }
+    );
+  } catch (err) {
+    console.warn("Failed to persist keys to MongoDB, using memory fallback.", err.message);
+  }
 }
 
 export async function getUserKeys(userId) {
+  let user = BACKEND_MEMORY_CACHE.apikeys[userId];
+
   try {
     const client = await connectDB();
-    const db = client.db(process.env.APP_NAME);
-    const user = await db.collection("apikeys").findOne({ userId });
-    if (!user) return { openrouter: null, groq: null, gemini: null, huggingface: null };
-    return {
-      openrouter: user.encryptedKey ? decrypt(user.encryptedKey).trim() : null,
-      groq: user.encryptedGroq ? decrypt(user.encryptedGroq).trim() : null,
-      gemini: user.encryptedGemini ? decrypt(user.encryptedGemini).trim() : null,
-      huggingface: user.encryptedHuggingFace ? decrypt(user.encryptedHuggingFace).trim() : null,
-    };
-  } catch {
-    return { openrouter: null, groq: null, gemini: null, huggingface: null };
+    if (client) {
+      const db = client.db(process.env.APP_NAME);
+      const dbUser = await db.collection("apikeys").findOne({ userId });
+      if (dbUser) user = dbUser;
+    }
+  } catch (err) {
+    console.warn("DB fetch failed, using memory cache", err.message);
   }
+
+  if (!user) return { openrouter: null, groq: null, gemini: null, huggingface: null };
+  return {
+    openrouter: user.encryptedKey ? decrypt(user.encryptedKey).trim() : null,
+    groq: user.encryptedGroq ? decrypt(user.encryptedGroq).trim() : null,
+    gemini: user.encryptedGemini ? decrypt(user.encryptedGemini).trim() : null,
+    huggingface: user.encryptedHuggingFace ? decrypt(user.encryptedHuggingFace).trim() : null,
+  };
 }
 
 // ─────────────────────────────────────────────
@@ -99,10 +144,14 @@ export async function getUserKeys(userId) {
 // ─────────────────────────────────────────────
 export const FREE_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
+  "meta-llama/llama-3.2-3b-instruct:free",
   "mistralai/mistral-small-3.1-24b-instruct:free",
+  "google/gemma-3-4b-it:free",
+  "google/gemma-3-12b-it:free",
+  "qwen/qwen3-4b:free",
+  "deepseek/deepseek-r1-distill-llama-70b:free",
   "nousresearch/hermes-3-llama-3.1-405b:free",
   "meta-llama/llama-3.1-405b-instruct:free",
-  "meta-llama/llama-3.2-3b-instruct:free",
   "stepfun/step-3.5-flash:free",
   "arcee-ai/trinity-large-preview:free",
 ];
@@ -129,14 +178,17 @@ export async function askAI(messages, key, options = {}) {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
 
+    const cleanKey = String(key || "").replace(/[^\x00-\x7F]/g, "").trim();
+
     try {
       const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
         method: "POST",
         headers: {
-          Authorization: `Bearer ${key}`,
+          "Authorization": `Bearer ${cleanKey}`,
           "Content-Type": "application/json",
-          "HTTP-Referer": "http://localhost:5000",
-          "X-OpenRouter-Title": "ChatForge",
+          "HTTP-Referer": "https://chatforge.app",
+          "X-Title": "ChatForge",
+          "User-Agent": "ChatForge/2.0"
         },
         body: JSON.stringify({
           model,
@@ -154,30 +206,37 @@ export async function askAI(messages, key, options = {}) {
       clearTimeout(timeout);
 
       if (!response.ok) {
-        const errorData = await response.json();
-        const code = errorData?.error?.code || response.status;
-        const msg = errorData?.error?.message || `HTTP ${response.status}`;
-        console.warn(`[ChatForge] Model "${model}" failed (${code}): ${msg}`);
+        let errBody = {};
+        try { errBody = await response.json(); } catch (e) { }
+        const msg = errBody?.error?.message || `HTTP ${response.status}`;
+        console.warn(`[OpenRouter Debug] Model: ${model}, Status: ${response.status}, Error: ${msg}`);
+        // Only hard-fail on confirmed auth errors (invalid key, not just missing header quirks)
+        const msgLower = msg.toLowerCase();
+        const isHardAuthFail = (response.status === 401 || response.status === 403) &&
+          (msgLower.includes("invalid api key") ||
+            msgLower.includes("invalid key") ||
+            msgLower.includes("unauthorized") ||
+            msgLower.includes("no auth") ||
+            msgLower.includes("api key not found"));
+        if (isHardAuthFail) {
+          throw new Error(`Authentication failed: ${msg}`);
+        }
         triedErrors.push(`${model}: ${msg}`);
-        if ([400, 404, 429, 500, 503].includes(Number(code)) ||
-          msg.includes("rate-limit") || msg.includes("Provider returned error") ||
-          msg.includes("No endpoints")) continue;
-        throw new Error(msg);
+        continue;
       }
 
-      console.log(`[ChatForge] ✓ Serving via OpenRouter: ${model}`);
+      console.log(`[ChatForge] ✓ Serving via OpenRouter: ${model} (Streaming: ${stream})`);
       return response;
     } catch (err) {
       clearTimeout(timeout);
-      if (err.name === "AbortError") {
-        triedErrors.push(`${model}: timed out`);
-        continue;
-      }
-      if (!triedErrors.find((e) => e.startsWith(model))) throw err;
+      const errMsg = err.name === "AbortError" ? "timed out (30s)" : err.message;
+      console.warn(`[ChatForge] Model "${model}" error: ${errMsg}`);
+      triedErrors.push(`${model}: ${errMsg}`);
+      continue;
     }
   }
 
-  throw new Error("All AI models are currently unavailable. Please try again later.");
+  throw new Error(`OpenRouter failed all models: ${triedErrors.join(" | ")}`);
 }
 
 // ─────────────────────────────────────────────
@@ -239,6 +298,15 @@ export async function smartRouter(messages, keys, options = {}) {
   const errors = [];
 
   for (const provider of order) {
+    // 1. Health Check (Circuit Breaker)
+    const health = BACKEND_MEMORY_CACHE.health[provider];
+    if (health && health.status === "down" && Date.now() < health.retryAt) {
+      const waitSec = Math.ceil((health.retryAt - Date.now()) / 1000);
+      errors.push(`${provider}: disabled (rate limit) - retry in ${waitSec}s`);
+      continue;
+    }
+
+    // 2. Key Check
     const key = keys[provider];
     if (!key) {
       errors.push(`${provider}: no key configured`);
@@ -246,13 +314,17 @@ export async function smartRouter(messages, keys, options = {}) {
     }
 
     try {
+      console.log(`[Router] Attempting: ${provider} (Routing: ${routingMode})`);
+
       if (provider === "groq") {
         const res = await askGroq(messages, key, options);
+        if (health) delete BACKEND_MEMORY_CACHE.health[provider];
         return { stream: res, provider: "groq", isGenerator: false };
       }
 
       if (provider === "gemini") {
         const gen = askGeminiStream(messages, key, options);
+        if (health) delete BACKEND_MEMORY_CACHE.health[provider];
         return { stream: gen, provider: "gemini", isGenerator: true };
       }
 
@@ -261,22 +333,38 @@ export async function smartRouter(messages, keys, options = {}) {
           ? [options.model, ...FREE_MODELS.filter((m) => m !== options.model)]
           : FREE_MODELS;
         const res = await askAI(messages, key, { ...options, models: finalModels, stream: true });
+        if (health) delete BACKEND_MEMORY_CACHE.health[provider];
         return { stream: res, provider: "openrouter", isGenerator: false };
       }
 
       if (provider === "huggingface") {
         const res = await askHuggingFace(messages, key, options);
+        if (health) delete BACKEND_MEMORY_CACHE.health[provider];
         return { stream: res, provider: "huggingface", isGenerator: false };
       }
     } catch (err) {
-      console.warn(`[SmartRouter] ${provider} failed: ${err.message}`);
-      errors.push(`${provider}: ${err.message}`);
-      // continue to next provider
+      const errMsg = err.message || "Unknown error";
+      console.warn(`[SmartRouter] ${provider} failed: ${errMsg}`);
+
+      // 3. Circuit Breaker Logic
+      if (errMsg.includes("rate limit") || errMsg.includes("429") || errMsg.includes("capacity")) {
+        console.log(`[Circuit Breaker] Tripping for ${provider} (60s cooldown)`);
+        BACKEND_MEMORY_CACHE.health[provider] = {
+          status: "down",
+          retryAt: Date.now() + 60000
+        };
+      }
+
+      errors.push(`${provider}: ${errMsg}`);
+
+      // If strict mode, don't fallback
+      if (routingMode !== "smart") break;
     }
   }
 
+  const errorDetails = errors.length > 0 ? `\n\nDetails:\n${errors.join("\n")}` : "";
   throw new Error(
-    `All providers failed. Please check your API keys in Settings.\n${errors.join(" | ")}`
+    `AI Connection Failed. Please check your API keys in Settings. ${errorDetails}`
   );
 }
 
@@ -311,18 +399,37 @@ app.post("/api/chat", async (req, res) => {
     const { stream, provider, isGenerator } = await smartRouter(messages, keys, options);
 
     if (isGenerator) {
-      // Gemini: async generator of SSE strings
+      // Gemini: async generator
       for await (const chunk of stream) {
         res.write(chunk);
       }
     } else {
-      // Groq / OpenRouter: raw fetch Response with SSE body
-      const reader = stream.body.getReader();
-      const decoder = new TextDecoder();
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-        res.write(decoder.decode(value, { stream: true }));
+      // Groq / OpenRouter / HuggingFace: raw fetch Response body
+      // We consume the stream manually to ensure SSE compatibility and avoid Node/Web stream mismatches
+      const reader = stream.body.getReader ? stream.body.getReader() : null;
+
+      if (reader) {
+        const decoder = new TextDecoder();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            res.write(decoder.decode(value, { stream: true }));
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      } else if (stream.body.on) {
+        // Node.js Readable fallback
+        await new Promise((resolve, reject) => {
+          stream.body.on("data", (chunk) => res.write(chunk));
+          stream.body.on("end", resolve);
+          stream.body.on("error", reject);
+        });
+      } else {
+        // Fallback for non-streaming response body (unlikely but safe)
+        const text = await stream.text();
+        res.write(text);
       }
     }
 
@@ -381,21 +488,40 @@ app.post("/api/keys", async (req, res) => {
   if (openrouter !== undefined) {
     const key = openrouter.trim();
     if (key) {
+      const cleanKey = String(key).replace(/[^\x00-\x7F]/g, "").trim();
       try {
         const aiRes = await askAI(
           [{ role: "user", content: "Say hi." }],
-          key,
+          cleanKey,
           { models: [FREE_MODELS[0]], systemPrompt: "Be concise." }
         );
-        const data = await aiRes.json();
-        if (data?.choices?.[0]?.message?.content) {
-          toSave.openrouter = key;
-          results.openrouter = { ok: true };
+        // askAI returns the raw fetch Response for non-streaming calls
+        if (aiRes.ok) {
+          const data = await aiRes.json();
+          if (data?.choices?.[0]?.message?.content) {
+            toSave.openrouter = key;
+            results.openrouter = { ok: true };
+          } else {
+            results.openrouter = { ok: false, error: data?.error?.message || "No response from model" };
+          }
         } else {
-          results.openrouter = { ok: false, error: data?.error?.message || "Validation failed" };
+          const errData = await aiRes.json().catch(() => ({}));
+          results.openrouter = { ok: false, error: errData?.error?.message || `HTTP ${aiRes.status}` };
         }
       } catch (e) {
-        results.openrouter = { ok: false, error: e.message };
+        // If error is NOT an auth failure, the key format is valid but models are busy.
+        // Save the key anyway — user can still try chatting.
+        const errMsg = e.message || "";
+        const isAuthError = errMsg.toLowerCase().includes("authentication") ||
+          errMsg.toLowerCase().includes("invalid api key") ||
+          errMsg.toLowerCase().includes("401") ||
+          errMsg.toLowerCase().includes("403");
+        if (!isAuthError && cleanKey.startsWith("sk-or-v1-")) {
+          toSave.openrouter = key;
+          results.openrouter = { ok: true, warning: "Models are busy, but key was saved. You can start chatting!" };
+        } else {
+          results.openrouter = { ok: false, error: e.message };
+        }
       }
     }
   }
@@ -404,9 +530,10 @@ app.post("/api/keys", async (req, res) => {
   if (groq !== undefined) {
     const key = groq.trim();
     if (key) {
-      const valid = await validateGroqKey(key);
+      const cleanKey = String(key).replace(/[^\x00-\x7F]/g, "").trim();
+      const valid = await validateGroqKey(cleanKey);
       if (valid) {
-        toSave.groq = key;
+        toSave.groq = cleanKey;
         results.groq = { ok: true };
       } else {
         results.groq = { ok: false, error: "Invalid Groq API key" };
@@ -418,9 +545,10 @@ app.post("/api/keys", async (req, res) => {
   if (gemini !== undefined) {
     const key = gemini.trim();
     if (key) {
-      const valid = await validateGeminiKey(key);
+      const cleanKey = String(key).replace(/[^\x00-\x7F]/g, "").trim();
+      const valid = await validateGeminiKey(cleanKey);
       if (valid) {
-        toSave.gemini = key;
+        toSave.gemini = cleanKey;
         results.gemini = { ok: true };
       } else {
         results.gemini = { ok: false, error: "Invalid Gemini API key" };
@@ -432,9 +560,10 @@ app.post("/api/keys", async (req, res) => {
   if (huggingface !== undefined) {
     const key = huggingface.trim();
     if (key) {
-      const valid = await validateHuggingFaceKey(key);
+      const cleanKey = String(key).replace(/[^\x00-\x7F]/g, "").trim();
+      const valid = await validateHuggingFaceKey(cleanKey);
       if (valid) {
-        toSave.huggingface = key;
+        toSave.huggingface = cleanKey;
         results.huggingface = { ok: true };
       } else {
         results.huggingface = { ok: false, error: "Invalid Hugging Face API key" };
@@ -482,10 +611,14 @@ app.get("/", (_, res) => res.json({ message: "Welcome to ChatForge" }));
 async function startServer() {
   try {
     await connectDB();
-    app.listen(5000, () => console.log("Server running on port 5000"));
+    // Start listening regardless of MongoDB status
+    app.listen(5000, () => {
+      console.log("-----------------------------------------");
+      console.log("🚀 Server running on port 5000");
+      console.log("-----------------------------------------");
+    });
   } catch (err) {
-    console.error("Failed to start server:", err);
-    process.exit(1);
+    console.error("Critical server error:", err);
   }
 }
 

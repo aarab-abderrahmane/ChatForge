@@ -126,39 +126,56 @@ function App() {
       (question.length < 30 && ["continue", "keep going", "استمر", "كمل"].some(kw => question.toLowerCase().includes(kw)));
 
     const session = sessions.find(s => s.id === activeSessionId) || { messages: chats, summary: "" };
-    const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } = await ContextBuilder.build(chats, activeWorkspace, session.summary);
+    const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } = await ContextBuilder.build(chats, activeWorkspace, session.summary, question);
 
-    let fullSystemPrompt = (prefix ? `${contextSystemPrompt}\n\n[User context]: ${prefix}` : contextSystemPrompt) || basePrompt;
+    // Model Consistency & Locking
+    let finalRoutingMode = settings.routingMode || "smart";
+    if (finalRoutingMode === "smart") {
+      // If the session already has a locked route, verify the provider still has a key
+      if (session.routingMode) {
+        const lockedProvider = session.routingMode;
+        // Only honor the lock if the provider actually has a key
+        if (providerStatus[lockedProvider]) {
+          finalRoutingMode = lockedProvider;
+        } else {
+          // The locked provider has no key — revert to smart and find one that works
+          finalRoutingMode = ContextBuilder.route(question, providerStatus);
+          // Re-lock to the new valid provider
+          updateSessionRoute(activeSessionId, finalRoutingMode);
+        }
+      } else {
+        // No lock yet — calculate and lock to a provider that actually has a key
+        finalRoutingMode = ContextBuilder.route(question, providerStatus);
+        // Only lock if we found a real provider (don't lock to unavailable ones)
+        if (providerStatus[finalRoutingMode] || finalRoutingMode === "openrouter") {
+          updateSessionRoute(activeSessionId, finalRoutingMode);
+        }
+      }
+    }
+
+    // Determine if it's a code task for max_tokens & skill isolation
+    const isCodeTask = finalRoutingMode === "openrouter" || finalRoutingMode === "gemini";
+    const maxTokens = isCodeTask ? 4096 : (settings.maxTokens || 1024);
+
+    // Skill Isolation: If it's a code task, force the "Code Master" identity for stability
+    let finalSystemPrompt = (prefix ? `${contextSystemPrompt}\n\n[User context]: ${prefix}` : contextSystemPrompt) || basePrompt;
+    if (isCodeTask) {
+      const codeSkill = SKILLS.find(s => s.id === "code");
+      finalSystemPrompt = `MODAL IDENTITY: ${codeSkill.systemPrompt}\n\n${finalSystemPrompt}`;
+    }
 
     if (isContinuationMsg) {
-      fullSystemPrompt += "\n\nCRITICAL: The user wants you to CONTINUE exactly from where you stopped. Do NOT repeat anything you already wrote. Do NOT start from the beginning. Simply provide the next part of the code or text.";
+      finalSystemPrompt += "\n\nCRITICAL: The user wants you to CONTINUE exactly from where you stopped. Do NOT repeat anything you already wrote. Do NOT start from the beginning. Simply provide the next part of the code or text.";
     }
 
     // Slightly bump temperature to ensure varied alternatives if draftIndex > 0
     const draftTemp = draftIndex > 0 ? Math.min((settings.temperature || 0.7) + (draftIndex * 0.15), 1.5) : (settings.temperature || 0.7);
 
-    // Model Consistency & Locking
-    let finalRoutingMode = settings.routingMode || "smart";
-    if (finalRoutingMode === "smart") {
-      // If the session already has a locked route, use it
-      if (session.routingMode) {
-        finalRoutingMode = session.routingMode;
-      } else {
-        // Otherwise, calculate a new route and lock it for this session
-        finalRoutingMode = ContextBuilder.route(question, providerStatus);
-        updateSessionRoute(activeSessionId, finalRoutingMode);
-      }
-    }
-
-    // Determine if it's a code task for max_tokens
-    const isCodeTask = finalRoutingMode === "openrouter" || finalRoutingMode === "gemini";
-    const maxTokens = isCodeTask ? 4096 : (settings.maxTokens || 1024);
-
     try {
       const response = await api.chat(
         preferences.userId,
         contextMessages,
-        fullSystemPrompt,
+        finalSystemPrompt,
         activeModelId,
         {
           temperature: draftTemp,
@@ -360,6 +377,9 @@ function App() {
         skillId: "translator",
       };
     }
+    if (cmd === "//> new" || cmd === "//>new") {
+      return { action: "clear" };
+    }
     if (cmd === "//> help" || cmd === "//>help") {
       return {
         question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: //>clear, //>new, //>summarize, //>translate, //>retry, //>stats, //>export, //>help, //>skill, //>model, //>quiz [topic], //>flashcards [topic], and //>mindmap [topic]. Also mention: Enter to send, Shift+Enter for newline.`,
@@ -454,6 +474,10 @@ No preamble, no extra text.`,
     if (text.startsWith("//>")) {
       const transformed = transformCommand(text);
       if (transformed) {
+        if (transformed.action === "clear") {
+          clearCurrentChat();
+          return;
+        }
         const displayQuestion = text; // Show the command as typed
         const newMsg = {
           id: newId,

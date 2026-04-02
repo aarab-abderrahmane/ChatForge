@@ -102,7 +102,40 @@ export const KeysService = {
             gemini: !!keys.gemini,
             huggingface: !!keys.huggingface,
         };
-    }
+    },
+    /**
+     * Migrate any legacy keys from localStorage to the new encrypted IndexedDB store.
+     * Called on app mount. Safe to call multiple times (idempotent).
+     */
+    migrateLegacyKeys: async () => {
+        try {
+            // Check if already migrated
+            const existing = await idb.get(stores.KEYS, 'user_keys');
+            if (existing) return; // Already has keys in IDB, nothing to do
+
+            // Look for legacy plaintext key in localStorage
+            const legacyKey = localStorage.getItem('ChatForge_APIKey') ||
+                localStorage.getItem('openrouter_key') ||
+                localStorage.getItem('APIKey');
+
+            if (legacyKey) {
+                const cleanKey = legacyKey.trim();
+                if (cleanKey) {
+                    // Detect provider from key format
+                    const provider = cleanKey.startsWith('gsk_') ? 'groq' :
+                        cleanKey.startsWith('AIza') ? 'gemini' : 'openrouter';
+                    await KeysService.saveKeys({ [provider]: cleanKey });
+                    // Clean up old localStorage entry
+                    localStorage.removeItem('ChatForge_APIKey');
+                    localStorage.removeItem('openrouter_key');
+                    localStorage.removeItem('APIKey');
+                    console.log(`[ChatForge] Migrated legacy ${provider} key to secure storage.`);
+                }
+            }
+        } catch (err) {
+            console.warn('[ChatForge] Key migration skipped:', err.message);
+        }
+    },
 };
 
 export const StorageService = {

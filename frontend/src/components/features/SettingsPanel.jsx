@@ -391,7 +391,13 @@ export function SettingsPanel({ onClose }) {
       setKeyResults((p) => ({ ...p, [provider]: result }));
       if (result?.ok) {
         setProviderStatus((p) => ({ ...p, [provider]: true }));
-        setPreferences((p) => ({ ...p, currentPage: "chat" }));
+        // Clear the input on success
+        setKeyValues((p) => ({ ...p, [provider]: "" }));
+        // Only auto-navigate if no other providers are partially filled
+        const othersFilled = Object.entries(keyValues).some(([k, v]) => k !== provider && v.trim().length > 0);
+        if (!othersFilled) {
+          setPreferences((p) => ({ ...p, currentPage: "chat" }));
+        }
       }
     } catch {
       setKeyResults((p) => ({ ...p, [provider]: { ok: false, error: "Network error" } }));
@@ -1404,8 +1410,20 @@ export function SettingsPanel({ onClose }) {
 
                         {/* Feedback */}
                         {result && (
-                          <div className="text-[9px] mt-1" style={{ color: result.ok ? "var(--neon-green)" : "rgba(255,45,120,0.8)" }}>
-                            {result.ok ? "✓ Key saved successfully" : `✗ ${result.error}`}
+                          <div
+                            className="text-[9px] mt-1 flex items-start gap-1"
+                            style={{
+                              color: result.ok
+                                ? result.warning ? "var(--neon-yellow, #ffd700)" : "var(--neon-green)"
+                                : "rgba(255,45,120,0.8)"
+                            }}
+                          >
+                            <span>{result.ok ? (result.warning ? "⚠" : "✓") : "✗"}</span>
+                            <span>
+                              {result.ok
+                                ? result.warning || "Key saved and verified successfully"
+                                : result.error}
+                            </span>
                           </div>
                         )}
 

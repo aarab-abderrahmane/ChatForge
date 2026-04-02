@@ -302,13 +302,7 @@ export const Terminal = ({
 
     const cmd = trimmed.toLowerCase();
 
-    if (cmd === "//> clear" || cmd === "//> clear") {
-      setShowClearConfirm(true);
-      setQuery("");
-      setShowCmdMenu(false);
-      return true;
-    }
-    if (cmd === "//>clear") {
+    if (cmd === "//>clear" || cmd === "//> clear") {
       setShowClearConfirm(true);
       setQuery("");
       setShowCmdMenu(false);
@@ -748,7 +742,27 @@ export const Terminal = ({
                           <span>.</span>
                         </span>
                       </span>
+                      {/* Show last used provider badge */}
+                      {(() => {
+                        const lastMsg = [...chats].reverse().find(c => c.type === "ch" && c.provider);
+                        if (!lastMsg) return null;
+                        const p = lastMsg.provider;
+                        const label = p === "groq" ? "⚡ Groq" : p === "gemini" ? "🧠 Gemini" : p === "huggingface" ? "🤗 HuggingFace" : "🌐 OpenRouter";
+                        return (
+                          <span className="text-[9px] px-2 py-0.5 rounded border" style={{ color: "var(--neon-cyan)", borderColor: "var(--neon-cyan-dim)", background: "rgba(0,245,255,0.05)" }}>
+                            {label}
+                          </span>
+                        );
+                      })()}
                     </div>
+                    <button
+                      onClick={onStopAI}
+                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(255,45,120,0.2)] active:scale-95"
+                      style={{ background: "rgba(255,45,120,0.1)", border: "1px solid var(--neon-magenta)", color: "var(--neon-magenta)", boxShadow: "0 0 10px rgba(255,45,120,0.15)" }}
+                      title="Stop generating"
+                    >
+                      <XIcon size={11} /> Stop
+                    </button>
                   </motion.div>
                 )}
               </AnimatePresence>

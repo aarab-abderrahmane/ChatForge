@@ -62,10 +62,17 @@ export const ContextBuilder = {
      * @param {Array} chats - Current chat history.
      * @param {Object} project - Active project metadata.
      * @param {String} currentSummary - Existing summary from IndexedDB.
+     * @param {String} currentQuestion - The fresh question being sent (to avoid stale state).
      * @returns {Object} { messages, systemPrompt, summaryUpdateNeeded }
      */
-    build: async (chats, project, currentSummary = "") => {
-        const chatHistory = chats.filter(c => c.type === "ch" && (c.question || c.answer));
+    build: async (chats, project, currentSummary = "", currentQuestion = "") => {
+        // 1. FILTER: Exclude the default FAQ/Welcome messages from AI context to prevent pollution
+        // These have fixed IDs 1, 2, 3 in chatsContext.jsx
+        const chatHistory = chats.filter(c =>
+            c.type === "ch" &&
+            (c.question || c.answer) &&
+            ![1, 2, 3].includes(c.id)
+        );
 
         let messages = [];
         let summary = truncate(currentSummary, MAX_SUMMARY_CONTENT);
@@ -81,13 +88,29 @@ export const ContextBuilder = {
                 ...(c.answer ? [{ role: "assistant", content: truncate(c.answer, MAX_MESSAGE_CONTENT, codeMode) }] : [])
             ]);
         } else {
-            // Last 6 messages complete
-            const lastSix = chatHistory.slice(-6);
-            messages = lastSix.flatMap(c => [
+            messages = chatHistory.slice(-6).flatMap(c => [
                 { role: "user", content: truncate(c.question, MAX_MESSAGE_CONTENT, codeMode) },
                 ...(c.answer ? [{ role: "assistant", content: truncate(c.answer, MAX_MESSAGE_CONTENT, codeMode) }] : [])
             ]);
         }
+
+        // 2. LAST OUTPUT INJECTION: Find the last assistant response and ensure it's weighted correctly
+        const lastAnswer = [...chatHistory].reverse().find(c => c.answer)?.answer;
+        if (lastAnswer && lastAnswer.length > 50) {
+            messages.push({
+                role: "system",
+                content: "CRITICAL CONTEXT (Last Generated Output):\n" + truncate(lastAnswer, 5000, true)
+            });
+        }
+
+        // 3. FIX STALE MESSAGE: Explicitly append the current question if it's not already the last message
+        if (currentQuestion && (!messages.length || messages[messages.length - 1].content !== currentQuestion)) {
+            messages.push({ role: "user", content: currentQuestion });
+        }
+
+        // 2. TOPIC SHIFT: If the user is asking something very short and the history is long,
+        // or if keywords suggest a new task, we might want to warn or isolate.
+        // For now, we'll just sharpen the System Prompt to focus on the CURRENT question.
 
         // Build System Prompt with Project Context
         let systemPrompt = "";
@@ -108,8 +131,15 @@ export const ContextBuilder = {
         }
 
         if (summary) {
-            systemPrompt += `Summary of previous conversation: [${summary}]\n\n`;
+            systemPrompt += `Below is a brief summary of the conversation so far for context. HOWEVER, prioritize the LATEST user request above all else.\nSummary: [${summary}]\n\n`;
         }
+
+        // Add strict instructions to avoid answering based on unrelated previous context
+        systemPrompt += "CONTROL LAYER RULES:\n" +
+            "- If the user asks to 'continue', provide ONLY the continuation. Do NOT repeat or restart.\n" +
+            "- If the task is related to code, ensure tags are closed and logic is complete.\n" +
+            "- Prioritize the LATEST request. If it's a new topic, ignore unrelated history.\n" +
+            "- Never hallucinate or restart a generation from zero unless explicitly asked.\n\n";
 
         // Diagnostic: Check payload size
         const payloadSize = JSON.stringify({ messages, systemPrompt }).length;

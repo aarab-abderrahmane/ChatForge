@@ -156,7 +156,7 @@ export function MessageBlock({
           {/* Router Badge */}
           {obj.provider && (
             <span className={`router-badge provider-${obj.provider}`} title={`Served by ${obj.provider}`}>
-              {obj.provider === "groq" ? "⚡ Groq" : obj.provider === "gemini" ? "🧠 Gemini" : "🌐 OpenRouter"}
+              {obj.provider === "groq" ? "⚡ Groq" : obj.provider === "gemini" ? "🧠 Gemini" : obj.provider === "huggingface" ? "🤗 HuggingFace" : "🌐 OpenRouter"}
             </span>
           )}
 

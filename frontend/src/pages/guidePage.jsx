@@ -24,13 +24,13 @@ const ASCII_LOGO = `
 
 const BOOT_MESSAGES = [
   { type: "sys", content: "root@chatforge:~# ./start_chatforge.sh", delay: 0 },
-  { type: "ok",  content: "[✓] Verifying ChatForge environment...", delay: 300 },
-  { type: "ok",  content: "[✓] Node runtime v20.x detected", delay: 600 },
-  { type: "ok",  content: "[✓] Loading AI modules...", delay: 900 },
-  { type: "warn",content: "[!] OpenRouter API key not detected", delay: 1200 },
-  { type: "info", content: "→  Visit https://openrouter.ai to create your free key", delay: 1500 },
-  { type: "info", content: "→  Paste it below to enable full AI access", delay: 1800 },
-  { type: "sys",  content: "System ready. Awaiting authentication.", delay: 2100 },
+  { type: "ok", content: "[✓] Verifying ChatForge environment...", delay: 300 },
+  { type: "ok", content: "[✓] Node runtime v20.x detected", delay: 600 },
+  { type: "ok", content: "[✓] Loading AI modules...", delay: 900 },
+  { type: "warn", content: "[!] AI Provider key not detected", delay: 1200 },
+  { type: "info", content: "→  Supports: OpenRouter, Groq (gsk_...), or Gemini (AIza...)", delay: 1500 },
+  { type: "info", content: "→  Paste your key below to enable full AI access", delay: 1800 },
+  { type: "sys", content: "System ready. Awaiting authentication.", delay: 2100 },
 ];
 
 export async function KeyTest(
@@ -48,10 +48,13 @@ export async function KeyTest(
         { type: "error", content: `[✗] ${data.response}` },
       ]);
     } else {
+      const isWarning = data.response?.startsWith("warning:");
+      const message = isWarning ? data.response.split("warning:")[1] : "[✓] API Key authenticated. Full access granted.";
+
       setMessages((prev) => [
         ...prev,
         { type: "key", content: key },
-        { type: "success", content: "[✓] API Key authenticated. Full access granted." },
+        { type: isWarning ? "warn" : "success", content: message },
       ]);
       setShowConfirm(true);
     }
@@ -130,13 +133,13 @@ export const GuidePage = () => {
 
   const msgColor = (type) => {
     switch (type) {
-      case "ok":      return "var(--neon-green)";
-      case "warn":    return "var(--neon-yellow)";
-      case "error":   return "var(--neon-magenta)";
+      case "ok": return "var(--neon-green)";
+      case "warn": return "var(--neon-yellow)";
+      case "error": return "var(--neon-magenta)";
       case "success": return "#90ff80";
-      case "info":    return "var(--neon-cyan)";
-      case "key":     return "transparent";
-      default:        return "rgba(200,255,192,0.7)";
+      case "info": return "var(--neon-cyan)";
+      case "key": return "transparent";
+      default: return "rgba(200,255,192,0.7)";
     }
   };
 
@@ -299,7 +302,7 @@ export const GuidePage = () => {
                   value={keyValue}
                   onChange={(e) => setKeyValue(e.target.value)}
                   onKeyDown={handleKeyDown}
-                  placeholder="sk-or-v1-…"
+                  placeholder="sk-or-v1-... OR gsk_... OR AIza..."
                   disabled={loading || showConfirm}
                   className="guide-key-input flex-1"
                 />

@@ -560,10 +560,15 @@ export function ChatsProvider({ children }) {
   }, []);
 
   const clearCurrentChat = useCallback(() => {
-    const fresh = makeSession();
-    setSessions([fresh]);
-    setActiveSessionId(fresh.id);
-  }, []);
+    // Clear only the active session's messages, preserving other sessions
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === (activeSession?.id)
+          ? { ...s, messages: WELCOME_MESSAGES, title: "New Chat", summary: "", routingMode: null }
+          : s
+      )
+    );
+  }, [activeSession?.id]);
 
   const clearAllSessions = useCallback(() => {
     const fresh = makeSession();
@@ -593,16 +598,27 @@ export function ChatsProvider({ children }) {
     );
   }, [setChats]);
 
-  // ── Key check + provider status on mount ────────────────────────────
+  // ── Key check + provider status on mount ────────────────────────
   useEffect(() => {
     const run = async () => {
+      await KeysService.migrateLegacyKeys(); // Auto-migrate old keys
       await check_key_exists(setPreferences, preferences);
-      const status = await api.getKeysStatus(preferences.userId);
+      // Always re-read from IndexedDB (source of truth) rather than relying on
+      // backend to stay in sync — avoids stale providerStatus after guide-page save
+      const status = await KeysService.getStatus();
       setProviderStatus(status);
     };
     run();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Re-sync providerStatus any time the user navigates to the chat page
+  // (handles the case where they saved a key on the guide page)
+  useEffect(() => {
+    if (preferences.currentPage === "chat") {
+      KeysService.getStatus().then(setProviderStatus);
+    }
+  }, [preferences.currentPage]);
 
   return (
     <chatsContext.Provider
@@ -631,6 +647,7 @@ export function ChatsProvider({ children }) {
         // helpers
         createNewSession,
         deleteSession,
+        renameSession,
         updateSessionSummary,
         updateSessionRoute,
         clearCurrentChat,
@@ -655,8 +672,6 @@ export function ChatsProvider({ children }) {
         // provider status
         providerStatus,
         setProviderStatus,
-        // summary helper
-        updateSessionSummary,
       }}
     >
       {children}
