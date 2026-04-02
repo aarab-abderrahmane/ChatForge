@@ -114,7 +114,7 @@ export const api = {
   },
 
   // ── Send message (streaming) ────────────────────────────────────
-  chat: async (userId, messages, skillPrompt, model, parameters = {}, signal) => {
+  chat: async (userId, messages, skillPrompt, model, parameters = {}, workspaceState = null, signal) => {
     try {
       const keys = await KeysService.getKeys();
 
@@ -134,7 +134,7 @@ export const api = {
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, messages, skillPrompt, model, parameters: safeParams, clientKeys }),
+        body: JSON.stringify({ userId, messages, skillPrompt, model, parameters: safeParams, workspaceState, clientKeys }),
         signal,
       });
       return res;

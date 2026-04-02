@@ -722,26 +722,42 @@ export const Terminal = ({
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0 }}
-                    className="flex justify-between items-center py-3"
+                    className="flex justify-between items-center py-3 px-1"
                   >
-                    <div className="flex items-center gap-2">
-                      <span
-                        className="loading-spin text-lg inline-block"
-                        style={{ color: "var(--neon-green)" }}
-                      >
-                        ⟳
-                      </span>
-                      <span
-                        className="text-xs"
-                        style={{ color: "rgba(200,255,192,0.4)" }}
-                      >
-                        AI is thinking
-                        <span className="loading-dots">
-                          <span>.</span>
-                          <span>.</span>
-                          <span>.</span>
+                    <div className="flex items-center gap-3">
+                      {/* Animated activity bars */}
+                      <div className="flex items-end gap-[3px] h-4">
+                        {[0, 1, 2, 3].map((i) => (
+                          <div
+                            key={i}
+                            className="w-[3px] rounded-full"
+                            style={{
+                              background: "var(--neon-green)",
+                              height: `${[6, 14, 10, 16][i]}px`,
+                              animation: `pulse ${0.8 + i * 0.15}s ease-in-out ${i * 0.1}s infinite alternate`,
+                              opacity: 0.7,
+                            }}
+                          />
+                        ))}
+                      </div>
+
+                      <div className="flex flex-col gap-0.5">
+                        <span
+                          className="text-xs font-bold"
+                          style={{ color: "var(--neon-green)" }}
+                        >
+                          Generating response
+                          <span className="loading-dots">
+                            <span>.</span>
+                            <span>.</span>
+                            <span>.</span>
+                          </span>
                         </span>
-                      </span>
+                        <span className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(200,255,192,0.3)" }}>
+                          AI is processing your request
+                        </span>
+                      </div>
+
                       {/* Show last used provider badge */}
                       {(() => {
                         const lastMsg = [...chats].reverse().find(c => c.type === "ch" && c.provider);
@@ -755,6 +771,7 @@ export const Terminal = ({
                         );
                       })()}
                     </div>
+
                     <button
                       onClick={onStopAI}
                       className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(255,45,120,0.2)] active:scale-95"

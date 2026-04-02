@@ -68,42 +68,76 @@ export function WorkspaceDashboard() {
                     </div>
                 ) : (
                     <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
-                        {workspaces.map(ws => (
-                            <motion.div
-                                initial={{ opacity: 0, y: 10 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                key={ws.id}
-                                className="group relative flex flex-col p-5 rounded-lg border glass-panel transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer"
-                                style={{ borderColor: "rgba(0,245,255,0.2)" }}
-                                onClick={() => handleOpen(ws.id)}
-                            >
-                                <div className="flex justify-between items-start mb-2">
-                                    <h3 className="text-lg font-bold text-white truncate pr-6">{ws.name}</h3>
-                                    <span className="text-[10px] px-2 py-0.5 rounded uppercase font-bold" style={{ background: "rgba(0,245,255,0.1)", color: "var(--neon-cyan)" }}>
-                                        {ws.type}
-                                    </span>
-                                </div>
+                        {workspaces.map(ws => {
+                            const totalTasks = ws.tasks.length;
+                            const doneTasks = ws.tasks.filter(t => t.status === "completed").length;
+                            const progress = totalTasks > 0 ? Math.round((doneTasks / totalTasks) * 100) : 0;
 
-                                <p className="text-sm opacity-70 mb-4 line-clamp-2 min-h-10">
-                                    {ws.description || "No description provided."}
-                                </p>
-
-                                <div className="mt-auto flex items-center justify-between text-xs opacity-50">
-                                    <span>{ws.tasks.length} tasks</span>
-                                    <span>{ws.outputs.length} outputs</span>
-                                    <span>{ws.chats.filter(c => c.type === "ch").length} messages</span>
-                                </div>
-
-                                {/* Delete button (hidden by default) */}
-                                <button
-                                    onClick={(e) => { e.stopPropagation(); deleteWorkspace(ws.id); }}
-                                    className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-1.5 rounded-full hover:bg-red-500/20 text-red-400 transition-all font-bold"
-                                    title="Delete Workspace"
+                            return (
+                                <motion.div
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    key={ws.id}
+                                    className="group relative flex flex-col p-5 rounded-lg border glass-panel transition-all hover:-translate-y-1 hover:shadow-lg cursor-pointer"
+                                    style={{ borderColor: "rgba(0,245,255,0.2)" }}
+                                    onClick={() => handleOpen(ws.id)}
                                 >
-                                    ×
-                                </button>
-                            </motion.div>
-                        ))}
+                                    <div className="flex justify-between items-start mb-2">
+                                        <h3 className="text-lg font-bold text-white truncate pr-6">{ws.name}</h3>
+                                        <span className="text-[10px] px-2 py-0.5 rounded uppercase font-bold shrink-0" style={{ background: "rgba(0,245,255,0.1)", color: "var(--neon-cyan)" }}>
+                                            {ws.type || "General"}
+                                        </span>
+                                    </div>
+
+                                    <p className="text-sm opacity-70 mb-3 line-clamp-2 min-h-10">
+                                        {ws.description || "No description provided."}
+                                    </p>
+
+                                    {/* Phase badge */}
+                                    {ws.currentPhase && (
+                                        <div className="mb-3">
+                                            <span className="text-[9px] px-2 py-0.5 rounded-full border font-bold uppercase tracking-wider" style={{ borderColor: "rgba(57,255,20,0.3)", color: "var(--neon-green)", background: "rgba(57,255,20,0.06)" }}>
+                                                🔄 {ws.currentPhase}
+                                            </span>
+                                        </div>
+                                    )}
+
+                                    {/* Task progress bar */}
+                                    {totalTasks > 0 && (
+                                        <div className="mb-3">
+                                            <div className="flex justify-between text-[9px] mb-1 opacity-50 font-mono">
+                                                <span>{doneTasks}/{totalTasks} tasks</span>
+                                                <span>{progress}%</span>
+                                            </div>
+                                            <div className="h-1 rounded-full overflow-hidden" style={{ background: "rgba(255,255,255,0.05)" }}>
+                                                <div
+                                                    className="h-full rounded-full transition-all"
+                                                    style={{
+                                                        width: `${progress}%`,
+                                                        background: progress === 100 ? "var(--neon-green)" : "linear-gradient(90deg, var(--neon-cyan), var(--neon-green))",
+                                                        boxShadow: progress > 0 ? "0 0 6px rgba(0,245,255,0.4)" : "none"
+                                                    }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    <div className="mt-auto flex items-center justify-between text-xs opacity-50">
+                                        <span>{ws.outputs.length} files</span>
+                                        <span>{ws.chats.filter(c => c.type === "ch").length} messages</span>
+                                    </div>
+
+                                    {/* Delete button (hidden by default) */}
+                                    <button
+                                        onClick={(e) => { e.stopPropagation(); deleteWorkspace(ws.id); }}
+                                        className="absolute top-4 right-4 opacity-0 group-hover:opacity-100 p-1.5 rounded-full hover:bg-red-500/20 text-red-400 transition-all font-bold"
+                                        title="Delete Workspace"
+                                    >
+                                        ×
+                                    </button>
+                                </motion.div>
+                            );
+                        })}
                     </div>
                 )}
             </div>

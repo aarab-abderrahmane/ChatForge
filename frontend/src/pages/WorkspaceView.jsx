@@ -1,5 +1,5 @@
 import { useState, useContext, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, Plus, CheckCircle, Circle, Play, FileText, Send, SquareTerminal, Briefcase } from "lucide-react";
+import { ChevronLeft, Plus, CheckCircle, Circle, Play, FileText, Send, SquareTerminal, Briefcase, Copy, Check as CheckIcon, StopCircle } from "lucide-react";
 import { WorkspaceContext } from "../context/workspaceContext";
 import { chatsContext, MODELS, SKILLS } from "../context/chatsContext";
 import { api } from "../services/api";
@@ -13,9 +13,9 @@ export function WorkspaceView() {
         updateWorkspace,
         addTask,
         updateTaskStatus,
-        completeTaskByTitle,
         saveOutput,
         setWorkspacePhase,
+        syncAgentAction,
     } = useContext(WorkspaceContext);
 
     const { preferences, setPreferences, settings, loading, setLoading } = useContext(chatsContext);
@@ -26,6 +26,9 @@ export function WorkspaceView() {
     const abortControllerRef = useRef(null);
     const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
     const [previewFile, setPreviewFile] = useState(null);
+    const [isAutoExecuting, setIsAutoExecuting] = useState(false);
+    const [copiedFileId, setCopiedFileId] = useState(null);
+    const loadingRef = useRef(false);
 
     // If no active workspace, go back to dashboard
     useEffect(() => {
@@ -34,10 +37,10 @@ export function WorkspaceView() {
         }
     }, [activeWorkspace, setPreferences]);
 
-    // Auto-scroll
+    // Auto-scroll — triggers on new messages AND new output files
     useEffect(() => {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [activeWorkspace?.chats]);
+    }, [activeWorkspace?.chats, activeWorkspace?.outputs]);
 
     const setChats = useCallback((updater) => {
         if (!activeWorkspaceId) return;
@@ -74,13 +77,15 @@ export function WorkspaceView() {
         );
     };
 
+    // Keep loadingRef in sync so handleAutoContinue avoids stale closure
+    useEffect(() => { loadingRef.current = loading; }, [loading]);
+
     // Chat Submission Logic
     async function askAI(question, id, controllerSignal) {
         setLoading(true);
 
         const activeModelId = settings.activeModelId || "meta-llama/llama-3.3-70b-instruct:free";
 
-        // Build the "Auto Context" System Prompt
         const immortalRules = activeWorkspace.rules.length > 0 ?
             `Immortal Rules (Never break them):\n${activeWorkspace.rules.map(r => `- ${r}`).join('\n')}` : '';
 
@@ -90,42 +95,25 @@ export function WorkspaceView() {
         let completedTasks = activeWorkspace.tasks.filter(t => t.status === 'completed').map(t => `- [x] ${t.title}`).join('\n');
         if (!completedTasks) completedTasks = "None";
 
-        let filesOutput = activeWorkspace.outputs.map(f => `- ${f.filename}`).join('\n');
-        if (!filesOutput) filesOutput = "None";
+        // FIX 1: Full file content injection — prevents "Context Blindness"
+        let filesOutput;
+        if (activeWorkspace.outputs.length > 0) {
+            filesOutput = activeWorkspace.outputs.map(f =>
+                `--- START FILE: ${f.filename} ---\n${f.content || ''}\n--- END FILE ---`
+            ).join('\n\n');
+        } else {
+            filesOutput = "No files created yet.";
+        }
 
-        const systemPrompt = `You are an autonomous AI Agent assigned to the project: "${activeWorkspace.name}".
-Type/Format: ${activeWorkspace.type}
-Description: ${activeWorkspace.description || 'No description provided.'}
-Current Phase: ${activeWorkspace.currentPhase}
-
-${immortalRules}
-
-==== WORKSPACE STATE ====
-Current In-Progress Tasks:
-${activeTasks}
-
-Completed Tasks:
-${completedTasks}
-
-Existing Files (Outputs):
-${filesOutput}
-=========================
-
-OUTPUT INSTRUCTIONS:
-You are an intelligent, autonomous AI Agent managing this project workspace.
-You MUST output actions to execute using XML tags, but ONLY when it directly fulfills the user's request. Do NOT aggressively recreate files or tasks that already exist unless asked to modify them.
-
-Supported Actions:
-1. Create or Update a file: <create_file name="filename.ext">...content...</create_file>
-2. Add a new task: <add_task title="task title" />
-3. Mark a task as completed: <complete_task title="task title" />
-
-CRITICAL RULES:
-- If a file already exists in "Existing Files", DO NOT recreate it unless you are explicitly adding new features or modifying it. If you do modify it, use <create_file> to overwrite it with the updated content.
-- Only add tasks if the user asks for a plan, feature breakdown, or next steps. Do not blindly duplicate tasks.
-- If the user asks a simple question, just answer normally without any XML tags.
-- Any conversational text explaining your actions should be outside the tags.
-`;
+        const workspaceState = {
+            type: activeWorkspace.type,
+            description: activeWorkspace.description || 'No description provided.',
+            currentPhase: activeWorkspace.currentPhase,
+            immortalRules,
+            activeTasks,
+            completedTasks,
+            filesOutput
+        };
 
         // Extract history
         const historyMessages = activeWorkspace.chats
@@ -141,17 +129,21 @@ CRITICAL RULES:
             { role: "user", content: question },
         ];
 
+        // ⚠️ MUST be declared before try{} so finally{} can read it
+        let shouldAutoContinue = false;
+
         try {
             const response = await api.chat(
                 preferences.userId,
                 messages,
-                systemPrompt,
+                "", // handled by backend
                 activeModelId,
                 {
                     temperature: settings.temperature || 0.7,
                     top_p: settings.topP || 1.0,
                     max_tokens: settings.maxTokens || 2048,
                 },
+                workspaceState,
                 controllerSignal
             );
 
@@ -196,14 +188,50 @@ CRITICAL RULES:
 
             // Execute intercepted actions
             if (activeWorkspaceId) {
-                const addTasks = [...fullContent.matchAll(/<add_task title="(.*?)"\s*\/>/g)];
-                addTasks.forEach(m => addTask(m[1], "coming_soon"));
+                let jsonResp;
+                try {
+                    const match = fullContent.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/);
+                    const jsonStr = match ? match[1] : fullContent;
+                    jsonResp = JSON.parse(jsonStr.trim());
+                } catch (e) {
+                    try {
+                        const lastBrace = fullContent.lastIndexOf('}');
+                        if (lastBrace !== -1) {
+                            const trimmed = fullContent.substring(0, lastBrace + 1);
+                            const match = trimmed.match(/\`\`\`(?:json)?\s*([\s\S]*)/) || [null, trimmed];
+                            jsonResp = JSON.parse(match[1]);
+                        }
+                    } catch (e2) {
+                        console.warn("Failed to parse JSON response:", e);
+                    }
+                }
 
-                const completeTasks = [...fullContent.matchAll(/<complete_task title="(.*?)"\s*\/>/g)];
-                completeTasks.forEach(m => completeTaskByTitle(m[1]));
+                if (jsonResp) {
+                    syncAgentAction(jsonResp);
 
-                const files = [...fullContent.matchAll(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g)];
-                files.forEach(m => saveOutput(m[1], m[2]));
+                    // Auto Loop Logic
+                    const requiresApproval = !!jsonResp.requires_approval;
+
+                    let hasPending = false;
+                    const oldPending = new Set(activeWorkspace.tasks.filter(t => t.status !== 'completed').map(t => t.title.trim().toLowerCase()));
+                    (jsonResp.add_tasks || []).forEach(t => oldPending.add(t.title.trim().toLowerCase()));
+                    (jsonResp.complete_tasks || []).forEach(t => oldPending.delete(t.trim().toLowerCase()));
+                    if (oldPending.size > 0) hasPending = true;
+
+                    if (!requiresApproval && hasPending) {
+                        shouldAutoContinue = true;
+                    }
+                } else {
+                    // Fallback to XML regex parsing for legacy chats during loop
+                    const addTasks = [...fullContent.matchAll(/<add_task title="(.*?)"\s*\/>/g)];
+                    addTasks.forEach(m => addTask(m[1], "coming_soon"));
+
+                    const completeTasks = [...fullContent.matchAll(/<complete_task title="(.*?)"\s*\/>/g)];
+                    completeTasks.forEach(m => completeTaskByTitle(m[1]));
+
+                    const files = [...fullContent.matchAll(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g)];
+                    files.forEach(m => saveOutput(m[1], m[2]));
+                }
             }
 
         } catch (error) {
@@ -215,8 +243,36 @@ CRITICAL RULES:
             }
         } finally {
             setLoading(false);
+            setIsAutoExecuting(false);
+            if (activeWorkspaceId && shouldAutoContinue) {
+                setIsAutoExecuting(true);
+                setTimeout(() => {
+                    handleAutoContinue();
+                }, 2000);
+            }
         }
     }
+
+    const handleAutoContinue = () => {
+        // Use ref to avoid stale closure on loading state
+        if (loadingRef.current) return;
+        if (abortControllerRef.current) abortControllerRef.current.abort();
+        abortControllerRef.current = new AbortController();
+
+        const newId = new Date().toISOString();
+        const autoText = "[AUTO] Continuing autonomous execution...";
+
+        setChats((prev) => [...prev, {
+            id: newId,
+            type: "ch",
+            question: autoText,
+            answer: undefined,
+            timestamp: new Date().toISOString(),
+            isAuto: true,
+        }]);
+
+        askAI("Please review the remaining tasks. Pick EXACTLY ONE pending task, complete it fully (write the full file content in save_outputs), mark only that task in complete_tasks, and set requires_approval: false if more tasks remain.", newId, abortControllerRef.current.signal);
+    };
 
     const handleSend = (e) => {
         e.preventDefault();
@@ -297,7 +353,7 @@ CRITICAL RULES:
                     {/* Outputs Section */}
                     <div>
                         <div className="flex items-center justify-between mb-3 text-xs uppercase tracking-widest font-bold text-pink-400">
-                            <span className="flex items-center gap-2"><FileText size={12} /> Outputs</span>
+                            <span className="flex items-center gap-2"><FileText size={12} /> Outputs ({activeWorkspace.outputs.length})</span>
                         </div>
 
                         {activeWorkspace.outputs.length === 0 ? (
@@ -305,10 +361,20 @@ CRITICAL RULES:
                         ) : (
                             <ul className="space-y-2">
                                 {activeWorkspace.outputs.map(out => (
-                                    <li key={out.id} onClick={() => setPreviewFile(out)} className="flex items-center gap-2 text-sm p-2 rounded bg-white/5 hover:bg-white/10 cursor-pointer transition-colors group">
-                                        <FileText size={14} className="text-pink-400 opacity-70" />
-                                        <span className="flex-1 truncate">{out.filename}</span>
-                                        <button className="opacity-0 group-hover:opacity-100 p-1 hover:text-cyan-300">Open</button>
+                                    <li key={out.id} className="flex items-center gap-2 text-sm p-2 rounded bg-white/5 hover:bg-white/10 cursor-pointer transition-colors group">
+                                        <FileText size={14} className="text-pink-400 opacity-70 shrink-0" onClick={() => setPreviewFile(out)} />
+                                        <span className="flex-1 truncate" onClick={() => setPreviewFile(out)}>{out.filename}</span>
+                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                                            <button
+                                                title="Copy file content"
+                                                onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(out.content || ""); setCopiedFileId(out.id); setTimeout(() => setCopiedFileId(null), 2000); }}
+                                                className="p-1 rounded hover:bg-white/10 transition-colors"
+                                                style={{ color: copiedFileId === out.id ? "#39ff14" : "rgba(255,255,255,0.5)" }}
+                                            >
+                                                {copiedFileId === out.id ? <CheckIcon size={12} /> : <Copy size={12} />}
+                                            </button>
+                                            <button onClick={() => setPreviewFile(out)} className="p-1 rounded hover:bg-white/10 transition-colors text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--neon-cyan)" }}>Open</button>
+                                        </div>
                                     </li>
                                 ))}
                             </ul>
@@ -384,10 +450,43 @@ CRITICAL RULES:
                             );
                         })}
 
+                        {/* Auto-Executing Indicator — glowing neon-cyan badge */}
+                        {isAutoExecuting && !loading && (
+                            <div
+                                className="flex items-center gap-3 px-5 py-3 rounded-xl border max-w-4xl mx-auto w-full"
+                                style={{
+                                    background: "rgba(0,245,255,0.05)",
+                                    borderColor: "rgba(0,245,255,0.35)",
+                                    boxShadow: "0 0 20px rgba(0,245,255,0.15), inset 0 0 10px rgba(0,245,255,0.05)",
+                                    animation: "pulse 1.4s ease-in-out infinite"
+                                }}
+                            >
+                                <div
+                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                                    style={{
+                                        background: "#00f5ff",
+                                        boxShadow: "0 0 8px 2px rgba(0,245,255,0.7)",
+                                        animation: "ping 1s cubic-bezier(0,0,0.2,1) infinite"
+                                    }}
+                                />
+                                <span className="text-xs font-mono font-bold uppercase tracking-widest flex-1" style={{ color: "#00f5ff" }}>
+                                    ⚙️ Agent is executing next task in 2s...
+                                </span>
+                                <button
+                                    onClick={() => { setIsAutoExecuting(false); if (abortControllerRef.current) abortControllerRef.current.abort(); }}
+                                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-red-500/20"
+                                    style={{ background: "rgba(255,45,120,0.08)", border: "1px solid rgba(255,45,120,0.4)", color: "#ff2d78" }}
+                                    title="Stop autonomous loop"
+                                >
+                                    <StopCircle size={12} /> Stop
+                                </button>
+                            </div>
+                        )}
+
                         {loading && (
-                            <div className="flex items-center gap-2 text-green-400 py-4 max-w-4xl mx-auto w-full">
-                                <span className="loading-spin">⟳</span>
-                                <span className="text-sm opacity-70">AI is analyzing project context...</span>
+                            <div className="flex items-center gap-3 text-green-400 py-4 max-w-4xl mx-auto w-full">
+                                <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+                                <span className="text-sm font-mono opacity-70">AI is analyzing project context...</span>
                             </div>
                         )}
                         <div ref={messagesEndRef} className="h-4" />
@@ -472,16 +571,62 @@ CRITICAL RULES:
 function AgentOutputBlock({ obj }) {
     if (!obj.question && !obj.answer) return null;
 
-    // Parse out actions for display
-    const addTasks = [...(obj.answer || "").matchAll(/<add_task title="(.*?)"\s*\/>/g)];
-    const completeTasks = [...(obj.answer || "").matchAll(/<complete_task title="(.*?)"\s*\/>/g)];
-    const files = [...(obj.answer || "").matchAll(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g)];
-
-    // Strip out XML entirely for the markdown renderer
     let cleanAnswer = obj.answer || "";
-    cleanAnswer = cleanAnswer.replace(/<add_task title="(.*?)"\s*\/>/g, "");
-    cleanAnswer = cleanAnswer.replace(/<complete_task title="(.*?)"\s*\/>/g, "");
-    cleanAnswer = cleanAnswer.replace(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g, "");
+    let addTasks = [];
+    let completeTasks = [];
+    let files = [];
+    let phase = null;
+    let requiresApproval = false;
+    let thought = "";
+
+    // Parse JSON
+    let parsedJson = null;
+    try {
+        const match = cleanAnswer.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/);
+        const jsonStr = match ? match[1] : cleanAnswer;
+        if (jsonStr.trim().startsWith('{')) {
+            parsedJson = JSON.parse(jsonStr.trim());
+        }
+    } catch (e) {
+        // try partial parse
+        try {
+            const lastBrace = cleanAnswer.lastIndexOf('}');
+            if (lastBrace !== -1) {
+                const trimmed = cleanAnswer.substring(0, lastBrace + 1);
+                const match = trimmed.match(/\`\`\`(?:json)?\s*([\s\S]*)/) || [null, trimmed];
+                parsedJson = JSON.parse(match[1]);
+            }
+        } catch (e2) { }
+    }
+
+    if (parsedJson) {
+        // FIX 2: Type-safe answer extraction — prevents [object Object] render crash
+        const rawAnswer = parsedJson.answer;
+        cleanAnswer = typeof rawAnswer === 'string'
+            ? rawAnswer
+            : (rawAnswer != null ? JSON.stringify(rawAnswer) : "") || "Processing...";
+
+        thought = typeof parsedJson.thought === 'string' ? parsedJson.thought : "";
+        phase = parsedJson.phase;
+        requiresApproval = !!parsedJson.requires_approval;
+
+        if (parsedJson.add_tasks) addTasks = parsedJson.add_tasks.map(t => [null, t.title]);
+        if (parsedJson.complete_tasks) {
+            completeTasks = parsedJson.complete_tasks.map(t => [null, typeof t === 'string' ? t : t.title || JSON.stringify(t)]);
+        }
+        if (parsedJson.save_outputs) {
+            files = parsedJson.save_outputs.map(o => [null, o.fileName, o.content || ""]);
+        }
+    } else {
+        // Fallback for XML parsing
+        addTasks = [...cleanAnswer.matchAll(/<add_task title="(.*?)"\s*\/>/g)];
+        completeTasks = [...cleanAnswer.matchAll(/<complete_task title="(.*?)"\s*\/>/g)];
+        files = [...cleanAnswer.matchAll(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g)];
+
+        cleanAnswer = cleanAnswer.replace(/<add_task title="(.*?)"\s*\/>/g, "");
+        cleanAnswer = cleanAnswer.replace(/<complete_task title="(.*?)"\s*\/>/g, "");
+        cleanAnswer = cleanAnswer.replace(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g, "");
+    }
 
     return (
         <motion.div
@@ -502,26 +647,116 @@ function AgentOutputBlock({ obj }) {
 
                 {obj.answer ? (
                     <>
-                        {/* Agent Action Logs */}
+                        {/* Agent Thought / Phase / Observation */}
+                        {(thought || phase || parsedJson?.observation) && (
+                            <div className="flex flex-col gap-2 mb-4 bg-white/[0.04] p-3 rounded-lg border border-white/[0.06] shadow-inner">
+                                {phase && (
+                                    <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold" style={{ color: "#39ff14" }}>
+                                        <span>🛠 Phase: {phase}</span>
+                                        {requiresApproval && <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full border" style={{ borderColor: "rgba(255,45,120,0.4)", color: "#ff2d78", background: "rgba(255,45,120,0.08)" }}>⏸ Paused</span>}
+                                        {!requiresApproval && <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full border" style={{ borderColor: "rgba(0,245,255,0.4)", color: "#00f5ff", background: "rgba(0,245,255,0.06)" }}>🔄 Auto-Loop</span>}
+                                    </div>
+                                )}
+                                {parsedJson?.observation && (
+                                    <div className="text-[11px] font-mono opacity-70 border-l-2 border-green-500/30 pl-2 leading-relaxed">
+                                        <span className="opacity-50 uppercase text-[9px] tracking-widest">Observation: </span>
+                                        {parsedJson.observation}
+                                    </div>
+                                )}
+                                {thought && (
+                                    <div className="text-[11px] font-mono opacity-60 border-l-2 border-cyan-500/30 pl-2 italic leading-relaxed">
+                                        <span className="opacity-50 uppercase text-[9px] tracking-widest not-italic">Thought: </span>
+                                        {thought}
+                                    </div>
+                                )}
+                            </div>
+                        )}
+
+                        {/* Agent Action Cards — Glassmorphic */}
                         {(addTasks.length > 0 || completeTasks.length > 0 || files.length > 0) && (
-                            <div className="flex flex-col gap-2 mb-4">
-                                {addTasks.map((t, i) => (
-                                    <div key={'add' + i} className="flex items-center gap-2 text-green-400 text-xs font-mono bg-green-500/10 px-3 py-2 rounded border border-green-500/20 shadow-[0_0_15px_rgba(57,255,20,0.05)]">
-                                        <span>⚡</span> <span>Agent added task: <b className="text-white">{t[1]}</b></span>
-                                    </div>
-                                ))}
-                                {completeTasks.map((t, i) => (
-                                    <div key={'comp' + i} className="flex items-center gap-2 text-cyan-400 text-xs font-mono bg-cyan-500/10 px-3 py-2 rounded border border-cyan-500/20 shadow-[0_0_15px_rgba(0,245,255,0.05)]">
-                                        <span>✅</span> <span>Agent completed task: <b className="text-white">{t[1]}</b></span>
-                                    </div>
-                                ))}
-                                {files.map((f, i) => (
-                                    <div key={'file' + i} className="flex flex-col gap-2 text-pink-400 bg-pink-500/10 px-3 py-2 rounded border border-pink-500/20 shadow-[0_0_15px_rgba(255,45,120,0.05)]">
-                                        <div className="flex items-center gap-2 text-xs font-mono">
-                                            <span>📄</span> <span>Agent created/updated file: <b className="text-white">{f[1]}</b></span>
+                            <div className="flex flex-col gap-3 mb-5">
+
+                                {/* Add Tasks */}
+                                {addTasks.length > 0 && (
+                                    <div
+                                        className="rounded-xl border overflow-hidden"
+                                        style={{
+                                            background: "rgba(57,255,20,0.04)",
+                                            borderColor: "rgba(57,255,20,0.2)",
+                                            boxShadow: "0 0 18px rgba(57,255,20,0.06), inset 0 1px 0 rgba(57,255,20,0.08)",
+                                            backdropFilter: "blur(12px)"
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: "rgba(57,255,20,0.1)" }}>
+                                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: "#39ff14" }}>⚡ Tasks Planned</span>
+                                            <span className="ml-auto text-[10px] font-mono opacity-40">{addTasks.length}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1 p-3">
+                                            {addTasks.map((t, i) => (
+                                                <div key={'add' + i} className="flex items-center gap-2 text-xs font-mono px-2 py-1 rounded" style={{ color: "rgba(57,255,20,0.85)" }}>
+                                                    <span className="opacity-50">+</span> <span className="text-white">{t[1]}</span>
+                                                </div>
+                                            ))}
                                         </div>
                                     </div>
-                                ))}
+                                )}
+
+                                {/* Complete Tasks */}
+                                {completeTasks.length > 0 && (
+                                    <div
+                                        className="rounded-xl border overflow-hidden"
+                                        style={{
+                                            background: "rgba(0,245,255,0.04)",
+                                            borderColor: "rgba(0,245,255,0.2)",
+                                            boxShadow: "0 0 18px rgba(0,245,255,0.06), inset 0 1px 0 rgba(0,245,255,0.08)",
+                                            backdropFilter: "blur(12px)"
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: "rgba(0,245,255,0.1)" }}>
+                                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: "#00f5ff" }}>✅ Tasks Completed</span>
+                                            <span className="ml-auto text-[10px] font-mono opacity-40">{completeTasks.length}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-1 p-3">
+                                            {completeTasks.map((t, i) => (
+                                                <div key={'comp' + i} className="flex items-center gap-2 text-xs font-mono px-2 py-1 rounded" style={{ color: "rgba(0,245,255,0.85)" }}>
+                                                    <span className="opacity-50">✓</span> <span className="text-white">{t[1]}</span>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Save Outputs (Files) */}
+                                {files.length > 0 && (
+                                    <div
+                                        className="rounded-xl border overflow-hidden"
+                                        style={{
+                                            background: "rgba(255,45,120,0.04)",
+                                            borderColor: "rgba(255,45,120,0.2)",
+                                            boxShadow: "0 0 18px rgba(255,45,120,0.06), inset 0 1px 0 rgba(255,45,120,0.08)",
+                                            backdropFilter: "blur(12px)"
+                                        }}
+                                    >
+                                        <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: "rgba(255,45,120,0.1)" }}>
+                                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: "#ff2d78" }}>📄 Files Saved</span>
+                                            <span className="ml-auto text-[10px] font-mono opacity-40">{files.length}</span>
+                                        </div>
+                                        <div className="flex flex-col gap-2 p-3">
+                                            {files.map((f, i) => (
+                                                <div key={'file' + i} className="flex flex-col gap-1">
+                                                    <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "rgba(255,45,120,0.9)" }}>
+                                                        <span className="opacity-50">→</span>
+                                                        <span className="text-white font-bold">{f[1]}</span>
+                                                        {f[2] && (
+                                                            <span className="ml-auto opacity-30 text-[9px]">{f[2].length} chars</span>
+                                                        )}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </div>
+                                )}
+
                             </div>
                         )}
 
@@ -536,6 +771,15 @@ function AgentOutputBlock({ obj }) {
                                 )}
                             </div>
                         ) : null}
+
+                        {/* Human Verification Checkpoint */}
+                        {requiresApproval && (
+                            <div className="mt-6 pt-5 border-t border-green-500/30 flex items-center justify-between">
+                                <div className="text-sm font-bold text-green-400 flex items-center gap-2">
+                                    <span>🛑</span> Agent Paused: Pending your approval or new instructions.
+                                </div>
+                            </div>
+                        )}
                     </>
                 ) : (
                     <div className="flex items-center gap-3 text-cyan-400 py-6 px-4 animate-pulse">

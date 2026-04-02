@@ -206,6 +206,33 @@ export function WorkspaceProvider({ children }) {
 
     const activeWorkspace = workspaces.find((ws) => ws.id === activeWorkspaceId) || null;
 
+    const syncAgentAction = useCallback((jsonPayload) => {
+        if (!activeWorkspaceId) return;
+
+        let jsonResp;
+        try {
+            jsonResp = typeof jsonPayload === 'string' ? JSON.parse(jsonPayload) : jsonPayload;
+        } catch (err) {
+            console.error("Failed to parse agent action JSON", err);
+            return;
+        }
+
+        if (jsonResp.phase) {
+            setWorkspacePhase(jsonResp.phase);
+        }
+        if (jsonResp.add_tasks && Array.isArray(jsonResp.add_tasks)) {
+            jsonResp.add_tasks.forEach(t => addTask(t.title, t.status || "coming_soon"));
+        }
+        if (jsonResp.complete_tasks && Array.isArray(jsonResp.complete_tasks)) {
+            jsonResp.complete_tasks.forEach(title => completeTaskByTitle(title));
+        }
+        if (jsonResp.save_outputs && Array.isArray(jsonResp.save_outputs)) {
+            jsonResp.save_outputs.forEach(o => {
+                if (o.fileName) saveOutput(o.fileName, o.content || "");
+            });
+        }
+    }, [activeWorkspaceId, setWorkspacePhase, addTask, completeTaskByTitle, saveOutput]);
+
     return (
         <WorkspaceContext.Provider
             value={{
@@ -223,6 +250,7 @@ export function WorkspaceProvider({ children }) {
                 saveOutput,
                 deleteOutput,
                 setWorkspacePhase,
+                syncAgentAction,
             }}
         >
             {children}
