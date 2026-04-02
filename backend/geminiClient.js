@@ -1,6 +1,6 @@
 // Google Gemini REST API client — converts Gemini streaming into SSE format
 // compatible with the existing OpenRouter SSE pipeline in the frontend.
-const GEMINI_MODEL = "gemini-2.0-flash-exp";
+const GEMINI_MODEL = "gemini-flash-latest";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /**
@@ -97,6 +97,68 @@ export async function* askGeminiStream(messages, apiKey, options = {}) {
     }
 
     yield "data: [DONE]\n\n";
+}
+
+/**
+ * Call Gemini without streaming.
+ * Simulates a fetch Response object matching the OpenAI/OpenRouter schema.
+ */
+export async function askGeminiSync(messages, apiKey, options = {}) {
+    const {
+        systemPrompt = "You are a helpful AI assistant.",
+        temperature = 0.7,
+        maxOutputTokens = 2048,
+        topP = 1.0,
+    } = options;
+
+    const contents = messages.map((m) => ({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.content }],
+    }));
+
+    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
+
+    let response;
+    try {
+        response = await fetch(url, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                system_instruction: { parts: [{ text: systemPrompt }] },
+                contents,
+                generationConfig: {
+                    temperature,
+                    maxOutputTokens,
+                    topP,
+                },
+            }),
+            signal: controller.signal,
+        });
+        clearTimeout(timeout);
+    } catch (err) {
+        clearTimeout(timeout);
+        throw err;
+    }
+
+    if (!response.ok) {
+        const err = await response.json().catch(() => ({}));
+        const msg = err?.error?.message || `HTTP ${response.status}`;
+        throw new Error(msg);
+    }
+
+    const data = await response.json();
+    const text = data?.candidates?.[0]?.content?.parts?.[0]?.text || "";
+
+    // Return a mocked Response matching OpenRouter / OpenAI structure
+    return {
+        text: true, // indicates to server.js that it's a synchronous fetch body wrapper
+        json: async () => ({
+            choices: [{ message: { content: text } }]
+        })
+    };
 }
 
 /**

@@ -4,7 +4,7 @@ import { connectDB } from "./db.js";
 import fs from "node:fs";
 import path from "node:path";
 import { askGroq, validateGroqKey } from "./groqClient.js";
-import { askGeminiStream, validateGeminiKey } from "./geminiClient.js";
+import { askGeminiStream, validateGeminiKey, askGeminiSync } from "./geminiClient.js";
 import { askHuggingFace, validateHuggingFaceKey } from "./huggingfaceClient.js";
 
 const app = express();
@@ -331,9 +331,16 @@ export async function smartRouter(messages, keys, options = {}) {
       }
 
       if (provider === "gemini") {
-        const gen = askGeminiStream(messages, key, options);
-        if (health) delete BACKEND_MEMORY_CACHE.health[provider];
-        return { stream: gen, provider: "gemini", isGenerator: true };
+        const useStream = options.stream !== false;
+        if (!useStream) {
+          const res = await askGeminiSync(messages, key, options);
+          if (health) delete BACKEND_MEMORY_CACHE.health[provider];
+          return { stream: res, provider: "gemini", isGenerator: false };
+        } else {
+          const gen = askGeminiStream(messages, key, options);
+          if (health) delete BACKEND_MEMORY_CACHE.health[provider];
+          return { stream: gen, provider: "gemini", isGenerator: true };
+        }
       }
 
       if (provider === "openrouter") {
@@ -561,7 +568,8 @@ Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping
     }
 
     // Send provider info as final SSE event so the frontend can display the badge
-    res.write(`data: ${JSON.stringify({ provider, done: true })}\n\n`);
+    const badgeProvider = finalProvider || "unknown";
+    res.write(`data: ${JSON.stringify({ provider: badgeProvider, done: true })}\n\n`);
     res.end();
   } catch (error) {
     console.error("Chat API error:", error);
