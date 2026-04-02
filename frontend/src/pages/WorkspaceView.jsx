@@ -133,7 +133,7 @@ export function WorkspaceView() {
         let shouldAutoContinue = false;
 
         try {
-            const response = await api.chat(
+            const response = await api.agentChat(
                 preferences.userId,
                 messages,
                 "", // handled by backend

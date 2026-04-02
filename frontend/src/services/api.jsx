@@ -113,8 +113,49 @@ export const api = {
     }
   },
 
-  // ── Send message (streaming) ────────────────────────────────────
-  chat: async (userId, messages, skillPrompt, model, parameters = {}, workspaceState = null, signal) => {
+
+
+
+  // ── NORMAL CHAT (Text Only) ────────────────────────────────────
+  chat: async (userId, messages, skillPrompt, model, parameters = {}, signal) => {
+    try {
+      const keys = await KeysService.getKeys();
+      const safeParams = {
+        ...parameters,
+        max_tokens: Math.min(parameters.max_tokens || 2048, 4096)
+      };
+
+      const clientKeys = {
+        openrouter: keys.openrouter,
+        groq: keys.groq,
+        gemini: keys.gemini,
+        huggingface: keys.huggingface,
+      };
+
+      // نرسل الطلب إلى مسار /chat العادي بدون workspaceState
+      const res = await fetch(`${BASE_URL}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ 
+            userId, 
+            messages, 
+            skillPrompt, 
+            model, 
+            parameters: safeParams, 
+            clientKeys,
+            isAgent: false // تأكيد أن هذه دردشة عادية
+        }),
+        signal,
+      });
+      return res;
+    } catch (error) {
+      console.error("API Chat error:", error);
+      throw error;
+    }
+  },
+
+  // ── WORKSPACE AGENT (JSON/Tasks Logic) ─────────────────────────
+  agentChat: async (userId, messages, skillPrompt, model, parameters = {}, workspaceState = null, signal) => {
     try {
       const keys = await KeysService.getKeys();
 
@@ -131,7 +172,7 @@ export const api = {
         huggingface: keys.huggingface,
       };
 
-      const res = await fetch(`${BASE_URL}/chat`, {
+      const res = await fetch(`${BASE_URL}/agent`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, messages, skillPrompt, model, parameters: safeParams, workspaceState, clientKeys }),

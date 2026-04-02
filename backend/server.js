@@ -378,7 +378,7 @@ export async function smartRouter(messages, keys, options = {}) {
 // ─────────────────────────────────────────────
 // POST /api/chat — main chat endpoint
 // ─────────────────────────────────────────────
-app.post("/api/chat", async (req, res) => {
+app.post("/api/agent", async (req, res) => {
   const { userId, messages, skillPrompt, model, parameters, workspaceState, clientKeys } = req.body;
 
   let keys = clientKeys;
@@ -527,6 +527,88 @@ Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping
     res.end();
   }
 });
+
+
+
+
+
+// ─────────────────────────────────────────────
+// POST /api/chat — main chat endpoint  (normal chat)
+// ─────────────────────────────────────────────
+app.post("/api/chat", async (req, res) => {
+  const { userId, messages, skillPrompt, model, parameters, clientKeys } = req.body;
+
+  let keys = clientKeys;
+  if (!keys || (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface)) {
+    keys = await getUserKeys(userId);
+  }
+
+  // Must have at least one key
+  if (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface) {
+    return res.status(401).json({ response: "No API keys found! Please add at least one key in Settings.", type: "error" });
+  }
+
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.flushHeaders();
+
+  try {
+    const options = {
+      systemPrompt: skillPrompt || "You are ChatForge AI.",
+      model,
+      ...(parameters || {}),
+    };
+
+    const { stream, provider, isGenerator } = await smartRouter(messages, keys, options);
+
+    if (isGenerator) {
+      // Gemini: async generator
+      for await (const chunk of stream) {
+        res.write(chunk);
+      }
+    } else {
+      // Groq / OpenRouter / HuggingFace: raw fetch Response body
+      // We consume the stream manually to ensure SSE compatibility and avoid Node/Web stream mismatches
+      const reader = stream.body.getReader ? stream.body.getReader() : null;
+
+      if (reader) {
+        const decoder = new TextDecoder();
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            res.write(decoder.decode(value, { stream: true }));
+          }
+        } finally {
+          reader.releaseLock();
+        }
+      } else if (stream.body.on) {
+        // Node.js Readable fallback
+        await new Promise((resolve, reject) => {
+          stream.body.on("data", (chunk) => res.write(chunk));
+          stream.body.on("end", resolve);
+          stream.body.on("error", reject);
+        });
+      } else {
+        // Fallback for non-streaming response body (unlikely but safe)
+        const text = await stream.text();
+        res.write(text);
+      }
+    }
+
+    // Send provider info as final SSE event so the frontend can display the badge
+    res.write(`data: ${JSON.stringify({ provider, done: true })}\n\n`);
+    res.end();
+  } catch (error) {
+    console.error("Chat API error:", error);
+    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    res.end();
+  }
+});
+
+
+
 
 // ─────────────────────────────────────────────
 // POST /api/test — validate & save OpenRouter key (legacy)
