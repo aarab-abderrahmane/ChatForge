@@ -10,7 +10,9 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@codesandbox/sandpack-react": "^2.20.0",
     "@icons-pack/react-simple-icons": "^13.8.0",
+    "@orama/orama": "^3.1.18",
     "@radix-ui/react-select": "^2.2.6",
     "@radix-ui/react-slot": "^1.2.4",
     "@radix-ui/react-use-controllable-state": "^1.2.2",

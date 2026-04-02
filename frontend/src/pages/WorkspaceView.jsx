@@ -1,10 +1,11 @@
 import { useState, useContext, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, Plus, CheckCircle, Circle, Play, FileText, Send, SquareTerminal, Briefcase, Copy, Check as CheckIcon, StopCircle } from "lucide-react";
+import { ChevronLeft, Plus, CheckCircle, Circle, Play, FileText, Send, SquareTerminal, Briefcase, Copy, Check as CheckIcon, StopCircle, Target, Sparkles } from "lucide-react";
 import { WorkspaceContext } from "../context/workspaceContext";
 import { chatsContext, MODELS, SKILLS } from "../context/chatsContext";
 import { api } from "../services/api";
 import { Response } from "../components/ui/shadcn-io/ai/response";
 import { motion, AnimatePresence } from "motion/react";
+import { Sandpack } from "@codesandbox/sandpack-react";
 
 export function WorkspaceView() {
     const {
@@ -28,7 +29,42 @@ export function WorkspaceView() {
     const [previewFile, setPreviewFile] = useState(null);
     const [isAutoExecuting, setIsAutoExecuting] = useState(false);
     const [copiedFileId, setCopiedFileId] = useState(null);
+    const [critiqueMode, setCritiqueMode] = useState(false);
     const loadingRef = useRef(false);
+    const [loadingMessage, setLoadingMessage] = useState("AI is analyzing project context...");
+    const [centerTab, setCenterTab] = useState("preview");
+    const inputRef = useRef(null);
+
+    // Global CMD+K shortcut
+    useEffect(() => {
+        const handleKeyDown = (e) => {
+            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
+                e.preventDefault();
+                inputRef.current?.focus();
+            }
+        };
+        window.addEventListener('keydown', handleKeyDown);
+        return () => window.removeEventListener('keydown', handleKeyDown);
+    }, []);
+
+    // Progressive thinking messages
+    useEffect(() => {
+        if (!loading) return;
+        const messages = [
+            "AI is analyzing project context...",
+            "Loading codebase into context window...",
+            "Agent Architect is planning strategy...",
+            "Specialist reviewing file tree...",
+            "Formulating code changes...",
+            "Almost there..."
+        ];
+        let index = 0;
+        const interval = setInterval(() => {
+            index = (index + 1) % messages.length;
+            setLoadingMessage(messages[index]);
+        }, 3000);
+        return () => clearInterval(interval);
+    }, [loading]);
 
     // If no active workspace, go back to dashboard
     useEffect(() => {
@@ -95,16 +131,16 @@ export function WorkspaceView() {
         let completedTasks = activeWorkspace.tasks.filter(t => t.status === 'completed').map(t => `- [x] ${t.title}`).join('\n');
         if (!completedTasks) completedTasks = "None";
 
-        // FIX 1: Full file content injection — prevents "Context Blindness"
+        // Phase 1: Dynamic Context Injection. Send only file names to save tokens.
+        // The backend will use `workspaceState.rawOutputs` combined with `read_file` to fetch content.
         let filesOutput;
         if (activeWorkspace.outputs.length > 0) {
-            filesOutput = activeWorkspace.outputs.map(f =>
-                `--- START FILE: ${f.filename} ---\n${f.content || ''}\n--- END FILE ---`
-            ).join('\n\n');
+            filesOutput = activeWorkspace.outputs.map(f => `- ${f.filename}`).join('\n');
         } else {
             filesOutput = "No files created yet.";
         }
 
+        // Send the raw outputs array so the server can handle `read_file` internally
         const workspaceState = {
             type: activeWorkspace.type,
             description: activeWorkspace.description || 'No description provided.',
@@ -112,7 +148,8 @@ export function WorkspaceView() {
             immortalRules,
             activeTasks,
             completedTasks,
-            filesOutput
+            filesOutput, // Just the names or a summary
+            rawOutputs: activeWorkspace.outputs // The raw files {filename, content} for the backend to use in its multi-turn loop
         };
 
         // Extract history
@@ -221,6 +258,52 @@ export function WorkspaceView() {
                     if (!requiresApproval && hasPending) {
                         shouldAutoContinue = true;
                     }
+
+                    // Critique Mode execution
+                    if (critiqueMode && jsonResp.save_outputs && jsonResp.save_outputs.length > 0) {
+                        const codeToCritique = jsonResp.save_outputs.map(f => `File: ${f.fileName}\n${f.content}`).join("\n\n");
+                        const critMsg = { role: "user", content: `Please briefly critique the following code. Point out any security flaws, bugs or optimizations. Return only plain text.\n\n${codeToCritique}` };
+
+                        try {
+                            const critResp = await api.chat(
+                                preferences.userId,
+                                [critMsg],
+                                "You are a strict code reviewer. Be concise. Provide bullet points.",
+                                "groq", // small fast model
+                                null,
+                                null
+                            );
+                            if (critResp.ok) {
+                                const reader = critResp.body.getReader();
+                                const decoder = new TextDecoder();
+                                let critAns = "";
+                                while (true) {
+                                    const { done, value } = await reader.read();
+                                    if (done) break;
+                                    const chunk = decoder.decode(value, { stream: true });
+                                    const lines = chunk.split("\n");
+                                    for (const line of lines) {
+                                        const trimmed = line.trim();
+                                        if (trimmed.startsWith("data: ")) {
+                                            const dataStr = trimmed.slice(6);
+                                            if (dataStr === "[DONE]") continue;
+                                            try {
+                                                const data = JSON.parse(dataStr);
+                                                if (data.choices?.[0]?.delta?.content) {
+                                                    critAns += data.choices[0].delta.content;
+                                                }
+                                            } catch (e) { }
+                                        }
+                                    }
+                                }
+                                if (critAns) {
+                                    setChats(prev => [...prev, { type: "ms", content: ["🕵️‍♂️ Critique Mode Analysis:", ...critAns.split("\n")] }]);
+                                }
+                            }
+                        } catch (e) {
+                            console.warn("Critique mode failed", e);
+                        }
+                    }
                 } else {
                     // Fallback to XML regex parsing for legacy chats during loop
                     const addTasks = [...fullContent.matchAll(/<add_task title="(.*?)"\s*\/>/g)];
@@ -306,263 +389,220 @@ export function WorkspaceView() {
         } catch (error) { console.error(error); }
     };
 
-    return (
-        <div className="flex w-screen h-screen overflow-hidden text-white bg-black">
+    const sandpackFiles = {};
+    activeWorkspace.outputs.forEach(f => {
+        sandpackFiles[`/${f.filename}`] = f.content;
+    });
+    // Fallback file for Sandpack if empty
+    if (Object.keys(sandpackFiles).length === 0) {
+        sandpackFiles["/App.js"] = "export default function App() {\n  return <h1>ChatForge Agent Ready</h1>\n}";
+    }
 
-            {/* ── Left Sidebar (Tasks & Outputs) ── */}
-            <div className="w-64 sm:w-80 flex-shrink-0 flex flex-col border-r" style={{ background: "var(--bg-panel)", borderColor: "var(--border-green)" }}>
-                {/* Sidebar Header */}
-                <div className="p-4 border-b flex items-center gap-2" style={{ borderColor: "rgba(0,245,255,0.1)" }}>
-                    <button
-                        onClick={() => setPreferences(p => ({ ...p, currentPage: "workspaces" }))}
-                        className="p-1 hover:bg-white/10 rounded mr-2"
-                    >
+    // Compute the latest Thought for the new Brain Feed
+    const lastValidChat = activeWorkspace.chats.slice().reverse().find(c => c.type === "ch" && c.answer);
+    let latestThought = "";
+    if (lastValidChat && lastValidChat.answer) {
+        try {
+            const match = lastValidChat.answer.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/);
+            const jsonStr = match ? match[1] : lastValidChat.answer;
+            let bracketStart = jsonStr.indexOf("{");
+            let bracketEnd = jsonStr.lastIndexOf("}");
+            const parsed = JSON.parse(jsonStr.substring(bracketStart, bracketEnd + 1).trim());
+            latestThought = parsed.thought || "";
+        } catch (e) { }
+    }
+
+    return (
+        <div className="flex h-screen w-full bg-[#020617] overflow-hidden text-slate-200 font-sans">
+            {/* LEFT: Project Navigation & Assets */}
+            <div className="w-72 border-r border-slate-800 flex flex-col p-4 space-y-6 bg-black/20 backdrop-blur-xl shrink-0">
+
+                {/* Header Back Button */}
+                <div className="flex items-center gap-2">
+                    <button onClick={() => setPreferences(p => ({ ...p, currentPage: "workspaces" }))} className="p-1 hover:bg-white/10 rounded">
                         <ChevronLeft size={18} />
                     </button>
-                    <div className="font-bold truncate text-sm" style={{ color: "var(--neon-green)" }}>
-                        {activeWorkspace.name}
-                    </div>
+                    <div className="font-bold truncate text-sm text-cyan-400">{activeWorkspace.name}</div>
                 </div>
 
-                {/* Scrollable areas */}
-                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col gap-6">
+                <section>
+                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Project Phase</h3>
+                    <div className="flex flex-col gap-1">
+                        {activeWorkspace.phases.map((phase, idx) => {
+                            const isCurrent = activeWorkspace.currentPhase === phase;
+                            const isPast = activeWorkspace.phases.indexOf(activeWorkspace.currentPhase) > idx;
+                            return (
+                                <div key={phase} onClick={() => setWorkspacePhase(phase)} className={`flex items-center gap-2 text-[11px] p-1.5 rounded cursor-pointer transition-all border border-transparent ${isCurrent ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : isPast ? 'text-slate-400 hover:text-slate-300' : 'text-slate-600'}`}>
+                                    {isCurrent ? <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> : isPast ? <CheckCircle size={10} /> : <Circle size={10} />}
+                                    <span>{phase}</span>
+                                </div>
+                            );
+                        })}
+                    </div>
+                </section>
 
-                    {/* Tasks Section */}
-                    <div>
-                        <div className="flex items-center justify-between mb-3 text-xs uppercase tracking-widest font-bold" style={{ color: "var(--neon-cyan)" }}>
-                            <span className="flex items-center gap-2"><CheckCircle size={12} /> Tasks</span>
-                            <button onClick={() => {
-                                const title = prompt("New Task Title:");
-                                if (title) addTask(title, "coming_soon");
-                            }} className="hover:text-white"><Plus size={14} /></button>
-                        </div>
+                <section className="flex-1 overflow-y-auto custom-scrollbar">
+                    <div className="flex justify-between items-center mb-3">
+                        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Workspace Files</h3>
+                    </div>
+                    {activeWorkspace.outputs.length === 0 ? (
+                        <div className="text-[10px] opacity-40 font-mono">No files saved yet.</div>
+                    ) : (
+                        <ul className="space-y-1">
+                            {activeWorkspace.outputs.map(out => (
+                                <li key={out.id} className="flex flex-col gap-1 text-[11px] p-2 rounded hover:bg-white/5 cursor-pointer text-slate-300 transition-colors border border-transparent hover:border-slate-800">
+                                    <div className="flex items-center gap-2">
+                                        <FileText size={12} className="text-cyan-600" />
+                                        <span className="truncate flex-1 font-mono hover:text-cyan-400">{out.filename}</span>
+                                    </div>
+                                </li>
+                            ))}
+                        </ul>
+                    )}
+                </section>
+            </div>
 
-                        {activeWorkspace.tasks.length === 0 ? (
-                            <div className="text-xs opacity-40 italic py-2">No tasks yet. Ask the AI to suggest some!</div>
-                        ) : (
-                            <div className="space-y-4">
-                                {renderTaskSection("In Progress", "in_progress", <Play size={12} />)}
-                                {renderTaskSection("Coming Soon", "coming_soon", <Circle size={12} />)}
-                                {renderTaskSection("Completed", "completed", <CheckCircle size={12} />)}
+            {/* CENTER: The Work (The "Everything" Viewer) */}
+            <div className="flex-1 flex flex-col relative bg-gradient-to-b from-slate-900/60 to-black/80 min-w-0">
+                <header className="h-12 border-b border-slate-800 flex items-center px-4 gap-6 shrink-0 bg-black/20">
+                    <button onClick={() => setCenterTab("editor")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "editor" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Editor</button>
+                    <button onClick={() => setCenterTab("preview")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "preview" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Preview</button>
+                    <button onClick={() => setCenterTab("analysis")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "analysis" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Analysis</button>
+                </header>
+
+                <div className="flex-1 p-6 overflow-hidden">
+                    {/* UNIVERSAL CONTENT RENDERER */}
+                    <div className="rounded-xl border border-slate-800 bg-black/50 h-full w-full overflow-hidden shadow-2xl relative flex flex-col">
+                        {/* Fake Browser/Terminal Header if in Preview */}
+                        {centerTab === "preview" && (
+                            <div className="h-8 border-b border-slate-800 bg-black/40 flex items-center gap-2 px-3 shrink-0">
+                                <div className="flex gap-1.5">
+                                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
+                                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
+                                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
+                                </div>
+                                <span className="ml-2 text-[10px] text-slate-500 font-mono tracking-wider">UNIVERSAL VIEWER</span>
                             </div>
                         )}
-                    </div>
-
-                    <div className="h-px bg-white/10 w-full" />
-
-                    {/* Outputs Section */}
-                    <div>
-                        <div className="flex items-center justify-between mb-3 text-xs uppercase tracking-widest font-bold text-pink-400">
-                            <span className="flex items-center gap-2"><FileText size={12} /> Outputs ({activeWorkspace.outputs.length})</span>
+                        <div className="flex-1 overflow-auto relative">
+                            {/* Universal Editor / Sandbox */}
+                            <Sandpack
+                                files={sandpackFiles}
+                                theme="dark"
+                                template="react"
+                                options={{
+                                    showNavigator: centerTab === "preview",
+                                    showTabs: true,
+                                    editorHeight: "100%",
+                                    classes: {
+                                        "sp-layout": "h-full min-h-full flex",
+                                        "sp-preview": centerTab === "preview" ? "h-full flex-1" : "hidden",
+                                        "sp-editor": centerTab === "editor" ? "h-full flex-1" : (centerTab === "preview" ? "hidden" : "h-full flex-1")
+                                    }
+                                }}
+                            />
+                            {/* Analysis Layer */}
+                            {centerTab === "analysis" && (
+                                <div className="absolute inset-0 bg-black/90 backdrop-blur-xl p-8 z-10 overflow-y-auto">
+                                    <h4 className="text-cyan-400 font-bold tracking-widest text-sm uppercase mb-6 flex items-center gap-2">
+                                        <Target size={16} /> Task Dependency Graph
+                                    </h4>
+                                    <div className="space-y-3">
+                                        {activeWorkspace.tasks.length === 0 ? <p className="text-slate-500 text-xs">No active tasks to analyze.</p> : activeWorkspace.tasks.map(t => (
+                                            <div key={t.id} className="p-3 border border-slate-800 bg-slate-900/50 rounded flex items-center justify-between text-xs">
+                                                <span>{t.title}</span>
+                                                <span className={`px-2 py-0.5 rounded uppercase tracking-widest text-[9px] ${t.status === "completed" ? "bg-green-500/10 text-green-400" : "bg-yellow-500/10 text-yellow-400"}`}>{t.status}</span>
+                                            </div>
+                                        ))}
+                                    </div>
+                                </div>
+                            )}
                         </div>
-
-                        {activeWorkspace.outputs.length === 0 ? (
-                            <div className="text-xs opacity-40 italic py-2">No files saved yet.</div>
-                        ) : (
-                            <ul className="space-y-2">
-                                {activeWorkspace.outputs.map(out => (
-                                    <li key={out.id} className="flex items-center gap-2 text-sm p-2 rounded bg-white/5 hover:bg-white/10 cursor-pointer transition-colors group">
-                                        <FileText size={14} className="text-pink-400 opacity-70 shrink-0" onClick={() => setPreviewFile(out)} />
-                                        <span className="flex-1 truncate" onClick={() => setPreviewFile(out)}>{out.filename}</span>
-                                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                                            <button
-                                                title="Copy file content"
-                                                onClick={(e) => { e.stopPropagation(); navigator.clipboard.writeText(out.content || ""); setCopiedFileId(out.id); setTimeout(() => setCopiedFileId(null), 2000); }}
-                                                className="p-1 rounded hover:bg-white/10 transition-colors"
-                                                style={{ color: copiedFileId === out.id ? "#39ff14" : "rgba(255,255,255,0.5)" }}
-                                            >
-                                                {copiedFileId === out.id ? <CheckIcon size={12} /> : <Copy size={12} />}
-                                            </button>
-                                            <button onClick={() => setPreviewFile(out)} className="p-1 rounded hover:bg-white/10 transition-colors text-[10px] font-bold uppercase tracking-wider" style={{ color: "var(--neon-cyan)" }}>Open</button>
-                                        </div>
-                                    </li>
-                                ))}
-                            </ul>
-                        )}
                     </div>
                 </div>
             </div>
 
-            {/* ── Main Work Area ── */}
-            <div className="flex-1 flex flex-col min-w-0" style={{ background: "var(--bg-primary)" }}>
-
-                {/* Top Phase Header */}
-                <div className="px-6 py-3 border-b flex items-center justify-between shadow-sm" style={{ background: "var(--bg-header)", borderColor: "var(--border-green)" }}>
-                    <div className="flex items-center gap-2 text-sm">
-                        <Briefcase size={16} className="text-gray-400" />
-                        <span className="font-bold text-gray-300 mr-4 hidden sm:inline">{activeWorkspace.name}</span>
-                        <div className="flex items-center">
-                            {activeWorkspace.phases.map((phase, idx) => {
-                                const isCurrent = activeWorkspace.currentPhase === phase;
-                                const isPast = activeWorkspace.phases.indexOf(activeWorkspace.currentPhase) > idx;
-
-                                return (
-                                    <div key={phase} className="flex items-center" onClick={() => setWorkspacePhase(phase)}>
-                                        <div className={`px-3 py-1 text-xs rounded-full font-bold cursor-pointer transition-colors whitespace-nowrap ${isCurrent ? 'bg-green-500 text-black' :
-                                            isPast ? 'bg-green-500/20 text-green-400' : 'bg-gray-800 text-gray-500 hover:bg-gray-700'
-                                            }`}>
-                                            {phase} {isCurrent ? "🔄" : isPast ? "✅" : "⏳"}
-                                        </div>
-                                        {idx < activeWorkspace.phases.length - 1 && (
-                                            <ChevronLeft size={14} className="mx-1 opacity-30 rotate-180" />
-                                        )}
-                                    </div>
-                                )
-                            })}
-                        </div>
+            {/* RIGHT: Agent Intelligence */}
+            <div className="w-[380px] border-l border-slate-800 bg-slate-950/80 flex flex-col shrink-0">
+                <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-black/20">
+                    <span className="text-[11px] uppercase tracking-widest font-bold flex items-center gap-2 text-slate-300">
+                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                        Agent Online
+                    </span>
+                    <div className="flex items-center gap-2">
+                        <span className="text-[9px] uppercase tracking-widest text-slate-500">Critique</span>
+                        <button onClick={() => setCritiqueMode(!critiqueMode)} className={`w-7 h-3.5 rounded-full transition-colors relative ${critiqueMode ? 'bg-amber-500' : 'bg-slate-700'}`}>
+                            <div className={`w-2.5 h-2.5 rounded-full bg-white absolute top-0.5 transition-all ${critiqueMode ? 'left-3.5' : 'left-0.5'}`}></div>
+                        </button>
                     </div>
                 </div>
 
-                {/* Chat Area */}
-                <div className="flex-1 overflow-y-auto px-4 py-6 sm:px-8 border-none custom-scrollbar">
-                    <div className="max-w-4xl mx-auto flex flex-col gap-6">
+                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col">
 
+                    {/* The Brain Feed (Thought Trace) */}
+                    {latestThought && !loading && (
+                        <div className="mb-6 rounded-lg border border-cyan-900/30 bg-cyan-950/10 p-3 shadow-inner relative overflow-hidden">
+                            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent animate-pulse"></div>
+                            <div className="flex items-center gap-2 mb-2 text-[10px] uppercase font-bold tracking-widest text-cyan-500/70">
+                                <Sparkles size={10} /> Thought Trace
+                            </div>
+                            <div className="text-[11px] font-mono leading-relaxed text-cyan-200/60 italic">
+                                "{latestThought}"
+                            </div>
+                        </div>
+                    )}
+                    {loading && (
+                        <div className="mb-6 rounded-lg border border-amber-900/30 bg-amber-950/10 p-3 shadow-inner relative">
+                            <div className="flex items-center gap-2 mb-2 text-[10px] uppercase font-bold tracking-widest text-amber-500/70">
+                                <div className="w-2 h-2 rounded-full border-2 border-amber-500 border-t-transparent animate-spin"></div>
+                                AI Reasoning
+                            </div>
+                            <div className="text-[11px] font-mono leading-relaxed text-amber-200/60 transition-all">
+                                {loadingMessage}
+                            </div>
+                        </div>
+                    )}
+
+                    {/* Chat Messages */}
+                    <div className="flex-1 flex flex-col gap-4">
                         {activeWorkspace.chats.length === 0 && (
-                            <div className="flex flex-col items-center justify-center mt-20 text-center opacity-80">
-                                <div className="p-5 rounded-full bg-cyan-500/10 mb-5 border border-cyan-500/20 shadow-[0_0_30px_rgba(0,245,255,0.1)]">
-                                    <SquareTerminal size={32} className="text-cyan-400" />
-                                </div>
-                                <h2 className="text-xl font-bold font-mono text-cyan-400 mb-2 uppercase tracking-widest">Workspace Agent Ready</h2>
-                                <p className="text-sm opacity-60 max-w-md">
-                                    I am your intelligent project agent. Give me commands below to generate code, create project plans, and manage your tasks.
-                                </p>
+                            <div className="text-center mt-8">
+                                <SquareTerminal size={20} className="mx-auto text-slate-600 mb-3" />
+                                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Agent Ready</div>
                             </div>
                         )}
 
                         {activeWorkspace.chats.map((obj, index) => {
-                            if (obj.type === "ms") {
-                                return (
-                                    <div key={index} className="flex flex-col items-center justify-center my-8 text-center opacity-60">
-                                        <div className="p-4 rounded-full bg-white/5 mb-3">
-                                            <SquareTerminal size={24} />
-                                        </div>
-                                        {obj.content.map((line, i) => (
-                                            <p key={i} className="text-sm">{line}</p>
-                                        ))}
-                                    </div>
-                                );
-                            }
-                            return (
-                                <AgentOutputBlock
-                                    key={obj.id || index}
-                                    obj={obj}
-                                />
-                            );
+                            if (obj.type === "ms") return null;
+                            return <AgentOutputBlock key={obj.id || index} obj={obj} />;
                         })}
-
-                        {/* Auto-Executing Indicator — glowing neon-cyan badge */}
-                        {isAutoExecuting && !loading && (
-                            <div
-                                className="flex items-center gap-3 px-5 py-3 rounded-xl border max-w-4xl mx-auto w-full"
-                                style={{
-                                    background: "rgba(0,245,255,0.05)",
-                                    borderColor: "rgba(0,245,255,0.35)",
-                                    boxShadow: "0 0 20px rgba(0,245,255,0.15), inset 0 0 10px rgba(0,245,255,0.05)",
-                                    animation: "pulse 1.4s ease-in-out infinite"
-                                }}
-                            >
-                                <div
-                                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
-                                    style={{
-                                        background: "#00f5ff",
-                                        boxShadow: "0 0 8px 2px rgba(0,245,255,0.7)",
-                                        animation: "ping 1s cubic-bezier(0,0,0.2,1) infinite"
-                                    }}
-                                />
-                                <span className="text-xs font-mono font-bold uppercase tracking-widest flex-1" style={{ color: "#00f5ff" }}>
-                                    ⚙️ Agent is executing next task in 2s...
-                                </span>
-                                <button
-                                    onClick={() => { setIsAutoExecuting(false); if (abortControllerRef.current) abortControllerRef.current.abort(); }}
-                                    className="flex items-center gap-1.5 px-3 py-1 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-red-500/20"
-                                    style={{ background: "rgba(255,45,120,0.08)", border: "1px solid rgba(255,45,120,0.4)", color: "#ff2d78" }}
-                                    title="Stop autonomous loop"
-                                >
-                                    <StopCircle size={12} /> Stop
-                                </button>
-                            </div>
-                        )}
-
-                        {loading && (
-                            <div className="flex items-center gap-3 text-green-400 py-4 max-w-4xl mx-auto w-full">
-                                <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
-                                <span className="text-sm font-mono opacity-70">AI is analyzing project context...</span>
-                            </div>
-                        )}
-                        <div ref={messagesEndRef} className="h-4" />
+                        <div ref={messagesEndRef} className="h-2 shrink-0" />
                     </div>
                 </div>
 
-                {/* Input Area */}
-                <div className="p-4 sm:px-8 border-t z-10" style={{ background: "var(--bg-panel)", borderColor: "rgba(0,245,255,0.1)" }}>
-                    <div className="max-w-4xl mx-auto">
-                        <form onSubmit={handleSend} className="relative flex flex-col bg-black/80 backdrop-blur-md border border-white/10 rounded-xl overflow-hidden shadow-2xl focus-within:border-cyan-500/50 transition-colors">
-                            <div className="flex items-center gap-2 px-4 py-2 bg-white/5 border-b border-white/5 text-[10px] uppercase tracking-widest font-bold text-cyan-400">
-                                <SquareTerminal size={12} /> Agent Command
-                            </div>
-                            <div className="flex items-end px-2 py-2">
-                                <span className="font-mono text-cyan-500 font-bold px-3 py-3">~❯</span>
-                                <textarea
-                                    value={query}
-                                    onChange={e => setQuery(e.target.value)}
-                                    onKeyDown={e => {
-                                        if (e.key === "Enter" && !e.shiftKey) {
-                                            e.preventDefault();
-                                            if (!loading && query.trim()) handleSend(e);
-                                        }
-                                    }}
-                                    className="flex-1 max-h-48 min-h-[44px] w-full bg-transparent border-none resize-none px-0 py-3 font-mono text-sm outline-none custom-scrollbar text-white placeholder-white/20"
-                                    placeholder={`Tell the agent what to do... e.g., "Build a login page"`}
-                                    rows={1}
-                                />
-                                <div className="p-2">
-                                    <button
-                                        type="submit"
-                                        disabled={loading || !query.trim()}
-                                        className="p-2.5 rounded-lg bg-cyan-500 hover:bg-cyan-400 text-black disabled:opacity-50 disabled:bg-gray-800 disabled:text-gray-500 transition-colors"
-                                    >
-                                        <Send size={14} />
-                                    </button>
-                                </div>
-                            </div>
-                        </form>
-                        <div className="flex justify-between items-center mt-3 text-[10px] uppercase font-bold tracking-widest opacity-40 font-mono">
-                            <span className="text-cyan-400">Context: Rules & Phase Auto-Injected</span>
-                            <span className="text-green-400">Agent Ready</span>
-                        </div>
-                    </div>
+                <div className="p-4 bg-black/40 border-t border-slate-800 shrink-0">
+                    <form onSubmit={handleSend} className="relative">
+                        <textarea
+                            ref={inputRef}
+                            value={query}
+                            onChange={e => setQuery(e.target.value)}
+                            onKeyDown={e => {
+                                if (e.key === "Enter" && !e.shiftKey) {
+                                    e.preventDefault();
+                                    handleSend(e);
+                                }
+                            }}
+                            className="w-full bg-slate-900/80 border border-slate-700/50 rounded-lg p-3 pt-3 pr-10 text-xs focus:ring-1 focus:ring-cyan-500 outline-none resize-none placeholder-slate-600 font-mono"
+                            placeholder="Give command (CMD+K)..."
+                            rows={3}
+                            disabled={loading || isAutoExecuting}
+                        />
+                        <button type="submit" disabled={loading || isAutoExecuting || !query.trim()} className="absolute right-3 bottom-3 text-cyan-500 hover:text-cyan-300 disabled:opacity-30 disabled:hover:text-cyan-500 transition-colors bg-cyan-500/10 p-1.5 rounded-md">
+                            <Send size={14} />
+                        </button>
+                    </form>
                 </div>
-
             </div>
-
-            {/* File Preview Modal */}
-            <AnimatePresence>
-                {previewFile && (
-                    <motion.div
-                        initial={{ opacity: 0 }}
-                        animate={{ opacity: 1 }}
-                        exit={{ opacity: 0 }}
-                        className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
-                        onClick={() => setPreviewFile(null)}
-                    >
-                        <motion.div
-                            initial={{ scale: 0.95 }}
-                            animate={{ scale: 1 }}
-                            exit={{ scale: 0.95 }}
-                            className="bg-[#050f08] border border-green-500/30 shadow-[0_0_30px_rgba(57,255,20,0.1)] rounded-xl w-full max-w-4xl max-h-[80vh] flex flex-col overflow-hidden"
-                            onClick={e => e.stopPropagation()}
-                        >
-                            <div className="flex justify-between items-center p-4 border-b border-white/10 bg-white/5">
-                                <h3 className="font-mono text-cyan-400 font-bold tracking-widest flex items-center gap-2"><FileText size={16} /> {previewFile.filename}</h3>
-                                <button onClick={() => setPreviewFile(null)} className="text-white hover:text-red-400 transition-colors uppercase tracking-widest text-[10px] font-bold">Close</button>
-                            </div>
-                            <div className="flex-1 overflow-y-auto p-6 custom-scrollbar text-sm">
-                                <Response>{`\`\`\`\n${previewFile.content}\n\`\`\``}</Response>
-                            </div>
-                        </motion.div>
-                    </motion.div>
-                )}
-            </AnimatePresence>
         </div>
     );
 }
@@ -647,26 +687,14 @@ function AgentOutputBlock({ obj }) {
 
                 {obj.answer ? (
                     <>
-                        {/* Agent Thought / Phase / Observation */}
-                        {(thought || phase || parsedJson?.observation) && (
+                        {/* Agent Phase */}
+                        {(phase) && (
                             <div className="flex flex-col gap-2 mb-4 bg-white/[0.04] p-3 rounded-lg border border-white/[0.06] shadow-inner">
                                 {phase && (
                                     <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold" style={{ color: "#39ff14" }}>
                                         <span>🛠 Phase: {phase}</span>
                                         {requiresApproval && <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full border" style={{ borderColor: "rgba(255,45,120,0.4)", color: "#ff2d78", background: "rgba(255,45,120,0.08)" }}>⏸ Paused</span>}
                                         {!requiresApproval && <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full border" style={{ borderColor: "rgba(0,245,255,0.4)", color: "#00f5ff", background: "rgba(0,245,255,0.06)" }}>🔄 Auto-Loop</span>}
-                                    </div>
-                                )}
-                                {parsedJson?.observation && (
-                                    <div className="text-[11px] font-mono opacity-70 border-l-2 border-green-500/30 pl-2 leading-relaxed">
-                                        <span className="opacity-50 uppercase text-[9px] tracking-widest">Observation: </span>
-                                        {parsedJson.observation}
-                                    </div>
-                                )}
-                                {thought && (
-                                    <div className="text-[11px] font-mono opacity-60 border-l-2 border-cyan-500/30 pl-2 italic leading-relaxed">
-                                        <span className="opacity-50 uppercase text-[9px] tracking-widest not-italic">Thought: </span>
-                                        {thought}
                                     </div>
                                 )}
                             </div>

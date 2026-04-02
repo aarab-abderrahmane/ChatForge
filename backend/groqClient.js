@@ -38,7 +38,7 @@ export async function askGroq(messages, apiKey, options = {}) {
             body: JSON.stringify({
                 model: GROQ_DEFAULT_MODEL,
                 messages: fullMessages,
-                stream: true,
+                stream: options.stream !== undefined ? options.stream : true,
                 temperature,
                 max_tokens,
                 top_p,

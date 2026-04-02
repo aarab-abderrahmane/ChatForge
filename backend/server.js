@@ -249,38 +249,46 @@ export async function askAI(messages, key, options = {}) {
 }
 
 // ─────────────────────────────────────────────
-// Task-type detection
+// Task-type detection - Dual-Model Orchestration
 // ─────────────────────────────────────────────
-const CODE_KEYWORDS = [
-  "function", "class ", "def ", "const ", "let ", "var ", "import ",
-  "export ", "return", "async ", "await ", "=>", "error", "bug", "debug",
-  "code", "script", "program", "compile", "syntax", "algorithm",
-  "```", "loop", "array", "object", "api", "http", "sql", "query",
-  "html", "css", "tailwind", "react", "component", "props", "state",
-  "npm", "node", "express", "json", "payload", "endpoint",
-];
 
-function detectTaskType(text) {
-  const lower = text.toLowerCase();
-  const hasCode = CODE_KEYWORDS.some((kw) => lower.includes(kw));
-  if (hasCode) return "code";
-  if (text.trim().length < 80) return "short";
-  return "creative";
+function detectTaskType(messages) {
+  const lastMsg = messages[messages.length - 1]?.content || "";
+  const lower = lastMsg.toLowerCase();
+
+  // Speedster: Short UI updates, instant micro-tasks, small fixes
+  if (lower.length < 150 && !lower.includes("```")) return "speedster";
+
+  // Specialist: Massive file analysis, reading history, finding bugs
+  // Characterized by large prompts or multiple files, tool calls for reading
+  if (messages.length > 15 || lower.includes("find bug") || lower.includes("search") || lower.includes("read_file")) return "specialist";
+
+  // Architect: High-level planning, complex logic, task breakdown
+  return "architect";
 }
 
 // ─────────────────────────────────────────────
 // Smart Router — picks provider, then falls back
 // ─────────────────────────────────────────────
 export async function smartRouter(messages, keys, options = {}) {
-  const taskType = detectTaskType(messages[messages.length - 1]?.content || "");
+  const taskType = detectTaskType(messages);
 
   // Determine priority order
   const routingMode = options.routingMode || "smart";
   let order;
 
-  // Even if a mode is "forced" (e.g. from frontend lock or settings),
-  // we still build a fallback chain. The forced provider just goes first.
-  if (routingMode === "groq") {
+  if (routingMode === "smart") {
+    if (taskType === "speedster") {
+      // Speedster -> Groq (Llama 3)
+      order = ["groq", "gemini", "openrouter", "huggingface"];
+    } else if (taskType === "specialist") {
+      // Specialist -> Gemini 1.5 Flash (massive context)
+      order = ["gemini", "openrouter", "groq", "huggingface"];
+    } else {
+      // Architect -> OpenRouter (Qwen 2.5 72B / Llama 3.3 70B)
+      order = ["openrouter", "gemini", "groq", "huggingface"];
+    }
+  } else if (routingMode === "groq") {
     order = ["groq", "gemini", "huggingface", "openrouter"];
   } else if (routingMode === "gemini") {
     order = ["gemini", "huggingface", "groq", "openrouter"];
@@ -289,14 +297,8 @@ export async function smartRouter(messages, keys, options = {}) {
   } else if (routingMode === "huggingface") {
     order = ["huggingface", "groq", "gemini", "openrouter"];
   } else {
-    // Smart Router mode
-    if (taskType === "short") {
-      order = ["groq", "gemini", "huggingface", "openrouter"];
-    } else if (taskType === "code") {
-      order = ["gemini", "huggingface", "groq", "openrouter"];
-    } else {
-      order = ["openrouter", "gemini", "huggingface", "groq"];
-    }
+    // default (should not be reached due to above)
+    order = ["openrouter", "gemini", "groq", "huggingface"];
   }
 
   const errors = [];
@@ -338,7 +340,8 @@ export async function smartRouter(messages, keys, options = {}) {
         const finalModels = options.model
           ? [options.model, ...FREE_MODELS.filter((m) => m !== options.model)]
           : FREE_MODELS;
-        const res = await askAI(messages, key, { ...options, models: finalModels, stream: true });
+        const useStream = options.stream !== false;
+        const res = await askAI(messages, key, { ...options, models: finalModels, stream: useStream });
         if (health) delete BACKEND_MEMORY_CACHE.health[provider];
         return { stream: res, provider: "openrouter", isGenerator: false };
       }
@@ -418,7 +421,7 @@ ${workspaceState.activeTasks}
 Completed Tasks:
 ${workspaceState.completedTasks}
 
-Existing Files (Outputs — READ EVERY FILE BEFORE WRITING CODE):
+Existing Files (Names Only):
 ${workspaceState.filesOutput}
 =========================
 
@@ -426,7 +429,14 @@ ${workspaceState.filesOutput}
 1. LAW OF ATOMICITY: Complete exactly ONE task per response. Never list multiple tasks as 'complete' in one turn.
 2. LAW OF VERIFICATION: Strictly forbidden from marking a task "complete" unless you provided FULL, WORKING CODE in 'save_outputs'.
 3. LAW OF CONTINUITY: If pending tasks remain, you MUST set "requires_approval": false to trigger the next loop automatically.
-4. LAW OF FULL CONTEXT: Read "Existing Files" above. If a file exists, reference or improve it — never contradict or hallucinate against it.
+4. LAW OF CONTEXT: Always read a file using \`read_file\` before modifying it.
+
+### 🛠 TOOL CALLS
+You have access to the following tools. If you need to use a tool, specify it in the "tool_calls" array. The system will execute it and return the results before you give your final answer.
+- {"tool": "read_file", "fileName": "exact_file_name"}
+
+### 👻 GHOST TASK DISCOVERY (Proactive Intelligence)
+Whenever you receive a broad user request, you MUST automatically deduce the necessary sub-tasks and include them in the 'add_tasks' array. For example, if asked to "Build a Login Page", proactively add "Ghost Tasks" such as "Setup User Auth Provider" and "Create Password Reset Flow". Never wait for the user to specify obvious technical prerequisites.
 
 ### 🧠 THE AGENT'S BRAIN (INTERNAL LOGIC)
 - NEVER output code without first completing your 'thought' step.
@@ -453,6 +463,7 @@ Structure your 'answer' field using this exact format every turn:
 Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping it.
 {
   "thought": "Step-by-step internal reasoning: current state, root cause of any issue, chosen next action.",
+  "tool_calls": [{"tool": "read_file", "fileName": "App.jsx"}], // optional array of tools to execute BEFORE proceeding
   "observation": "What I see right now: files present, tasks pending/done, errors detected.",
   "phase": "Brainstorming | Planning | Executing | Review/Testing | Completed",
   "add_tasks": [{"title": "Atomic Task Name", "status": "pending"}],
@@ -475,47 +486,78 @@ Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping
 `;
     }
 
-    const options = {
-      systemPrompt: finalSystemPrompt,
-      model,
-      ...(parameters || {}),
-    };
+    let currentMessages = [...messages];
+    let loopCount = 0;
+    const MAX_LOOPS = 4;
+    let finalPayloadText = "";
+    let finalProvider = null;
 
-    const { stream, provider, isGenerator } = await smartRouter(messages, keys, options);
+    while (loopCount < MAX_LOOPS) {
+      loopCount++;
+      const options = {
+        systemPrompt: finalSystemPrompt,
+        model,
+        ...(parameters || {}),
+        stream: false, // Internal loop requests shouldn't be streamed as SSE
+      };
 
-    if (isGenerator) {
-      // Gemini: async generator
-      for await (const chunk of stream) {
-        res.write(chunk);
-      }
-    } else {
-      // Groq / OpenRouter / HuggingFace: raw fetch Response body
-      // We consume the stream manually to ensure SSE compatibility and avoid Node/Web stream mismatches
-      const reader = stream.body.getReader ? stream.body.getReader() : null;
+      try {
+        const { stream: respData, provider } = await smartRouter(currentMessages, keys, options);
+        finalProvider = provider;
+        let responseText = "";
 
-      if (reader) {
-        const decoder = new TextDecoder();
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            res.write(decoder.decode(value, { stream: true }));
-          }
-        } finally {
-          reader.releaseLock();
+        // Depending on provider and how we handle stream: false
+        // For Gemini, we might still get a generator. For OpenRouter, a fetch Response.
+        if (respData.text) {
+          // It's a fetch Response object from OpenRouter/Groq/HF without streaming
+          const bodyJSON = await respData.json();
+          responseText = bodyJSON.choices?.[0]?.message?.content || "";
+        } else if (respData.next) {
+          // Generator from Gemini (geminiClient ignores stream=false sometimes)
+          for await (const chunk of respData) responseText += chunk;
         }
-      } else if (stream.body.on) {
-        // Node.js Readable fallback
-        await new Promise((resolve, reject) => {
-          stream.body.on("data", (chunk) => res.write(chunk));
-          stream.body.on("end", resolve);
-          stream.body.on("error", reject);
-        });
-      } else {
-        // Fallback for non-streaming response body (unlikely but safe)
-        const text = await stream.text();
-        res.write(text);
+
+        // Try extracting JSON
+        let parsedJSON = null;
+        try {
+          const match = responseText.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/);
+          const rawPayload = match ? match[1] : responseText;
+          parsedJSON = JSON.parse(rawPayload.trim());
+        } catch (e) {
+          // Ignore, just consider it failed parse
+        }
+
+        if (parsedJSON && parsedJSON.tool_calls && parsedJSON.tool_calls.length > 0) {
+          // We have tools to execute!
+          const toolResults = [];
+          for (const tc of parsedJSON.tool_calls) {
+            if (tc.tool === "read_file") {
+              const fileData = workspaceState?.rawOutputs?.find(f => f.filename === tc.fileName);
+              if (fileData) {
+                toolResults.push(`File ${tc.fileName}:\n${fileData.content}`);
+              } else {
+                toolResults.push(`File ${tc.fileName} not found.`);
+              }
+            }
+          }
+          currentMessages.push({ role: "assistant", content: responseText });
+          currentMessages.push({ role: "user", content: `Tool Results:\n${toolResults.join("\n\n")}\n\nContinue executing the task based on these results. Submit final answer without using tools.` });
+          continue; // Loop again!
+        } else {
+          // No tools to execute, this is the final answer!
+          finalPayloadText = responseText;
+          break;
+        }
+      } catch (err) {
+        throw err;
       }
+    }
+
+    // Now manually stream the finalPayloadText as SSE to the frontend
+    const chunkSize = 50;
+    for (let i = 0; i < finalPayloadText.length; i += chunkSize) {
+      const chunk = finalPayloadText.slice(i, i + chunkSize);
+      res.write(`data: ${JSON.stringify({ choices: [{ delta: { content: chunk } }] })}\n\n`);
     }
 
     // Send provider info as final SSE event so the frontend can display the badge
