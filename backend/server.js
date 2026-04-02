@@ -144,16 +144,10 @@ export async function getUserKeys(userId) {
 // ─────────────────────────────────────────────
 export const FREE_MODELS = [
   "meta-llama/llama-3.3-70b-instruct:free",
+  "google/gemma-2-9b-it:free",
   "meta-llama/llama-3.2-3b-instruct:free",
-  "mistralai/mistral-small-3.1-24b-instruct:free",
-  "google/gemma-3-4b-it:free",
-  "google/gemma-3-12b-it:free",
-  "qwen/qwen3-4b:free",
-  "deepseek/deepseek-r1-distill-llama-70b:free",
-  "nousresearch/hermes-3-llama-3.1-405b:free",
-  "meta-llama/llama-3.1-405b-instruct:free",
-  "stepfun/step-3.5-flash:free",
-  "arcee-ai/trinity-large-preview:free",
+  "microsoft/phi-3-mini-128k-instruct:free",
+  "qwen/qwen-2.5-72b-instruct:free"
 ];
 
 // ─────────────────────────────────────────────
@@ -173,6 +167,7 @@ export async function askAI(messages, key, options = {}) {
 
   const fullMessages = [{ role: "system", content: systemPrompt }, ...messages];
   const triedErrors = [];
+  let rateLimitStrikes = 0;
 
   for (const model of models) {
     const controller = new AbortController();
@@ -210,6 +205,15 @@ export async function askAI(messages, key, options = {}) {
         try { errBody = await response.json(); } catch (e) { }
         const msg = errBody?.error?.message || `HTTP ${response.status}`;
         console.warn(`[OpenRouter Debug] Model: ${model}, Status: ${response.status}, Error: ${msg}`);
+
+        // Fail-fast on multiple rate limits
+        if (response.status === 429 || response.status === 503 || msg.toLowerCase().includes("capacity") || msg.toLowerCase().includes("rate limit")) {
+          rateLimitStrikes++;
+          if (rateLimitStrikes >= 2) {
+            throw new Error(`RATE_LIMIT_EXHAUSTED: ${msg}`);
+          }
+        }
+
         // Only hard-fail on confirmed auth errors (invalid key, not just missing header quirks)
         const msgLower = msg.toLowerCase();
         const isHardAuthFail = (response.status === 401 || response.status === 403) &&
@@ -231,6 +235,11 @@ export async function askAI(messages, key, options = {}) {
       clearTimeout(timeout);
       const errMsg = err.name === "AbortError" ? "timed out (30s)" : err.message;
       console.warn(`[ChatForge] Model "${model}" error: ${errMsg}`);
+
+      if (errMsg.includes("RATE_LIMIT_EXHAUSTED")) {
+        throw err; // Bubble up immediately to trip the circuit breaker
+      }
+
       triedErrors.push(`${model}: ${errMsg}`);
       continue;
     }
@@ -262,27 +271,23 @@ function detectTaskType(text) {
 // ─────────────────────────────────────────────
 // Smart Router — picks provider, then falls back
 // ─────────────────────────────────────────────
-/**
- * Route a chat request to the best available provider.
- * Returns { stream, provider } where:
- *   - stream is a ReadableStream (for Groq/OpenRouter) or AsyncGenerator (for Gemini)
- *   - provider is "groq" | "gemini" | "openrouter"
- */
 export async function smartRouter(messages, keys, options = {}) {
   const taskType = detectTaskType(messages[messages.length - 1]?.content || "");
 
-  // Determine priority order based on task type OR forced routing mode
+  // Determine priority order
   const routingMode = options.routingMode || "smart";
   let order;
 
-  if (routingMode !== "smart") {
-    // User forced a specific provider. 
-    // STRICT MODE: If a specific provider is forced, we ONLY use that one (no fallbacks to Groq if user wants Llama 70B)
-    if (routingMode === "groq") order = ["groq"];
-    else if (routingMode === "gemini") order = ["gemini"];
-    else if (routingMode === "openrouter") order = ["openrouter"];
-    else if (routingMode === "huggingface") order = ["huggingface"];
-    else order = [routingMode]; // fallback for custom strings if any
+  // Even if a mode is "forced" (e.g. from frontend lock or settings),
+  // we still build a fallback chain. The forced provider just goes first.
+  if (routingMode === "groq") {
+    order = ["groq", "gemini", "huggingface", "openrouter"];
+  } else if (routingMode === "gemini") {
+    order = ["gemini", "huggingface", "groq", "openrouter"];
+  } else if (routingMode === "openrouter") {
+    order = ["openrouter", "gemini", "huggingface", "groq"];
+  } else if (routingMode === "huggingface") {
+    order = ["huggingface", "groq", "gemini", "openrouter"];
   } else {
     // Smart Router mode
     if (taskType === "short") {
@@ -290,7 +295,6 @@ export async function smartRouter(messages, keys, options = {}) {
     } else if (taskType === "code") {
       order = ["gemini", "huggingface", "groq", "openrouter"];
     } else {
-      // creative / long
       order = ["openrouter", "gemini", "huggingface", "groq"];
     }
   }
@@ -302,19 +306,21 @@ export async function smartRouter(messages, keys, options = {}) {
     const health = BACKEND_MEMORY_CACHE.health[provider];
     if (health && health.status === "down" && Date.now() < health.retryAt) {
       const waitSec = Math.ceil((health.retryAt - Date.now()) / 1000);
+      console.log(`[Router] Skipping ${provider} (Circuit Breaker active for ${waitSec}s)`);
       errors.push(`${provider}: disabled (rate limit) - retry in ${waitSec}s`);
-      continue;
+      continue; // Skip this provider and immediately loop to the next
     }
 
     // 2. Key Check
     const key = keys[provider];
     if (!key) {
+      console.log(`[Router] Skipping ${provider} (No key configured)`);
       errors.push(`${provider}: no key configured`);
       continue;
     }
 
     try {
-      console.log(`[Router] Attempting: ${provider} (Routing: ${routingMode})`);
+      console.log(`[Router] Attempting: ${provider} (TaskType: ${taskType})`);
 
       if (provider === "groq") {
         const res = await askGroq(messages, key, options);
@@ -347,24 +353,25 @@ export async function smartRouter(messages, keys, options = {}) {
       console.warn(`[SmartRouter] ${provider} failed: ${errMsg}`);
 
       // 3. Circuit Breaker Logic
-      if (errMsg.includes("rate limit") || errMsg.includes("429") || errMsg.includes("capacity")) {
-        console.log(`[Circuit Breaker] Tripping for ${provider} (60s cooldown)`);
+      if (errMsg.includes("RATE_LIMIT_EXHAUSTED") || errMsg.includes("rate limit") || errMsg.includes("429") || errMsg.includes("capacity")) {
+        console.log(`[Circuit Breaker] Tripping for ${provider} (15m cooldown)`);
         BACKEND_MEMORY_CACHE.health[provider] = {
           status: "down",
-          retryAt: Date.now() + 60000
+          retryAt: Date.now() + 900000 // 15 minutes
         };
       }
 
-      errors.push(`${provider}: ${errMsg}`);
+      const isRateLimit = errMsg.includes("RATE_LIMIT_EXHAUSTED") || errMsg.includes("rate limit");
+      const cleanErrMsg = errMsg.replace("RATE_LIMIT_EXHAUSTED: ", "");
+      errors.push(`${provider}: ${isRateLimit ? "Rate Limit Exceeded (Circuit Breaker Tripped)" : cleanErrMsg}`);
 
-      // If strict mode, don't fallback
-      if (routingMode !== "smart") break;
+      // Crucial: we do NOT break. Let the loop move on to the next provider.
     }
   }
 
-  const errorDetails = errors.length > 0 ? `\n\nDetails:\n${errors.join("\n")}` : "";
+  const errorDetails = errors.length > 0 ? `\n\nFallback Details:\n${errors.join("\n")}` : "";
   throw new Error(
-    `AI Connection Failed. Please check your API keys in Settings. ${errorDetails}`
+    `AI Connection Failed. All available providers failed. ${errorDetails}`
   );
 }
 
