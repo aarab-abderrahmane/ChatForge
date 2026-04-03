@@ -112,7 +112,7 @@ const NAV_SECTIONS = [
 function SectionTitle({ id, icon: Icon, children }) {
     return (
         <div id={id} className="docs-section-title">
-            <Icon size={18} style={{ color: "var(--neon-green)" }} />
+            <Icon size={18} style={{ color: "#7dd3a0" }} />
             <h2>{children}</h2>
         </div>
     );
@@ -120,9 +120,9 @@ function SectionTitle({ id, icon: Icon, children }) {
 
 function Badge({ children, color = "green" }) {
     const colors = {
-        green: { bg: "rgba(57,255,20,0.1)", border: "rgba(57,255,20,0.3)", text: "#39ff14" },
-        cyan: { bg: "rgba(0,245,255,0.1)", border: "rgba(0,245,255,0.3)", text: "#00f5ff" },
-        pink: { bg: "rgba(255,45,120,0.1)", border: "rgba(255,45,120,0.3)", text: "#ff2d78" },
+        green: { bg: "rgba(57,255,20,0.08)", border: "rgba(57,255,20,0.15)", text: "#7dd3a0" },
+        cyan: { bg: "rgba(0,200,255,0.08)", border: "rgba(0,200,255,0.15)", text: "#6ec8e6" },
+        pink: { bg: "rgba(255,80,130,0.08)", border: "rgba(255,80,130,0.15)", text: "#e87da0" },
     };
     const c = colors[color] || colors.green;
     return (
@@ -134,7 +134,7 @@ function Badge({ children, color = "green" }) {
 
 function Card({ children, glow = false }) {
     return (
-        <div className="docs-card" style={{ boxShadow: glow ? "0 0 20px rgba(57,255,20,0.07)" : "none" }}>
+        <div className="docs-card" style={{ boxShadow: glow ? "0 0 24px rgba(57,255,20,0.04), 0 2px 8px rgba(0,0,0,0.2)" : "0 1px 3px rgba(0,0,0,0.15)" }}>
             {children}
         </div>
     );
@@ -194,7 +194,7 @@ export function DocsPage() {
                         Back to App
                     </button>
                     <div className="docs-nav-logo">
-                        <Terminal size={14} style={{ color: "var(--neon-green)" }} />
+                        <Terminal size={14} style={{ color: "#7dd3a0" }} />
                         <span>ChatForge</span>
                         <Badge color="cyan">v2.0</Badge>
                     </div>
@@ -386,7 +386,7 @@ export function DocsPage() {
                                 { icon: <Terminal size={16} />, title: "Avatars", color: "pink", desc: "Enable 'Message avatars' in Settings → Interface to show user and AI avatar icons on every message block." },
                             ].map(({ icon, title, color, desc }) => (
                                 <Card key={title} glow>
-                                    <div className="docs-feature-icon" style={{ color: color === "cyan" ? "var(--neon-cyan)" : color === "pink" ? "#ff2d78" : "var(--neon-green)" }}>
+                                    <div className="docs-feature-icon" style={{ color: color === "cyan" ? "#6ec8e6" : color === "pink" ? "#e87da0" : "#7dd3a0" }}>
                                         {icon}
                                     </div>
                                     <h3 className="docs-feature-title">{title}</h3>
@@ -414,7 +414,7 @@ export function DocsPage() {
 
                         <div className="docs-callout">
                             <div className="docs-callout-title">
-                                <Plus size={14} style={{ color: "var(--neon-cyan)" }} />
+                                <Plus size={14} style={{ color: "#6ec8e6" }} />
                                 Creating Custom Skills
                             </div>
                             <ol className="docs-callout-list">
@@ -653,7 +653,7 @@ export function DocsPage() {
                     <footer className="docs-footer">
                         <div className="docs-footer-inner">
                             <div className="docs-footer-logo">
-                                <Terminal size={16} style={{ color: "var(--neon-green)" }} />
+                                <Terminal size={16} style={{ color: "#7dd3a0" }} />
                                 <span>ChatForge v2.0</span>
                             </div>
                             <p className="docs-footer-text">Made with 💚 and retro vibes · by Abderrahmane Aarab</p>

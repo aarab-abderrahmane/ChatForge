@@ -120,47 +120,93 @@ export function Sidebar({ isOpen, onToggle }) {
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.2 }}
+            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
             className="flex flex-col h-full w-[290px] absolute inset-0"
+            style={{ background: "#0c1520" }}
           >
             {/* Header */}
             <div
-              className="flex items-center justify-between px-3 py-3 border-b"
-              style={{ borderColor: "var(--border-green)" }}
+              className="flex items-center justify-between px-5 py-4"
+              style={{
+                borderBottom: "1px solid rgba(255,255,255,0.1)",
+              }}
             >
               <span
-                className="text-xs font-bold tracking-widest uppercase"
-                style={{ color: "var(--neon-cyan)" }}
+                className="text-[11px] font-semibold tracking-[0.12em] uppercase"
+                style={{
+                  color: "rgba(200,255,192,0.75)",
+                  letterSpacing: "0.12em",
+                }}
               >
                 Sessions
               </span>
               <button
                 onClick={createNewSession}
-                className="btn-ghost p-1"
+                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200"
+                style={{
+                  background: "rgba(255,255,255,0.05)",
+                  color: "var(--neon-green)",
+                  cursor: "pointer",
+                  border: "1px solid transparent",
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                  e.currentTarget.style.borderColor = "transparent";
+                }}
                 title="New Chat"
               >
-                <Plus size={14} style={{ color: "var(--neon-green)" }} />
+                <Plus size={14} />
               </button>
             </div>
 
             {/* Search bar */}
-            <div
-              className="px-2 py-2 border-b"
-              style={{ borderColor: "rgba(255,255,255,0.04)" }}
-            >
-              <div className="sidebar-search">
-                <Search size={11} className="sidebar-search-icon" />
+            <div className="px-3 py-2.5">
+              <div
+                className="flex items-center gap-2.5 rounded-lg transition-all duration-200"
+                style={{
+                  padding: "7px 10px",
+                  background: "rgba(255,255,255,0.05)",
+                  border: "1px solid rgba(255,255,255,0.1)",
+                }}
+              >
+                <Search
+                  size={13}
+                  className="flex-shrink-0"
+                  style={{ color: "rgba(200,255,192,0.4)" }}
+                />
                 <input
                   type="text"
-                  className="sidebar-search-input"
+                  className="flex-1 bg-transparent text-xs outline-none"
                   placeholder="Search sessions…"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
+                  style={{
+                    color: "rgba(200,255,192,0.9)",
+                    caretColor: "var(--neon-green)",
+                  }}
                 />
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery("")}
-                    className="sidebar-search-clear"
+                    className="flex items-center justify-center w-4 h-4 rounded-md flex-shrink-0 transition-colors duration-150"
+                    style={{
+                      color: "rgba(200,255,192,0.5)",
+                      background: "transparent",
+                      cursor: "pointer",
+                      border: "none",
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.color = "rgba(200,255,192,0.8)";
+                      e.currentTarget.style.background = "rgba(255,255,255,0.08)";
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.color = "rgba(200,255,192,0.5)";
+                      e.currentTarget.style.background = "transparent";
+                    }}
                     title="Clear"
                   >
                     <X size={9} />
@@ -170,136 +216,320 @@ export function Sidebar({ isOpen, onToggle }) {
             </div>
 
             {/* Session list */}
-            <div className="flex-1 overflow-y-auto p-2">
-              <AnimatePresence>
-                {filtered.length === 0 && (
-                  <p className="text-[10px] text-center py-4" style={{ color: "rgba(200,255,192,0.25)" }}>
-                    No sessions found
-                  </p>
-                )}
-                {filtered.map((session) => {
-                  const isActive = session.id === activeSessionId;
-                  const isHovered = hoveredId === session.id;
-                  const willDelete = confirmDelete === session.id;
-                  const isPinned = pinnedSessions.has(session.id);
-                  const isEditing = editingId === session.id;
-                  const count = messageCount(session);
-
-                  return (
-                    <motion.div
-                      key={session.id}
-                      layout
-                      initial={{ opacity: 0, y: -8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      exit={{ opacity: 0, x: -20, height: 0 }}
-                      transition={{ duration: 0.2 }}
-                      className={`sidebar-session ${isActive ? "active" : ""} ${isPinned ? "pinned" : ""}`}
-                      onClick={() => !isEditing && setActiveSessionId(session.id)}
-                      onMouseEnter={() => setHoveredId(session.id)}
-                      onMouseLeave={() => setHoveredId(null)}
+            <div className="flex-1 overflow-y-auto px-2.5 pb-2">
+              <div className="flex flex-col gap-1">
+                <AnimatePresence>
+                  {filtered.length === 0 && (
+                    <motion.p
+                      initial={{ opacity: 0 }}
+                      animate={{ opacity: 1 }}
+                      exit={{ opacity: 0 }}
+                      className="text-[11px] text-center py-8 font-light"
+                      style={{
+                        color: "rgba(200,255,192,0.35)",
+                        letterSpacing: "0.02em",
+                      }}
                     >
-                      <div className="flex items-start gap-2">
-                        {/* Icon — 📌 for pinned, 💬 for normal */}
-                        <span style={{ fontSize: 11, marginTop: 2, flexShrink: 0 }}>
-                          {isPinned ? "📌" : <MessageSquare size={12} style={{ color: isActive ? "var(--neon-green)" : "rgba(200,255,192,0.3)" }} />}
-                        </span>
+                      No sessions found
+                    </motion.p>
+                  )}
+                  {filtered.map((session) => {
+                    const isActive = session.id === activeSessionId;
+                    const isHovered = hoveredId === session.id;
+                    const willDelete = confirmDelete === session.id;
+                    const isPinned = pinnedSessions.has(session.id);
+                    const isEditing = editingId === session.id;
+                    const count = messageCount(session);
 
-                        <div className="flex-1 min-w-0">
-                          {/* Title — editable or static */}
-                          {isEditing ? (
-                            <div className="flex items-center gap-1">
-                              <input
-                                ref={editInputRef}
-                                className="sidebar-rename-input"
-                                value={editValue}
-                                onChange={(e) => setEditValue(e.target.value)}
-                                onBlur={commitRename}
-                                onKeyDown={handleRenameKey}
-                                maxLength={50}
-                                onClick={(e) => e.stopPropagation()}
-                              />
-                              <button
-                                onClick={(e) => { e.stopPropagation(); commitRename(); }}
-                                className="flex-shrink-0"
-                                style={{ color: "var(--neon-green)" }}
+                    // Determine background
+                    let sessionBg = "transparent";
+                    let sessionBorder = "1px solid transparent";
+                    let sessionBorderLeft = "2px solid transparent";
+
+                    if (isActive) {
+                      sessionBg = "rgba(255,255,255,0.06)";
+                      sessionBorder = "1px solid rgba(255,255,255,0.1)";
+                      sessionBorderLeft = "2px solid var(--neon-green)";
+                    } else if (isHovered) {
+                      sessionBg = "rgba(255,255,255,0.05)";
+                    }
+
+                    return (
+                      <motion.div
+                        key={session.id}
+                        layout
+                        initial={{ opacity: 0, y: -6 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        exit={{ opacity: 0, x: -16, height: 0 }}
+                        transition={{
+                          duration: 0.2,
+                          ease: [0.4, 0, 0.2, 1],
+                        }}
+                        className="rounded-lg cursor-pointer transition-all duration-200"
+                        style={{
+                          padding: "9px 10px",
+                          background: sessionBg,
+                          border: sessionBorder,
+                          borderLeft: sessionBorderLeft,
+                        }}
+                        onClick={() => !isEditing && setActiveSessionId(session.id)}
+                        onMouseEnter={() => setHoveredId(session.id)}
+                        onMouseLeave={() => setHoveredId(null)}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          {/* Icon — refined pin indicator or message */}
+                          <span
+                            className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-md mt-0.5 transition-colors duration-200"
+                            style={{
+                              background: isPinned
+                                ? "rgba(0,255,180,0.12)"
+                                : "transparent",
+                              color: isActive
+                                ? "var(--neon-green)"
+                                : isPinned
+                                  ? "rgba(0,255,180,0.7)"
+                                  : "rgba(200,255,192,0.45)",
+                            }}
+                          >
+                            {isPinned ? (
+                              <Pin size={11} />
+                            ) : (
+                              <MessageSquare size={12} />
+                            )}
+                          </span>
+
+                          <div className="flex-1 min-w-0">
+                            {/* Title — editable or static */}
+                            {isEditing ? (
+                              <div className="flex items-center gap-1.5">
+                                <input
+                                  ref={editInputRef}
+                                  className="rounded-md px-2 py-0.5 text-xs outline-none flex-1 min-w-0"
+                                  value={editValue}
+                                  onChange={(e) => setEditValue(e.target.value)}
+                                  onBlur={commitRename}
+                                  onKeyDown={handleRenameKey}
+                                  maxLength={50}
+                                  onClick={(e) => e.stopPropagation()}
+                                  style={{
+                                    background: "rgba(255,255,255,0.1)",
+                                    color: "rgba(200,255,192,0.95)",
+                                    border: "1px solid rgba(255,255,255,0.15)",
+                                    caretColor: "var(--neon-green)",
+                                  }}
+                                />
+                                <button
+                                  onClick={(e) => {
+                                    e.stopPropagation();
+                                    commitRename();
+                                  }}
+                                  className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 transition-colors duration-150"
+                                  style={{
+                                    color: "var(--neon-green)",
+                                    background: "rgba(0,255,180,0.12)",
+                                    cursor: "pointer",
+                                    border: "none",
+                                  }}
+                                  onMouseEnter={(e) => {
+                                    e.currentTarget.style.background = "rgba(0,255,180,0.2)";
+                                  }}
+                                  onMouseLeave={(e) => {
+                                    e.currentTarget.style.background = "rgba(0,255,180,0.12)";
+                                  }}
+                                >
+                                  <Check size={10} />
+                                </button>
+                              </div>
+                            ) : (
+                              <p
+                                className="text-xs font-medium truncate leading-snug"
+                                style={{
+                                  color: isActive
+                                    ? "rgba(200,255,192,1)"
+                                    : "rgba(200,255,192,0.8)",
+                                }}
                               >
-                                <Check size={10} />
-                              </button>
-                            </div>
-                          ) : (
-                            <p
-                              className="text-xs font-medium truncate leading-snug"
-                              style={{ color: isActive ? "var(--neon-green)" : "rgba(200,255,192,0.75)" }}
-                            >
-                              {session.title}
-                            </p>
-                          )}
+                                {session.title}
+                              </p>
+                            )}
 
-                          <div className="flex items-center gap-2 mt-1">
-                            <Clock size={9} style={{ color: "rgba(200,255,192,0.25)" }} />
-                            <span className="text-[10px]" style={{ color: "rgba(200,255,192,0.25)" }}>
-                              {formatRelativeTime(session.createdAt)}
-                            </span>
-                            <span className="text-[10px]" style={{ color: "rgba(200,255,192,0.2)" }}>
-                              · {count} msg
-                            </span>
+                            <div
+                              className="flex items-center gap-1.5 mt-1.5"
+                              style={{ opacity: isActive ? 0.85 : 0.65 }}
+                            >
+                              <Clock
+                                size={9}
+                                style={{ color: "rgba(200,255,192,0.55)" }}
+                              />
+                              <span
+                                className="text-[10px]"
+                                style={{
+                                  color: "rgba(200,255,192,0.5)",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                {formatRelativeTime(session.createdAt)}
+                              </span>
+                              <span
+                                className="text-[10px]"
+                                style={{
+                                  color: "rgba(200,255,192,0.4)",
+                                  fontWeight: 400,
+                                }}
+                              >
+                                · {count} msg
+                              </span>
+                            </div>
                           </div>
+
+                          {/* Action buttons — show on hover/active */}
+                          {(isHovered || isActive) && !isEditing && (
+                            <motion.div
+                              initial={{ opacity: 0, scale: 0.95 }}
+                              animate={{ opacity: 1, scale: 1 }}
+                              transition={{ duration: 0.15 }}
+                              className="flex items-center gap-0.5 flex-shrink-0"
+                            >
+                              {/* Rename */}
+                              <button
+                                onClick={(e) => startRename(e, session)}
+                                className="flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150"
+                                style={{
+                                  color: "rgba(200,255,192,0.55)",
+                                  background: "transparent",
+                                  cursor: "pointer",
+                                  border: "none",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = "rgba(200,255,192,0.9)";
+                                  e.currentTarget.style.background = "rgba(255,255,255,0.1)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = "rgba(200,255,192,0.55)";
+                                  e.currentTarget.style.background = "transparent";
+                                }}
+                                title="Rename"
+                              >
+                                <Pencil size={11} />
+                              </button>
+                              {/* Pin */}
+                              <button
+                                onClick={(e) => handlePin(e, session.id)}
+                                className="flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150"
+                                style={{
+                                  color: isPinned
+                                    ? "rgba(0,255,180,0.75)"
+                                    : "rgba(200,255,192,0.55)",
+                                  background: isPinned
+                                    ? "rgba(0,255,180,0.1)"
+                                    : "transparent",
+                                  cursor: "pointer",
+                                  border: "none",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = isPinned
+                                    ? "rgba(0,255,180,1)"
+                                    : "rgba(200,255,192,0.9)";
+                                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = isPinned
+                                    ? "rgba(0,255,180,0.75)"
+                                    : "rgba(200,255,192,0.55)";
+                                  e.currentTarget.style.background = isPinned
+                                    ? "rgba(0,255,180,0.1)"
+                                    : "transparent";
+                                }}
+                                title={isPinned ? "Unpin" : "Pin to top"}
+                              >
+                                {isPinned ? (
+                                  <PinOff size={11} />
+                                ) : (
+                                  <Pin size={11} />
+                                )}
+                              </button>
+                              {/* Delete */}
+                              <button
+                                onClick={(e) => handleDelete(e, session.id)}
+                                className="flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150"
+                                style={{
+                                  color: willDelete
+                                    ? "rgba(255,0,128,0.9)"
+                                    : "rgba(200,255,192,0.55)",
+                                  background: willDelete
+                                    ? "rgba(255,0,128,0.12)"
+                                    : "transparent",
+                                  cursor: "pointer",
+                                  border: "none",
+                                }}
+                                onMouseEnter={(e) => {
+                                  e.currentTarget.style.color = willDelete
+                                    ? "rgba(255,0,128,1)"
+                                    : "rgba(255,0,128,0.75)";
+                                  e.currentTarget.style.background = "rgba(255,0,128,0.12)";
+                                }}
+                                onMouseLeave={(e) => {
+                                  e.currentTarget.style.color = willDelete
+                                    ? "rgba(255,0,128,0.9)"
+                                    : "rgba(200,255,192,0.55)";
+                                  e.currentTarget.style.background = willDelete
+                                    ? "rgba(255,0,128,0.12)"
+                                    : "transparent";
+                                }}
+                                title={
+                                  willDelete
+                                    ? "Click again to confirm"
+                                    : "Delete"
+                                }
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            </motion.div>
+                          )}
                         </div>
 
-                        {/* Action buttons — show on hover/active */}
-                        {(isHovered || isActive) && !isEditing && (
-                          <div className="flex items-center gap-0.5 flex-shrink-0">
-                            {/* Rename */}
-                            <button
-                              onClick={(e) => startRename(e, session)}
-                              className="sidebar-action-btn"
-                              title="Rename"
-                            >
-                              <Pencil size={9} />
-                            </button>
-                            {/* Pin */}
-                            <button
-                              onClick={(e) => handlePin(e, session.id)}
-                              className="sidebar-action-btn"
-                              style={{ color: isPinned ? "var(--neon-cyan)" : undefined }}
-                              title={isPinned ? "Unpin" : "Pin to top"}
-                            >
-                              {isPinned ? <PinOff size={9} /> : <Pin size={9} />}
-                            </button>
-                            {/* Delete */}
-                            <button
-                              onClick={(e) => handleDelete(e, session.id)}
-                              className="sidebar-action-btn"
-                              style={{ color: willDelete ? "var(--neon-magenta)" : undefined }}
-                              title={willDelete ? "Click again to confirm" : "Delete"}
-                            >
-                              <Trash2 size={9} />
-                            </button>
-                          </div>
+                        {willDelete && (
+                          <motion.p
+                            initial={{ opacity: 0, y: -2 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className="text-[10px] mt-1.5 pl-[30px] font-normal"
+                            style={{
+                              color: "rgba(255,0,128,0.85)",
+                              letterSpacing: "0.01em",
+                            }}
+                          >
+                            Click again to confirm
+                          </motion.p>
                         )}
-                      </div>
-
-                      {willDelete && (
-                        <p className="text-[9px] mt-1 pl-5" style={{ color: "var(--neon-magenta)" }}>
-                          Click again to confirm
-                        </p>
-                      )}
-                    </motion.div>
-                  );
-                })}
-              </AnimatePresence>
+                      </motion.div>
+                    );
+                  })}
+                </AnimatePresence>
+              </div>
             </div>
 
             {/* Footer */}
             <div
-              className="px-3 py-2 border-t text-[9px] tracking-widest uppercase"
+              className="px-5 py-3"
               style={{
-                borderColor: "var(--border-green)",
-                color: "rgba(200,255,192,0.2)",
+                borderTop: "1px solid rgba(255,255,255,0.1)",
               }}
             >
-              {sessions.length} session{sessions.length !== 1 ? "s" : ""}
-              {pinnedSessions.size > 0 && ` · ${pinnedSessions.size} pinned`}
+              <p
+                className="text-[10px] tracking-wide font-normal"
+                style={{
+                  color: "rgba(200,255,192,0.35)",
+                  letterSpacing: "0.04em",
+                }}
+              >
+                {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+                {pinnedSessions.size > 0 && (
+                  <span style={{ color: "rgba(0,255,180,0.5)" }}>
+                    {" "}
+                    · {pinnedSessions.size} pinned
+                  </span>
+                )}
+              </p>
             </div>
           </motion.div>
         )}
@@ -309,16 +539,28 @@ export function Sidebar({ isOpen, onToggle }) {
       <button
         onClick={onToggle}
         className="absolute -right-3 top-1/2 -translate-y-1/2 z-50
-          flex items-center justify-center w-6 h-10 rounded-r-md"
+          flex items-center justify-center rounded-lg transition-all duration-200"
         style={{
-          background: "var(--bg-panel)",
-          border: "1px solid var(--border-green)",
+          width: 22,
+          height: 40,
+          background: "#0c1520",
+          border: "1px solid rgba(255,255,255,0.12)",
           borderLeft: "none",
-          color: "var(--neon-green)",
+          color: "rgba(200,255,192,0.6)",
           cursor: "pointer",
         }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.color = "rgba(200,255,192,0.9)";
+          e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)";
+          e.currentTarget.style.background = "#101d2a";
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.color = "rgba(200,255,192,0.6)";
+          e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
+          e.currentTarget.style.background = "#0c1520";
+        }}
       >
-        {isOpen ? <ChevronLeft size={12} /> : <ChevronRight size={12} />}
+        {isOpen ? <ChevronLeft size={11} /> : <ChevronRight size={11} />}
       </button>
     </div>
   );

@@ -55,7 +55,7 @@ export const AnimatedSpan = ({ children, delay = 0, className, ...props }) => (
   <motion.div
     initial={{ opacity: 0, y: -5 }}
     animate={{ opacity: 1, y: 0 }}
-    transition={{ duration: 0.3, delay: delay / 1000 }}
+    transition={{ duration: 0.3, ease: [0.25, 0.1, 0.25, 1], delay: delay / 1000 }}
     className={cn("grid text-sm text-wrap font-normal tracking-tight", className)}
     {...props}
   >
@@ -433,11 +433,11 @@ export const Terminal = ({
 
         {/* ── Header ──────────────────────────────────── */}
         <div
-          className="sticky top-0 z-30 flex items-center gap-2 md:gap-3 px-4 py-3 md:py-3 border-b"
+          className="sticky top-0 z-30 flex items-center gap-3 md:gap-4 px-5 py-3 md:py-3 border-b"
           style={{
-            background: "var(--bg-header)",
-            borderColor: "var(--border-green)",
-            boxShadow: "0 4px 20px rgba(0,0,0,0.5)",
+            background: "linear-gradient(180deg, #111c2a 0%, #0c1520 100%)",
+            borderColor: "rgba(255,255,255,0.08)",
+            boxShadow: "0 1px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(255,255,255,0.02)",
             paddingTop: isMobile ? "calc(0.75rem + env(safe-area-inset-top))" : "0.75rem",
           }}
         >
@@ -446,10 +446,10 @@ export const Terminal = ({
             {!sidebarOpen && (
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="btn-ghost p-1 mr-1"
+                className="p-1.5 mr-1 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-95"
                 title="Show Sidebar"
               >
-                <Menu size={16} />
+                <Menu size={15} style={{ color: "rgba(200,255,192,0.6)" }} />
               </button>
             )}
             <div className="traffic-dot red" title="Close" />
@@ -458,29 +458,32 @@ export const Terminal = ({
           </div>
 
           {/* Title */}
-          <div className="flex items-center gap-2 flex-1 min-w-0">
+          <div className="flex items-center gap-2.5 flex-1 min-w-0">
             <TerminalIcon
               size={13}
-              style={{ color: "var(--neon-cyan)", flexShrink: 0 }}
+              style={{ color: "rgba(0,245,255,0.7)", flexShrink: 0 }}
             />
             <span
               className="text-sm font-semibold tracking-wide"
-              style={{ color: "var(--neon-green)" }}
+              style={{ color: "rgba(57,255,20,0.8)" }}
             >
               chatforge
             </span>
             <span
-              className="text-xs hidden md:inline"
-              style={{ color: "rgba(200,255,192,0.3)" }}
+              className="text-[11px] hidden md:inline font-light"
+              style={{ color: "rgba(200,255,192,0.35)" }}
             >
               — AI Terminal
             </span>
 
             {/* Online Status */}
             <div
-              className={`flex items-center gap-1.5 ml-2 text-[9px] uppercase tracking-widest font-bold ${isOnline ? "" : "opacity-60"
+              className={`flex items-center gap-1.5 ml-1 text-[9px] uppercase tracking-widest font-medium px-2 py-0.5 rounded-md transition-colors duration-300 ${isOnline ? "" : "opacity-50"
                 }`}
-              style={{ color: isOnline ? "var(--neon-green)" : "var(--neon-magenta)" }}
+              style={{
+                color: isOnline ? "rgba(57,255,20,0.75)" : "rgba(255,45,120,0.75)",
+                background: isOnline ? "rgba(57,255,20,0.1)" : "rgba(255,45,120,0.1)",
+              }}
               title={isOnline ? "Connected" : "Offline / Reconnecting..."}
             >
               {isOnline ? <Wifi size={10} /> : <WifiOff size={10} />}
@@ -489,29 +492,29 @@ export const Terminal = ({
 
             {/* Active Skill Badge */}
             <div
-              className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] uppercase tracking-wider font-bold"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] uppercase tracking-wider font-medium transition-all duration-200"
               style={{
-                color: "var(--neon-cyan)",
-                borderColor: "var(--neon-cyan-dim)",
-                background: "rgba(0,245,255,0.03)"
+                color: "rgba(0,245,255,0.7)",
+                background: "rgba(0,245,255,0.06)",
+                border: "1px solid rgba(0,245,255,0.12)",
               }}
               title={activeSkill.description}
             >
-              <span className="opacity-70">Skill:</span>
+              <span style={{ opacity: 0.5 }}>Skill:</span>
               <span>{activeSkill.icon} {activeSkill.name}</span>
             </div>
 
             {/* Active Model Badge */}
             <div
-              className="hidden lg:flex items-center gap-1.5 px-2 py-0.5 rounded border text-[9px] uppercase tracking-wider font-bold"
+              className="hidden lg:flex items-center gap-1.5 px-2.5 py-1 rounded-lg text-[9px] uppercase tracking-wider font-medium transition-all duration-200"
               style={{
-                color: "var(--neon-cyan)",
-                borderColor: "var(--neon-cyan-dim)",
-                background: "rgba(0,245,255,0.03)"
+                color: "rgba(0,245,255,0.7)",
+                background: "rgba(0,245,255,0.06)",
+                border: "1px solid rgba(0,245,255,0.12)",
               }}
               title={activeModel.description}
             >
-              <span className="opacity-70">Model:</span>
+              <span style={{ opacity: 0.5 }}>Model:</span>
               <span>{activeModel.icon} {activeModel.name.replace(" Instruct", "").replace(" instruct", "")}</span>
             </div>
 
@@ -523,11 +526,11 @@ export const Terminal = ({
             {/* message count badge */}
             {preferences.currentPage === "chat" && (
               <span
-                className="hidden xl:inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full border"
+                className="hidden xl:inline-flex items-center gap-1 text-[10px] px-2.5 py-1 rounded-lg font-medium transition-all duration-200"
                 style={{
-                  color: "var(--neon-cyan)",
-                  borderColor: "var(--neon-cyan-dim)",
-                  background: "rgba(0,245,255,0.05)",
+                  color: "rgba(0,245,255,0.6)",
+                  background: "rgba(0,245,255,0.06)",
+                  border: "1px solid rgba(0,245,255,0.12)",
                 }}
               >
                 {msgCount} msg{msgCount !== 1 ? "s" : ""}
@@ -538,10 +541,10 @@ export const Terminal = ({
             {preferences.currentPage === "chat" && (
               <button
                 onClick={createNewSession}
-                className="btn-ghost"
+                className="p-1.5 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-95"
                 title="New chat (Ctrl+N)"
               >
-                <Plus size={14} />
+                <Plus size={14} style={{ color: "rgba(200,255,192,0.6)" }} />
               </button>
             )}
 
@@ -549,10 +552,10 @@ export const Terminal = ({
             {preferences.currentPage === "chat" && (
               <button
                 onClick={() => setShowClearConfirm(true)}
-                className="btn-ghost"
+                className="p-1.5 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-95"
                 title="Clear chat"
               >
-                <Trash2 size={14} />
+                <Trash2 size={14} style={{ color: "rgba(200,255,192,0.6)" }} />
               </button>
             )}
 
@@ -563,10 +566,10 @@ export const Terminal = ({
                   setShowSearch((p) => !p);
                   if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50);
                 }}
-                className={`btn-ghost ${showSearch ? "text-cyan-400" : ""}`}
+                className={`p-1.5 rounded-lg transition-all duration-200 ease-out active:scale-95 ${showSearch ? "bg-cyan-400/[0.06]" : "hover:bg-white/[0.04]"}`}
                 title="Search chat (Ctrl+F)"
               >
-                <Search size={14} style={{ color: showSearch ? "var(--neon-cyan)" : undefined }} />
+                <Search size={14} style={{ color: showSearch ? "rgba(0,245,255,0.7)" : "rgba(200,255,192,0.6)" }} />
               </button>
             )}
 
@@ -579,10 +582,10 @@ export const Terminal = ({
                   currentPage: "workspaces",
                 }));
               }}
-              className="btn-ghost"
+              className="p-1.5 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-95"
               title="Workspaces"
             >
-              <Briefcase size={14} />
+              <Briefcase size={14} style={{ color: "rgba(200,255,192,0.6)" }} />
             </button>
 
             {/* Docs Page Link */}
@@ -594,24 +597,24 @@ export const Terminal = ({
                   currentPage: "docs",
                 }));
               }}
-              className="btn-ghost"
+              className="p-1.5 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-95"
               title="Documentation"
             >
-              <FileText size={14} />
+              <FileText size={14} style={{ color: "rgba(200,255,192,0.6)" }} />
             </button>
 
             {/* Settings */}
             <div className="relative" ref={settingsRef}>
               <button
                 onClick={() => setShowSettings((p) => !p)}
-                className="btn-ghost"
+                className="p-1.5 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-95"
                 title="Settings"
               >
                 <Settings
                   size={14}
                   style={{
-                    color: showSettings ? "var(--neon-green)" : undefined,
-                    transition: "transform 0.3s",
+                    color: showSettings ? "rgba(57,255,20,0.8)" : "rgba(200,255,192,0.6)",
+                    transition: "transform 0.3s cubic-bezier(0.25, 0.1, 0.25, 1), color 0.2s ease",
                     transform: showSettings ? "rotate(60deg)" : "rotate(0)",
                   }}
                 />
@@ -634,16 +637,20 @@ export const Terminal = ({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
               className="sticky top-[53px] z-30 border-b overflow-hidden"
-              style={{ borderColor: "rgba(0,245,255,0.1)", background: "rgba(0,245,255,0.02)" }}
+              style={{
+                borderColor: "rgba(255,255,255,0.08)",
+                background: "linear-gradient(180deg, rgba(0,245,255,0.02) 0%, rgba(0,0,0,0) 100%)",
+              }}
             >
-              <div className="px-4 py-2 flex items-center justify-between gap-3">
-                <div className="flex items-center gap-2 flex-1">
-                  <Search size={12} style={{ color: "var(--neon-cyan)" }} />
+              <div className="px-5 py-2.5 flex items-center justify-between gap-3">
+                <div className="flex items-center gap-2.5 flex-1">
+                  <Search size={13} style={{ color: "rgba(0,245,255,0.6)" }} />
                   <input
                     ref={searchInputRef}
                     className="flex-1 bg-transparent border-none text-xs outline-none"
-                    style={{ color: "var(--neon-cyan)" }}
+                    style={{ color: "rgba(0,245,255,0.85)" }}
                     placeholder="Search in this chat..."
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
@@ -653,14 +660,17 @@ export const Terminal = ({
                   />
                 </div>
                 {searchQuery && (
-                  <div className="text-[10px] font-bold" style={{ color: "var(--neon-cyan)" }}>
+                  <div
+                    className="text-[10px] font-medium px-2 py-0.5 rounded-md transition-all duration-200"
+                    style={{ color: "rgba(0,245,255,0.65)", background: "rgba(0,245,255,0.08)" }}
+                  >
                     {searchMatches} match{searchMatches !== 1 ? "es" : ""}
                   </div>
                 )}
                 <button
                   onClick={() => { setShowSearch(false); setSearchQuery(""); }}
-                  className="p-1 hover:bg-white/5 rounded transition-all"
-                  style={{ color: "var(--neon-cyan)" }}
+                  className="p-1.5 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-95"
+                  style={{ color: "rgba(0,245,255,0.6)" }}
                 >
                   <XIcon size={12} />
                 </button>
@@ -672,7 +682,7 @@ export const Terminal = ({
         {preferences.currentPage === "chat" ? (
           <div className="flex flex-col flex-1 min-h-0">
             {/* Messages scroll area */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-5">
+            <div className="flex-1 overflow-y-auto overflow-x-hidden px-5 py-5  ">
               {chats.map((obj, index) => {
                 if (obj.type === "ms") {
                   return (
@@ -682,7 +692,7 @@ export const Terminal = ({
                           key={i}
                           delay={i * 80}
                           className="text-sm mb-1"
-                          style={{ color: "rgba(200,255,192,0.55)" }}
+                          style={{ color: "rgba(200,255,192,0.5)" }}
                         >
                           {line}
                         </AnimatedSpan>
@@ -691,7 +701,7 @@ export const Terminal = ({
                         className="mt-3 mb-4 h-px"
                         style={{
                           background:
-                            "linear-gradient(90deg, var(--neon-green-dim), transparent)",
+                            "linear-gradient(90deg, rgba(57,255,20,0.25), transparent)",
                         }}
                       />
                     </div>
@@ -721,8 +731,9 @@ export const Terminal = ({
                   <motion.div
                     initial={{ opacity: 0, y: 8 }}
                     animate={{ opacity: 1, y: 0 }}
-                    exit={{ opacity: 0 }}
-                    className="flex justify-between items-center py-3 px-1"
+                    exit={{ opacity: 0, y: -4 }}
+                    transition={{ duration: 0.25, ease: [0.25, 0.1, 0.25, 1] }}
+                    className="flex justify-between items-center py-4 px-1"
                   >
                     <div className="flex items-center gap-3">
                       {/* Animated activity bars */}
@@ -732,10 +743,11 @@ export const Terminal = ({
                             key={i}
                             className="w-[3px] rounded-full"
                             style={{
-                              background: "var(--neon-green)",
+                              background: "rgba(57,255,20,0.8)",
                               height: `${[6, 14, 10, 16][i]}px`,
                               animation: `pulse ${0.8 + i * 0.15}s ease-in-out ${i * 0.1}s infinite alternate`,
-                              opacity: 0.7,
+                              opacity: 0.5,
+                              boxShadow: "0 0 4px rgba(57,255,20,0.08)",
                             }}
                           />
                         ))}
@@ -743,8 +755,8 @@ export const Terminal = ({
 
                       <div className="flex flex-col gap-0.5">
                         <span
-                          className="text-xs font-bold"
-                          style={{ color: "var(--neon-green)" }}
+                          className="text-xs font-semibold"
+                          style={{ color: "rgba(57,255,20,0.8)" }}
                         >
                           Generating response
                           <span className="loading-dots">
@@ -753,7 +765,7 @@ export const Terminal = ({
                             <span>.</span>
                           </span>
                         </span>
-                        <span className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(200,255,192,0.3)" }}>
+                        <span className="text-[9px] uppercase tracking-widest font-light" style={{ color: "rgba(200,255,192,0.3)" }}>
                           AI is processing your request
                         </span>
                       </div>
@@ -765,7 +777,14 @@ export const Terminal = ({
                         const p = lastMsg.provider;
                         const label = p === "groq" ? "⚡ Groq" : p === "gemini" ? "🧠 Gemini" : p === "huggingface" ? "🤗 HuggingFace" : "🌐 OpenRouter";
                         return (
-                          <span className="text-[9px] px-2 py-0.5 rounded border" style={{ color: "var(--neon-cyan)", borderColor: "var(--neon-cyan-dim)", background: "rgba(0,245,255,0.05)" }}>
+                          <span
+                            className="text-[9px] px-2.5 py-1 rounded-lg font-medium transition-all duration-200"
+                            style={{
+                              color: "rgba(0,245,255,0.65)",
+                              background: "rgba(0,245,255,0.08)",
+                              border: "1px solid rgba(0,245,255,0.12)",
+                            }}
+                          >
                             {label}
                           </span>
                         );
@@ -774,8 +793,13 @@ export const Terminal = ({
 
                     <button
                       onClick={onStopAI}
-                      className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all hover:bg-[rgba(255,45,120,0.2)] active:scale-95"
-                      style={{ background: "rgba(255,45,120,0.1)", border: "1px solid var(--neon-magenta)", color: "var(--neon-magenta)", boxShadow: "0 0 10px rgba(255,45,120,0.15)" }}
+                      className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 ease-out hover:bg-[rgba(255,45,120,0.12)] active:scale-95"
+                      style={{
+                        background: "rgba(255,45,120,0.1)",
+                        border: "1px solid rgba(255,45,120,0.25)",
+                        color: "rgba(255,45,120,0.8)",
+                        boxShadow: "0 0 8px rgba(255,45,120,0.06)",
+                      }}
                       title="Stop generating"
                     >
                       <XIcon size={11} /> Stop
@@ -796,11 +820,11 @@ export const Terminal = ({
                   <div className="flex items-center mb-1">
                     <button
                       onClick={() => setIsToolbarExpanded((p) => !p)}
-                      className="btn-ghost text-[10px] sm:text-xs px-2 py-1"
+                      className="flex items-center gap-1.5 text-[10px] sm:text-xs px-2.5 py-1 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-[0.97]"
                       title="Toggle AI Tools"
                     >
-                      <Sparkles size={12} style={{ color: "var(--neon-green)" }} />
-                      <span className="font-semibold">{isToolbarExpanded ? "Hide AI Tools" : "Show AI Tools"}</span>
+                      <Sparkles size={12} style={{ color: "rgba(57,255,20,0.65)" }} />
+                      <span className="font-medium" style={{ color: "rgba(200,255,192,0.65)" }}>{isToolbarExpanded ? "Hide AI Tools" : "Show AI Tools"}</span>
                     </button>
                   </div>
 
@@ -810,7 +834,7 @@ export const Terminal = ({
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: "auto" }}
                         exit={{ opacity: 0, height: 0 }}
-                        transition={{ duration: 0.2 }}
+                        transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
                         className="overflow-hidden"
                       >
                         <div className="ai-tool-bar" ref={toolbarScrollRef}>
@@ -822,7 +846,7 @@ export const Terminal = ({
                                 className="ai-tool-btn group"
                                 title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
                               >
-                                <span className="text-[11px] transition-transform group-hover:scale-110 flex items-center">{tool.icon}</span>
+                                <span className="text-[11px] transition-transform duration-200 ease-out group-hover:scale-110 flex items-center">{tool.icon}</span>
                                 <span>{tool.label}</span>
                               </button>
                             ))}
@@ -838,13 +862,23 @@ export const Terminal = ({
               <AnimatePresence>
                 {showCmdMenu && (
                   <motion.div
-                    className="cmd-menu"
+                    className="cmd-menu rounded-lg"
                     initial={{ opacity: 0, y: 6 }}
                     animate={{ opacity: 1, y: 0 }}
                     exit={{ opacity: 0, y: 6 }}
-                    transition={{ duration: 0.15 }}
+                    transition={{ duration: 0.15, ease: [0.25, 0.1, 0.25, 1] }}
+                    style={{
+                      background: "#0e1117",
+                      border: "1px solid rgba(255,255,255,0.06)",
+                      boxShadow: "0 8px 32px rgba(0,0,0,0.4), 0 0 0 1px rgba(255,255,255,0.02)",
+                    }}
                   >
-                    <div className="cmd-header">Available Commands</div>
+                    <div
+                      className="cmd-header"
+                      style={{ color: "rgba(200,255,192,0.3)" }}
+                    >
+                      Available Commands
+                    </div>
                     {COMMANDS.filter((c) =>
                       c.cmd.startsWith(query.toLowerCase())
                     ).map((c) => (
@@ -853,20 +887,20 @@ export const Terminal = ({
                         className="cmd-item"
                         onClick={() => handleCmdSelect(c.cmd)}
                       >
-                        <span className="cmd-text">
+                        <span className="cmd-text" style={{ color: "rgba(0,245,255,0.6)" }}>
                           {c.icon} {c.cmd}
                         </span>
-                        <span className="cmd-desc">{c.desc}</span>
+                        <span className="cmd-desc" style={{ color: "rgba(200,255,192,0.3)" }}>{c.desc}</span>
                       </div>
                     ))}
                   </motion.div>
                 )}
               </AnimatePresence>
 
-              <div className="flex items-end gap-2 w-full">
+              <div className="flex items-end gap-2.5 w-full">
                 <span
-                  className="flex-shrink-0 mb-1 text-sm font-bold"
-                  style={{ color: "var(--neon-cyan)" }}
+                  className="flex-shrink-0 mb-1.5 text-sm font-bold"
+                  style={{ color: "rgba(0,245,255,0.6)" }}
                 >
                   &gt;
                 </span>
@@ -874,7 +908,7 @@ export const Terminal = ({
                 <div className="flex-1 relative">
                   <textarea
                     ref={textareaRef}
-                    className="input-terminal auto-expand"
+                    className="input-terminal auto-expand rounded-lg"
                     placeholder="Ask anything… or type //> for commands"
                     value={query}
                     onChange={handleInputChange}
@@ -886,12 +920,31 @@ export const Terminal = ({
                       minHeight: 36,
                       maxHeight: 160,
                       overflow: "auto",
+                      background: "rgba(255,255,255,0.04)",
+                      border: "1px solid rgba(255,255,255,0.1)",
+                      transition: "border-color 0.2s ease, box-shadow 0.2s ease, background 0.2s ease",
+                    }}
+                    onFocus={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(0,245,255,0.2)";
+                      e.currentTarget.style.background = "rgba(255,255,255,0.05)";
+                      e.currentTarget.style.boxShadow = "0 0 0 3px rgba(0,245,255,0.06)";
+                    }}
+                    onBlur={(e) => {
+                      e.currentTarget.style.borderColor = "rgba(255,255,255,0.1)";
+                      e.currentTarget.style.background = "rgba(255,255,255,0.04)";
+                      e.currentTarget.style.boxShadow = "none";
                     }}
                   />
                   {charCount > 0 && (
                     <span
-                      className="absolute bottom-0 right-1 flex items-center gap-2 text-[9px] pointer-events-none"
-                      style={{ color: "rgba(200,255,192,0.3)", background: "var(--bg-panel)", paddingInline: 4, borderRadius: 2 }}
+                      className="absolute bottom-1 right-2 flex items-center gap-2 text-[9px] pointer-events-none"
+                      style={{
+                        color: "rgba(200,255,192,0.35)",
+                        background: "rgba(10,12,15,0.8)",
+                        paddingInline: 5,
+                        borderRadius: 4,
+                        backdropFilter: "blur(4px)",
+                      }}
                     >
                       <span title="Estimated tokens">~{estTokens} tokens</span>
                       <span>{charCount} chars</span>
@@ -904,11 +957,18 @@ export const Terminal = ({
                   type="button"
                   title={draftCount > 1 ? "Multi-Draft: 3 Variants" : "Single Draft"}
                   onClick={(e) => { e.preventDefault(); setDraftCount(d => d === 1 ? 3 : 1); }}
-                  className={`w-9 h-9 rounded flex items-center justify-center transition-all flex-shrink-0 border ${draftCount > 1 ? "bg-[rgba(57,255,20,0.1)] text-[var(--neon-green)] border-[var(--neon-green)] shadow-[0_0_10px_rgba(57,255,20,0.2)]" : "text-gray-500 border-[rgba(255,255,255,0.1)] hover:bg-white/5 hover:text-white"}`}
+                  className={`w-9 h-9 rounded-lg flex items-center justify-center transition-all duration-200 ease-out flex-shrink-0 mb-0.5 ${draftCount > 1
+                      ? "bg-[rgba(57,255,20,0.12)] text-[rgba(57,255,20,0.75)] active:scale-95"
+                      : "text-[rgba(200,255,192,0.25)] hover:bg-white/[0.04] hover:text-[rgba(200,255,192,0.55)] active:scale-95"
+                    }`}
+                  style={{
+                    border: `1px solid ${draftCount > 1 ? "rgba(57,255,20,0.2)" : "rgba(255,255,255,0.05)"}`,
+                    boxShadow: draftCount > 1 ? "0 0 8px rgba(57,255,20,0.06)" : "none",
+                  }}
                 >
                   <div className="relative flex items-center justify-center">
                     <Layers size={15} />
-                    {draftCount > 1 && <span className="absolute -top-1 -right-2 text-[8px] font-black bg-[var(--neon-green)] text-black px-[3px] rounded-sm leading-none py-[1px]">3</span>}
+                    {draftCount > 1 && <span className="absolute -top-1.5 -right-2.5 text-[7px] font-bold bg-[rgba(57,255,20,0.2)] text-[rgba(57,255,20,0.9)] px-[3px] rounded-sm leading-none py-[1px]">{draftCount}</span>}
                   </div>
                 </button>
 
@@ -927,23 +987,23 @@ export const Terminal = ({
                     executeCommand(query) || doSend(syntheticEvent);
                   }}
                   disabled={!loading && !query.trim()}
-                  className="flex-shrink-0 mb-1 p-1.5 rounded-lg transition-all active:scale-90"
+                  className="flex-shrink-0 mb-0.5 p-2 rounded-lg transition-all duration-200 ease-out active:scale-90"
                   style={{
                     background: loading
-                      ? "rgba(255,45,120,0.15)"
+                      ? "rgba(255,45,120,0.12)"
                       : query.trim()
-                        ? "rgba(57,255,20,0.15)"
+                        ? "rgba(57,255,20,0.12)"
                         : "transparent",
-                    border: `1px solid ${loading ? "var(--neon-magenta)" : query.trim() ? "var(--neon-green)" : "var(--border-green)"}`,
-                    color: loading ? "var(--neon-magenta)" : query.trim() ? "var(--neon-green)" : "rgba(200,255,192,0.2)",
-                    boxShadow: (loading || query.trim()) ? `0 0 10px ${loading ? "rgba(255,45,120,0.2)" : "rgba(57,255,20,0.2)"}` : "none",
+                    border: `1px solid ${loading ? "rgba(255,45,120,0.25)" : query.trim() ? "rgba(57,255,20,0.25)" : "rgba(255,255,255,0.05)"}`,
+                    color: loading ? "rgba(255,45,120,0.8)" : query.trim() ? "rgba(57,255,20,0.8)" : "rgba(200,255,192,0.2)",
+                    boxShadow: (loading || query.trim()) ? `0 0 8px ${loading ? "rgba(255,45,120,0.06)" : "rgba(57,255,20,0.06)"}` : "none",
                   }}
                   title={loading ? "Stop Generation" : "Send Message"}
                 >
                   {loading ? (
                     <div className="flex items-center gap-1 px-1">
                       <XIcon size={16} />
-                      <span className="text-[10px] font-bold uppercase tracking-tighter">Stop</span>
+                      <span className="text-[10px] font-semibold uppercase tracking-tighter">Stop</span>
                     </div>
                   ) : (
                     <SendHorizonal size={16} />
@@ -954,12 +1014,12 @@ export const Terminal = ({
               {/* Hint bar */}
               {settings.showHintBar !== false && (
                 <div
-                  className="flex items-center gap-3 mt-1.5 text-[9px]"
-                  style={{ color: "rgba(200,255,192,0.18)" }}
+                  className="flex items-center gap-3 mt-2 text-[9px] px-1"
+                  style={{ color: "rgba(200,255,192,0.12)" }}
                 >
-                  <span><kbd>Enter</kbd> send</span>
-                  <span><kbd>Shift+Enter</kbd> newline</span>
-                  <span><kbd>/&gt;</kbd> commands</span>
+                  <span><kbd className="px-1 py-0.5 rounded text-[8px]" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.04)" }}>Enter</kbd> send</span>
+                  <span><kbd className="px-1 py-0.5 rounded text-[8px]" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.04)" }}>Shift+Enter</kbd> newline</span>
+                  <span><kbd className="px-1 py-0.5 rounded text-[8px]" style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.04)" }}>/&gt;</kbd> commands</span>
                 </div>
               )}
             </div>
@@ -977,28 +1037,41 @@ export const Terminal = ({
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
-            style={{ position: "absolute", zIndex: 100 }}
+            transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }}
+            style={{
+              position: "absolute",
+              zIndex: 100,
+              background: "rgba(0,0,0,0.5)",
+              backdropFilter: "blur(8px)",
+            }}
           >
-            <div className="confirm-card max-w-[300px] text-center">
+            <div
+              className="confirm-card max-w-[300px] text-center rounded-xl p-6"
+              style={{
+                background: "linear-gradient(180deg, #0e1117 0%, #0a0c0f 100%)",
+                border: "1px solid rgba(255,255,255,0.06)",
+                boxShadow: "0 16px 48px rgba(0,0,0,0.5), 0 0 0 1px rgba(255,255,255,0.02)",
+              }}
+            >
               <div className="text-xl mb-3">🧹</div>
-              <div className="text-xs font-bold mb-2 uppercase tracking-widest" style={{ color: "var(--neon-magenta)" }}>
+              <div className="text-xs font-semibold mb-2 uppercase tracking-widest" style={{ color: "rgba(255,45,120,0.7)" }}>
                 Clear Chat?
               </div>
-              <div className="text-[10px] mb-5 leading-relaxed" style={{ color: "rgba(200,255,192,0.6)" }}>
+              <div className="text-[11px] mb-5 leading-relaxed font-light" style={{ color: "rgba(200,255,192,0.4)" }}>
                 This will wipe the current session's history. This action cannot be undone.
               </div>
-              <div className="flex gap-2">
+              <div className="flex gap-2.5">
                 <button
                   onClick={() => { clearCurrentChat(); setShowClearConfirm(false); setQuery(""); }}
-                  className="flex-1 py-1.5 rounded text-[10px] font-bold uppercase tracking-widest transition-all"
-                  style={{ background: "rgba(255,45,120,0.12)", border: "1px solid var(--neon-magenta)", color: "var(--neon-magenta)" }}
+                  className="flex-1 py-2 rounded-lg text-[10px] font-semibold uppercase tracking-wider transition-all duration-200 ease-out hover:bg-[rgba(255,45,120,0.15)] active:scale-[0.97]"
+                  style={{ background: "rgba(255,45,120,0.06)", border: "1px solid rgba(255,45,120,0.15)", color: "rgba(255,45,120,0.65)" }}
                 >
                   Clear
                 </button>
                 <button
                   onClick={() => setShowClearConfirm(false)}
-                  className="flex-1 py-1.5 rounded text-[10px] transition-all hover:bg-white/5 uppercase tracking-widest"
-                  style={{ border: "1px solid rgba(255,255,255,0.08)", color: "rgba(200,255,192,0.5)" }}
+                  className="flex-1 py-2 rounded-lg text-[10px] transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-[0.97] uppercase tracking-wider font-medium"
+                  style={{ border: "1px solid rgba(255,255,255,0.06)", color: "rgba(200,255,192,0.4)" }}
                 >
                   Cancel
                 </button>
