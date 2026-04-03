@@ -627,11 +627,11 @@ No preamble, no extra text.`,
       />
 
       {/* Main app */}
-      <div className="relative z-10 w-screen h-screen">
+      <div className={`relative z-10 w-screen h-screen ${preferences.currentPage === "workspaces" ? "overflow-scroll" : ""} `}>
         {preferences.currentPage === "docs" ? (
           <div className="w-full h-full"><DocsPage /></div>
         ) : preferences.currentPage === "workspaces" ? (
-          <div className="w-full h-full">
+          <div className="w-full h-full ">
             <WorkspaceDashboard
               onOpenWorkspace={(id) => setPreferences({ ...preferences, currentPage: "workspace_view", activeWorkspaceId: id })}
             />

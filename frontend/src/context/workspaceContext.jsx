@@ -43,12 +43,12 @@ export const TASK_STATUS_COLORS = {
 
 // ─── Workspace type presets ───────────────────────────────────────
 export const WORKSPACE_PRESETS = {
-    General: { emoji: "🌐", defaultPhases: ["Planning", "Execution", "Review"] },
-    Development: { emoji: "💻", defaultPhases: ["Setup", "Development", "Testing", "Deploy"] },
-    Research: { emoji: "🔬", defaultPhases: ["Discovery", "Analysis", "Synthesis"] },
-    Design: { emoji: "🎨", defaultPhases: ["Ideation", "Wireframe", "Prototype", "Polish"] },
-    Writing: { emoji: "✍️", defaultPhases: ["Outline", "Draft", "Edit", "Publish"] },
-    Marketing: { emoji: "📣", defaultPhases: ["Strategy", "Creation", "Launch", "Measure"] },
+    General: { emoji: "🌐", description: "General purpose workspace" },
+    Development: { emoji: "💻", description: "Build software & apps" },
+    Research: { emoji: "🔬", description: "Investigate & analyze" },
+    Design: { emoji: "🎨", description: "Creative & visual projects" },
+    Writing: { emoji: "✍️", description: "Content & documentation" },
+    Marketing: { emoji: "📣", description: "Campaigns & strategy" },
 };
 
 // ─── Priority levels for tasks ────────────────────────────────────
@@ -133,9 +133,6 @@ export function WorkspaceProvider({ children }) {
 
     const createWorkspace = useCallback((data) => {
         const preset = WORKSPACE_PRESETS[data.type] || WORKSPACE_PRESETS.General;
-        const phases = data.phases?.length
-            ? data.phases
-            : preset.defaultPhases;
 
         const newWs = {
             id: uuid(),
@@ -147,8 +144,6 @@ export function WorkspaceProvider({ children }) {
             rules: data.rules
                 ? data.rules.split("\n").filter(r => r.trim())
                 : [],
-            phases,
-            currentPhase: phases[0],
             tasks: [],
             outputs: [],
             notes: "",            // NEW: free-form workspace notes
@@ -161,7 +156,7 @@ export function WorkspaceProvider({ children }) {
                     type: "ms",
                     content: [
                         `${data.emoji || preset.emoji} Welcome to **${data.name || "Untitled Workspace"}**`,
-                        "💡 Manage tasks, phases, and outputs from the workspace panel.",
+                        "💡 Add tasks and run the agent to start building.",
                     ],
                 },
             ],
@@ -215,32 +210,6 @@ export function WorkspaceProvider({ children }) {
     }, [activeWorkspaceId, updateWorkspace]);
 
     // ═══════════════════════════════════════════════════════════════
-    //  PHASE MANAGEMENT
-    // ═══════════════════════════════════════════════════════════════
-
-    const setWorkspacePhase = useCallback((phaseName) => {
-        if (!activeWorkspaceId) return;
-        updateWorkspace(activeWorkspaceId, { currentPhase: phaseName });
-    }, [activeWorkspaceId, updateWorkspace]);
-
-    const addPhase = useCallback((phaseName) => {
-        if (!activeWorkspaceId || !phaseName?.trim()) return;
-        updateWorkspace(activeWorkspaceId, (ws) => ({
-            phases: [...(ws.phases || []), phaseName.trim()],
-        }));
-    }, [activeWorkspaceId, updateWorkspace]);
-
-    const removePhase = useCallback((phaseName) => {
-        if (!activeWorkspaceId) return;
-        updateWorkspace(activeWorkspaceId, (ws) => ({
-            phases: (ws.phases || []).filter(p => p !== phaseName),
-            currentPhase: ws.currentPhase === phaseName
-                ? (ws.phases?.find(p => p !== phaseName) || "")
-                : ws.currentPhase,
-        }));
-    }, [activeWorkspaceId, updateWorkspace]);
-
-    // ═══════════════════════════════════════════════════════════════
     //  TASK MANAGEMENT  (improved)
     // ═══════════════════════════════════════════════════════════════
 
@@ -251,7 +220,6 @@ export function WorkspaceProvider({ children }) {
             title,
             status,
             priority: extra.priority || "normal",
-            phase: extra.phase || null,   // assign to specific phase
             dueDate: extra.dueDate || null,   // NEW
             description: extra.description || "",     // NEW
             tags: extra.tags || [],     // NEW
@@ -354,7 +322,6 @@ export function WorkspaceProvider({ children }) {
                         filename,
                         content,
                         type: meta.type || detectOutputType(filename), // NEW: auto-detect type
-                        phase: meta.phase || ws.currentPhase,           // NEW: tag output to phase
                         tags: meta.tags || [],
                         createdAt: new Date().toISOString(),
                         updatedAt: new Date().toISOString(),
@@ -400,7 +367,7 @@ export function WorkspaceProvider({ children }) {
             const event = {
                 id: uuid(),
                 text,
-                type,   // "info" | "task" | "phase" | "output" | "agent" | "error"
+                type,   // "info" | "task" | "output" | "agent" | "error"
                 timestamp: new Date().toISOString(),
             };
             return { timeline: [event, ...(ws.timeline || [])].slice(0, MAX_TIMELINE) };
@@ -438,19 +405,11 @@ export function WorkspaceProvider({ children }) {
 
         const applied = [];
 
-        // ── Phase change ─────────────────────────────────────────────
-        if (action.phase) {
-            setWorkspacePhase(action.phase);
-            applied.push(`phase → ${action.phase}`);
-            addTimelineEvent(`Phase changed to "${action.phase}"`, "phase");
-        }
-
         // ── Add tasks ────────────────────────────────────────────────
         if (Array.isArray(action.add_tasks)) {
             action.add_tasks.forEach(t => {
                 addTask(t.title, t.status || "coming_soon", {
                     priority: t.priority,
-                    phase: t.phase,
                     dueDate: t.due_date,
                     description: t.description,
                     tags: t.tags,
@@ -491,7 +450,6 @@ export function WorkspaceProvider({ children }) {
                 if (!o.fileName) return;
                 saveOutput(o.fileName, o.content || "", {
                     type: o.type,
-                    phase: o.phase,
                     tags: o.tags,
                 });
                 applied.push(`output saved: "${o.fileName}"`);
@@ -521,7 +479,6 @@ export function WorkspaceProvider({ children }) {
         return { ok: true, applied };
     }, [
         activeWorkspaceId,
-        setWorkspacePhase,
         addTask,
         updateTask,
         completeTaskByTitle,
@@ -710,11 +667,6 @@ export function WorkspaceProvider({ children }) {
         exportWorkspace,
         importWorkspace,
 
-        // Phase
-        setWorkspacePhase,
-        addPhase,
-        removePhase,
-
         // Tasks
         addTask,
         updateTask,
@@ -763,7 +715,6 @@ export function WorkspaceProvider({ children }) {
         workspaces, activeWorkspaceId, activeWorkspace, workspaceStats,
         createWorkspace, updateWorkspace, duplicateWorkspace, deleteWorkspace,
         archiveWorkspace, exportWorkspace, importWorkspace,
-        setWorkspacePhase, addPhase, removePhase,
         addTask, updateTask, updateTaskStatus, completeTaskByTitle, deleteTask,
         reorderTasks, bulkUpdateTasks, bulkDeleteTasks,
         saveOutput, deleteOutput, renameOutput,

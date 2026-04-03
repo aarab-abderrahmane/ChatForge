@@ -53,7 +53,7 @@ const WS_STYLES = `
 
 .ws-root {
   font-family: 'JetBrains Mono', monospace;
-  background: #050708;
+  background: #0a0c0f;
   color: rgba(200,255,192,0.85);
   min-height: 100vh;
   position: relative;
@@ -67,9 +67,9 @@ const WS_STYLES = `
   background: repeating-linear-gradient(
     0deg,
     transparent,
-    transparent 2px,
-    rgba(57,255,20,0.012) 2px,
-    rgba(57,255,20,0.012) 4px
+    transparent 3px,
+    rgba(57,255,20,0.008) 3px,
+    rgba(57,255,20,0.008) 6px
   );
   pointer-events: none;
   z-index: 0;
@@ -80,16 +80,16 @@ const WS_STYLES = `
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(57,255,20,0.04) 0%, transparent 60%),
-    radial-gradient(ellipse 40% 50% at 80% 80%, rgba(0,245,255,0.03) 0%, transparent 60%);
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(57,255,20,0.035) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 50% at 80% 80%, rgba(0,245,255,0.025) 0%, transparent 60%);
   pointer-events: none;
   z-index: 0;
 }
 
 .ws-panel {
-  background: rgba(8,12,10,0.95);
-  border: 1px solid rgba(57,255,20,0.12);
-  border-radius: 4px;
+  background: rgba(12,16,14,0.95);
+  border: 1px solid rgba(57,255,20,0.1);
+  border-radius: 8px;
   position: relative;
   overflow: hidden;
 }
@@ -99,60 +99,62 @@ const WS_STYLES = `
   position: absolute;
   top: 0; left: 0; right: 0;
   height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(57,255,20,0.4), transparent);
+  background: linear-gradient(90deg, transparent, rgba(57,255,20,0.3), transparent);
 }
 
 .ws-btn-primary {
-  background: rgba(57,255,20,0.1);
-  border: 1px solid rgba(57,255,20,0.4);
+  background: rgba(57,255,20,0.08);
+  border: 1px solid rgba(57,255,20,0.3);
   color: #39ff14;
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
   font-weight: 700;
   letter-spacing: 0.15em;
   text-transform: uppercase;
-  padding: 6px 14px;
-  border-radius: 3px;
+  padding: 7px 16px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.25s ease;
 }
 .ws-btn-primary:hover {
-  background: rgba(57,255,20,0.18);
-  box-shadow: 0 0 16px rgba(57,255,20,0.2);
+  background: rgba(57,255,20,0.15);
+  box-shadow: 0 0 20px rgba(57,255,20,0.15);
+  border-color: rgba(57,255,20,0.5);
 }
 
 .ws-btn-ghost {
   background: transparent;
-  border: 1px solid rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.06);
   color: rgba(200,255,192,0.4);
   font-family: 'JetBrains Mono', monospace;
   font-size: 9px;
   letter-spacing: 0.1em;
-  padding: 5px 10px;
-  border-radius: 3px;
+  padding: 6px 12px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.25s ease;
 }
 .ws-btn-ghost:hover {
-  border-color: rgba(200,255,192,0.2);
+  border-color: rgba(200,255,192,0.18);
   color: rgba(200,255,192,0.7);
   background: rgba(255,255,255,0.03);
 }
 
 .ws-input {
   background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.07);
   color: rgba(200,255,192,0.9);
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  padding: 7px 10px;
-  border-radius: 3px;
+  padding: 8px 12px;
+  border-radius: 6px;
   outline: none;
-  transition: border-color 0.15s;
+  transition: all 0.25s ease;
 }
 .ws-input:focus {
-  border-color: rgba(57,255,20,0.4);
+  border-color: rgba(57,255,20,0.35);
   background: rgba(57,255,20,0.03);
+  box-shadow: 0 0 12px rgba(57,255,20,0.06);
 }
 .ws-input::placeholder { color: rgba(200,255,192,0.2); }
 
@@ -162,57 +164,81 @@ const WS_STYLES = `
   letter-spacing: 0.15em;
   text-transform: uppercase;
   padding: 2px 7px;
-  border-radius: 2px;
+  border-radius: 4px;
 }
 
-.ws-scrollbar::-webkit-scrollbar { width: 4px; }
-.ws-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.ws-scrollbar::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.15); border-radius: 2px; }
-.ws-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(57,255,20,0.3); }
-
-.ws-task-row {
-  border-bottom: 1px solid rgba(255,255,255,0.03);
-  transition: background 0.1s;
-}
-.ws-task-row:hover { background: rgba(57,255,20,0.03); }
-
-.ws-phase-pill {
+.ws-type-pill {
   font-size: 9px;
-  font-weight: 700;
-  letter-spacing: 0.12em;
+  font-weight: 600;
+  letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 3px 10px;
-  border-radius: 20px;
+  padding: 5px 12px;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: all 0.2s ease;
   border: 1px solid transparent;
+  background: rgba(255,255,255,0.03);
+  color: rgba(200,255,192,0.4);
 }
-.ws-phase-pill.active {
-  background: rgba(57,255,20,0.12);
-  border-color: rgba(57,255,20,0.35);
+.ws-type-pill.active {
+  background: rgba(57,255,20,0.1);
+  border-color: rgba(57,255,20,0.3);
   color: #39ff14;
 }
-.ws-phase-pill:not(.active) {
+.ws-type-pill:not(.active):hover {
+  background: rgba(255,255,255,0.05);
+  color: rgba(200,255,192,0.6);
+  border-color: rgba(255,255,255,0.08);
+}
+
+.ws-filter-pill {
+  font-size: 9px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 4px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+.ws-filter-pill.active {
+  background: rgba(57,255,20,0.1);
+  border-color: rgba(57,255,20,0.3);
+  color: #39ff14;
+}
+.ws-filter-pill:not(.active) {
   background: rgba(255,255,255,0.03);
   color: rgba(200,255,192,0.35);
 }
-.ws-phase-pill:not(.active):hover {
-  background: rgba(255,255,255,0.06);
-  color: rgba(200,255,192,0.6);
+.ws-filter-pill:not(.active):hover {
+  background: rgba(255,255,255,0.05);
+  color: rgba(200,255,192,0.55);
 }
+
+.ws-scrollbar::-webkit-scrollbar { width: 5px; }
+.ws-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.ws-scrollbar::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.12); border-radius: 3px; }
+.ws-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(57,255,20,0.25); }
+
+.ws-task-row {
+  border-bottom: 1px solid rgba(255,255,255,0.025);
+  transition: background 0.2s ease;
+}
+.ws-task-row:hover { background: rgba(57,255,20,0.025); }
 
 .ws-stat-card {
   background: rgba(255,255,255,0.02);
   border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 4px;
-  padding: 14px;
-  transition: border-color 0.2s;
+  border-radius: 8px;
+  padding: 16px;
+  transition: all 0.25s ease;
 }
-.ws-stat-card:hover { border-color: rgba(57,255,20,0.15); }
+.ws-stat-card:hover { border-color: rgba(57,255,20,0.12); }
 
 .ws-progress-bar {
   height: 3px;
-  background: rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.05);
   border-radius: 2px;
   overflow: hidden;
 }
@@ -227,45 +253,45 @@ const WS_STYLES = `
 .ws-console {
   font-family: 'JetBrains Mono', monospace;
   font-size: 10px;
-  line-height: 1.7;
-  background: rgba(0,0,0,0.3);
-  border: 1px solid rgba(255,255,255,0.05);
-  border-radius: 4px;
+  line-height: 1.75;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid rgba(255,255,255,0.04);
+  border-radius: 8px;
   overflow-y: auto;
 }
 .ws-console::-webkit-scrollbar { width: 3px; }
-.ws-console::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.2); border-radius: 2px; }
-.ws-console-entry { padding: 2px 12px; border-bottom: 1px solid rgba(255,255,255,0.02); }
-.ws-console-entry:hover { background: rgba(255,255,255,0.02); }
+.ws-console::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.15); border-radius: 2px; }
+.ws-console-entry { padding: 3px 14px; border-bottom: 1px solid rgba(255,255,255,0.015); }
+.ws-console-entry:hover { background: rgba(255,255,255,0.015); }
 .ws-agent-badge {
   font-size: 8px;
   font-weight: 700;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  padding: 1px 6px;
-  border-radius: 2px;
+  padding: 2px 7px;
+  border-radius: 4px;
 }
 .ws-goal-input {
   background: rgba(57,255,20,0.03);
-  border: 1px solid rgba(57,255,20,0.15);
+  border: 1px solid rgba(57,255,20,0.12);
   color: rgba(200,255,192,0.95);
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
-  padding: 10px 14px;
-  border-radius: 4px;
+  padding: 12px 16px;
+  border-radius: 8px;
   outline: none;
   width: 100%;
-  transition: all 0.2s;
+  transition: all 0.3s ease;
 }
 .ws-goal-input:focus {
-  border-color: rgba(57,255,20,0.5);
+  border-color: rgba(57,255,20,0.45);
   background: rgba(57,255,20,0.05);
-  box-shadow: 0 0 20px rgba(57,255,20,0.08);
+  box-shadow: 0 0 24px rgba(57,255,20,0.06);
 }
-.ws-goal-input::placeholder { color: rgba(200,255,192,0.25); }
+.ws-goal-input::placeholder { color: rgba(200,255,192,0.2); }
 @keyframes ws-pulse-border {
-  0%, 100% { border-color: rgba(57,255,20,0.3); }
-  50% { border-color: rgba(57,255,20,0.6); }
+  0%, 100% { border-color: rgba(57,255,20,0.25); }
+  50% { border-color: rgba(57,255,20,0.55); }
 }
 .ws-running .ws-goal-input {
   animation: ws-pulse-border 2s infinite;
@@ -346,44 +372,39 @@ function WorkspaceForm({ initial, onSave, onCancel }) {
         emoji: initial?.emoji || "\u{1F310}",
         description: initial?.description || "",
         rules: initial?.rules?.join("\n") || "",
-        phases: initial?.phases?.join(", ") || "",
         tags: initial?.tags?.join(", ") || "",
     });
 
-    const preset = WORKSPACE_PRESETS[form.type] || WORKSPACE_PRESETS.General;
     const isValid = form.name.trim().length > 0;
 
     const handleType = (type) => {
         const p = WORKSPACE_PRESETS[type];
         setForm(f => ({
             ...f, type, emoji: p?.emoji || f.emoji,
-            phases: p?.defaultPhases?.join(", ") || f.phases
         }));
     };
 
     return (
-        <div className="space-y-3 p-4">
+        <div className="space-y-4 p-6">
             <p className="text-[9px] uppercase tracking-[0.2em]" style={{ color: "var(--neon-cyan, #00f5ff)" }}>
                 {initial ? "// EDIT WORKSPACE" : "// NEW WORKSPACE"}
             </p>
 
-            {/* Type */}
+            {/* Type selector */}
             <div className="flex gap-2 flex-wrap">
                 {Object.entries(WORKSPACE_PRESETS).map(([type, { emoji }]) => (
                     <button key={type} onClick={() => handleType(type)}
-                        className="ws-phase-pill" style={form.type === type ? {} : {}}
+                        className={`ws-type-pill ${form.type === type ? "active" : ""}`}
                     >
-                        <span className={form.type === type ? "ws-phase-pill active" : "ws-phase-pill"}>
-                            {emoji} {type}
-                        </span>
+                        {emoji} {type}
                     </button>
                 ))}
             </div>
 
             {/* Name */}
-            <div className="flex gap-2">
-                <button className="text-2xl w-10 h-10 flex items-center justify-center rounded border"
-                    style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
+            <div className="flex gap-3">
+                <button className="text-2xl w-11 h-11 flex items-center justify-center rounded-lg border"
+                    style={{ borderColor: "rgba(255,255,255,0.07)", background: "rgba(255,255,255,0.03)" }}
                     onClick={() => {
                         const emojis = Object.values(WORKSPACE_PRESETS).map(p => p.emoji);
                         const i = emojis.indexOf(form.emoji);
@@ -398,18 +419,13 @@ function WorkspaceForm({ initial, onSave, onCancel }) {
             <input className="ws-input w-full" placeholder="description\u2026"
                 value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
 
-            <input className="ws-input w-full"
-                placeholder={`phases (e.g. ${preset.defaultPhases.join(", ")})`}
-                value={form.phases} onChange={e => setForm(f => ({ ...f, phases: e.target.value }))} />
-
             <textarea className="ws-input w-full resize-none" rows={3}
                 placeholder="agent rules (one per line)\u2026"
                 value={form.rules} onChange={e => setForm(f => ({ ...f, rules: e.target.value }))} />
 
-            <div className="flex gap-2 pt-1">
+            <div className="flex gap-3 pt-1">
                 <button className="ws-btn-primary flex-1" onClick={() => isValid && onSave({
                     ...form,
-                    phases: form.phases.split(",").map(p => p.trim()).filter(Boolean),
                     tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
                 })} style={{ opacity: isValid ? 1 : 0.3, cursor: isValid ? "pointer" : "not-allowed" }}>
                     {initial ? "save changes" : "create workspace"}
@@ -433,8 +449,8 @@ function TaskRow({ task, onUpdate, onDelete, onSelect, selected }) {
 
     return (
         <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }}
-            className="ws-task-row flex items-center gap-3 px-4 py-2.5 group"
-            style={{ background: selected ? "rgba(57,255,20,0.04)" : undefined }}
+            className="ws-task-row flex items-center gap-3 px-5 py-3 group"
+            style={{ background: selected ? "rgba(57,255,20,0.035)" : undefined }}
         >
             {/* Select */}
             <button onClick={() => onSelect(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
@@ -450,7 +466,7 @@ function TaskRow({ task, onUpdate, onDelete, onSelect, selected }) {
                     border: `1.5px solid ${TASK_STATUS_COLORS[task.status]}`,
                     background: task.status === "completed" ? TASK_STATUS_COLORS[task.status] : "transparent",
                     display: "flex", alignItems: "center", justifyContent: "center",
-                    transition: "all 0.15s",
+                    transition: "all 0.2s ease",
                 }}>
                     {task.status === "completed" && <Check size={8} color="#000" />}
                     {task.status === "blocked" && <X size={8} style={{ color: TASK_STATUS_COLORS.blocked }} />}
@@ -481,9 +497,6 @@ function TaskRow({ task, onUpdate, onDelete, onSelect, selected }) {
                     <span className="ws-tag" style={{ color: TASK_PRIORITY_COLORS[task.priority], background: `${TASK_PRIORITY_COLORS[task.priority]}18` }}>
                         {task.priority}
                     </span>
-                )}
-                {task.phase && (
-                    <span className="text-[9px]" style={{ color: "rgba(200,255,192,0.2)" }}>{task.phase}</span>
                 )}
                 {task.dueDate && (
                     <span className="text-[9px] flex items-center gap-1"
@@ -516,8 +529,8 @@ function OutputCard({ output, onDelete, onRename }) {
     const commit = () => { if (name.trim() && name !== output.filename) onRename(output.id, name.trim()); setRen(false); };
 
     return (
-        <div className="ws-panel overflow-hidden mb-2">
-            <div className="flex items-center gap-3 px-4 py-2.5 group cursor-pointer" onClick={() => setOpen(p => !p)}>
+        <div className="ws-panel overflow-hidden mb-3">
+            <div className="flex items-center gap-3 px-5 py-3 group cursor-pointer" onClick={() => setOpen(p => !p)}>
                 <span style={{ fontSize: 11, width: 16, textAlign: "center", color: "var(--neon-cyan, #00f5ff)", fontFamily: "monospace" }}>
                     {TYPE_ICON[output.type] || "T"}
                 </span>
@@ -532,7 +545,6 @@ function OutputCard({ output, onDelete, onRename }) {
                     </span>
                 )}
                 <span className="text-[9px]" style={{ color: "rgba(200,255,192,0.2)" }}>{fmt(output.updatedAt || output.createdAt)}</span>
-                {output.phase && <span className="ws-tag" style={{ color: "rgba(0,245,255,0.6)", background: "rgba(0,245,255,0.08)" }}>{output.phase}</span>}
                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
                     <button onClick={() => navigator.clipboard?.writeText(output.content)} style={{ color: "rgba(200,255,192,0.3)", padding: 3 }}><Copy size={9} /></button>
                     <button onClick={() => setRen(true)} style={{ color: "rgba(200,255,192,0.3)", padding: 3 }}><Pencil size={9} /></button>
@@ -543,8 +555,8 @@ function OutputCard({ output, onDelete, onRename }) {
             <AnimatePresence>
                 {open && output.content && (
                     <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
-                        <pre className="text-[9px] px-4 pb-3 whitespace-pre-wrap break-words max-h-[140px] overflow-y-auto ws-scrollbar"
-                            style={{ color: "rgba(200,255,192,0.4)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                        <pre className="text-[9px] px-5 pb-4 whitespace-pre-wrap break-words max-h-[160px] overflow-y-auto ws-scrollbar"
+                            style={{ color: "rgba(200,255,192,0.4)", borderTop: "1px solid rgba(255,255,255,0.03)" }}>
                             {output.content.slice(0, 800)}{output.content.length > 800 ? "\n\u2026" : ""}
                         </pre>
                     </motion.div>
@@ -577,11 +589,11 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
 
             {/* ── Goal Input Bar ──────────────────────────────────────── */}
             <div style={{
-                padding: "16px 20px",
-                borderBottom: "1px solid rgba(255,255,255,0.04)",
-                background: "rgba(57,255,20,0.02)",
+                padding: "20px 24px",
+                borderBottom: "1px solid rgba(255,255,255,0.03)",
+                background: "rgba(57,255,20,0.015)",
             }}>
-                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
                     <div style={{ flex: 1, position: "relative" }}>
                         <input
                             className="ws-goal-input"
@@ -597,18 +609,18 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                         <button
                             onClick={onStop}
                             style={{
-                                background: "rgba(255,45,120,0.12)",
-                                border: "1px solid rgba(255,45,120,0.5)",
+                                background: "rgba(255,45,120,0.1)",
+                                border: "1px solid rgba(255,45,120,0.4)",
                                 color: "#ff2d78",
                                 fontFamily: "'JetBrains Mono', monospace",
                                 fontSize: 10,
                                 fontWeight: 700,
                                 letterSpacing: "0.12em",
                                 textTransform: "uppercase",
-                                padding: "10px 20px",
-                                borderRadius: 4,
+                                padding: "12px 22px",
+                                borderRadius: 8,
                                 cursor: "pointer",
-                                transition: "all 0.15s",
+                                transition: "all 0.25s ease",
                                 whiteSpace: "nowrap",
                                 display: "flex",
                                 alignItems: "center",
@@ -621,18 +633,18 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                             onClick={onRun}
                             disabled={!goal.trim()}
                             style={{
-                                background: goal.trim() ? "rgba(57,255,20,0.12)" : "rgba(57,255,20,0.04)",
-                                border: goal.trim() ? "1px solid rgba(57,255,20,0.5)" : "1px solid rgba(57,255,20,0.15)",
-                                color: goal.trim() ? "#39ff14" : "rgba(57,255,20,0.3)",
+                                background: goal.trim() ? "rgba(57,255,20,0.1)" : "rgba(57,255,20,0.03)",
+                                border: goal.trim() ? "1px solid rgba(57,255,20,0.4)" : "1px solid rgba(57,255,20,0.12)",
+                                color: goal.trim() ? "#39ff14" : "rgba(57,255,20,0.25)",
                                 fontFamily: "'JetBrains Mono', monospace",
                                 fontSize: 10,
                                 fontWeight: 700,
                                 letterSpacing: "0.12em",
                                 textTransform: "uppercase",
-                                padding: "10px 20px",
-                                borderRadius: 4,
+                                padding: "12px 22px",
+                                borderRadius: 8,
                                 cursor: goal.trim() ? "pointer" : "not-allowed",
-                                transition: "all 0.15s",
+                                transition: "all 0.25s ease",
                                 whiteSpace: "nowrap",
                                 display: "flex",
                                 alignItems: "center",
@@ -651,9 +663,9 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
                     style={{
-                        padding: "10px 20px",
-                        borderBottom: "1px solid rgba(255,255,255,0.04)",
-                        background: "rgba(0,0,0,0.3)",
+                        padding: "12px 24px",
+                        borderBottom: "1px solid rgba(255,255,255,0.03)",
+                        background: "rgba(0,0,0,0.2)",
                         display: "flex",
                         alignItems: "center",
                         gap: 16,
@@ -673,22 +685,22 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                         </div>
                     )}
 
-                    <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)" }} />
+                    <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.06)" }} />
 
                     {/* Iteration progress */}
                     {totalIterations > 0 && (
                         <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                             <span style={{ fontSize: 10, color: "rgba(200,255,192,0.4)", letterSpacing: "0.08em" }}>TASK</span>
                             <span style={{ fontSize: 11, fontWeight: 700, color: "#00f5ff" }}>{iteration}</span>
-                            <span style={{ fontSize: 10, color: "rgba(200,255,192,0.25)" }}>/</span>
-                            <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(200,255,192,0.5)" }}>{totalIterations}</span>
+                            <span style={{ fontSize: 10, color: "rgba(200,255,192,0.2)" }}>/</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(200,255,192,0.45)" }}>{totalIterations}</span>
                         </div>
                     )}
 
                     {/* Current task */}
                     {currentTask && (
                         <>
-                            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)" }} />
+                            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.06)" }} />
                             <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
                                 <Target size={9} style={{ color: "rgba(200,255,192,0.3)" }} />
                                 <span style={{ fontSize: 10, color: "rgba(200,255,192,0.6)", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -707,7 +719,7 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                             fontSize: 11,
                             fontWeight: 700,
                             fontFamily: "'JetBrains Mono', monospace",
-                            color: "rgba(200,255,192,0.6)",
+                            color: "rgba(200,255,192,0.55)",
                             letterSpacing: "0.05em",
                         }}>
                             {formatElapsed(elapsed)}
@@ -722,18 +734,18 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                     initial={{ opacity: 0, y: -8 }}
                     animate={{ opacity: 1, y: 0 }}
                     style={{
-                        margin: "16px 20px 0",
-                        padding: "16px 18px",
-                        background: "rgba(57,255,20,0.04)",
-                        border: "1px solid rgba(57,255,20,0.2)",
-                        borderRadius: 4,
+                        margin: "20px 24px 0",
+                        padding: "20px",
+                        background: "rgba(57,255,20,0.03)",
+                        border: "1px solid rgba(57,255,20,0.18)",
+                        borderRadius: "8px",
                         position: "relative",
                     }}>
                     <div style={{
                         position: "absolute", top: 0, left: 0, right: 0, height: 1,
-                        background: "linear-gradient(90deg, transparent, rgba(57,255,20,0.5), transparent)",
+                        background: "linear-gradient(90deg, transparent, rgba(57,255,20,0.4), transparent)",
                     }} />
-                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 12 }}>
                         <Check size={12} style={{ color: "#39ff14" }} />
                         <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#39ff14" }}>
                             mission complete
@@ -741,8 +753,8 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                     </div>
                     <p style={{
                         fontSize: 11,
-                        lineHeight: 1.7,
-                        color: "rgba(200,255,192,0.75)",
+                        lineHeight: 1.75,
+                        color: "rgba(200,255,192,0.7)",
                         whiteSpace: "pre-wrap",
                     }}>
                         {summary}
@@ -751,13 +763,13 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
             )}
 
             {/* ── Live Console ────────────────────────────────────────── */}
-            <div style={{ flex: 1, padding: "16px 20px 20px", display: "flex", flexDirection: "column", minHeight: 0 }}>
+            <div style={{ flex: 1, padding: "20px 24px 24px", display: "flex", flexDirection: "column", minHeight: 0 }}>
                 {/* Console header */}
                 <div style={{
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "space-between",
-                    marginBottom: 8,
+                    marginBottom: 10,
                 }}>
                     <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                         <SquareTerminal size={11} style={{ color: "rgba(200,255,192,0.3)" }} />
@@ -765,7 +777,7 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                             agent console
                         </span>
                     </div>
-                    <span style={{ fontSize: 8, color: "rgba(200,255,192,0.15)" }}>
+                    <span style={{ fontSize: 8, color: "rgba(200,255,192,0.12)" }}>
                         {consoleLogs.length} entries
                     </span>
                 </div>
@@ -780,7 +792,7 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                             padding: "40px 20px",
                             textAlign: "center",
                         }}>
-                            <p style={{ fontSize: 10, color: "rgba(200,255,192,0.15)", letterSpacing: "0.12em" }}>
+                            <p style={{ fontSize: 10, color: "rgba(200,255,192,0.12)", letterSpacing: "0.12em" }}>
                                 {isRunning ? "waiting for agent output\u2026" : "enter a goal and press run agent to begin"}
                             </p>
                         </div>
@@ -802,7 +814,7 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                                     {/* Timestamp */}
                                     <span style={{
                                         fontSize: 9,
-                                        color: "rgba(200,255,192,0.18)",
+                                        color: "rgba(200,255,192,0.15)",
                                         fontFamily: "'JetBrains Mono', monospace",
                                         flexShrink: 0,
                                         paddingTop: 1,
@@ -828,7 +840,7 @@ function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }
                                         fontSize: isStream ? 9 : 10,
                                         color: entryColor,
                                         fontFamily: "'JetBrains Mono', monospace",
-                                        lineHeight: 1.7,
+                                        lineHeight: 1.75,
                                         wordBreak: "break-word",
                                         whiteSpace: isStream ? "pre-wrap" : "normal",
                                     }}>
@@ -864,8 +876,6 @@ export function WorkspaceView({ onBack }) {
     const [selected, setSelected] = useState(new Set());
     const [newTask, setNewTask] = useState("");
     const [newPriority, setNewPri] = useState("normal");
-    const [phaseInput, setPhaseIn] = useState("");
-    const [showPhaseAdd, setPhaseAdd] = useState(false);
     const [confirmDel, setConfDel] = useState(null);
     const importRef = useRef(null);
 
@@ -881,7 +891,6 @@ export function WorkspaceView({ onBack }) {
         workspaces, activeWorkspaceId, activeWorkspace, workspaceStats,
         setActiveWorkspaceId, createWorkspace, updateWorkspace, duplicateWorkspace,
         deleteWorkspace, archiveWorkspace, exportWorkspace, importWorkspace,
-        setWorkspacePhase, addPhase, removePhase,
         addTask, updateTask, deleteTask, bulkUpdateTasks, bulkDeleteTasks,
         deleteOutput, renameOutput,
         updateNotes, addTimelineEvent, clearTimeline,
@@ -913,8 +922,8 @@ export function WorkspaceView({ onBack }) {
     const activeList = workspaces.filter(w => !w.isArchived);
     const stats = workspaceStats;
 
-    const tlColors = { info: "rgba(200,255,192,0.4)", task: "#00f5ff", phase: "#ffd700", output: "#39ff14", agent: "rgba(255,165,0,0.9)", error: "#ff2d78" };
-    const tlIcons = { info: "\u203A", task: "\u2713", phase: "\u25B6", output: "\u25C8", agent: "\u26A1", error: "\u26A0" };
+    const tlColors = { info: "rgba(200,255,192,0.4)", task: "#00f5ff", output: "#39ff14", agent: "rgba(255,165,0,0.9)", error: "#ff2d78" };
+    const tlIcons = { info: "\u203A", task: "\u2713", output: "\u25C8", agent: "\u26A1", error: "\u26A0" };
 
     // ── Elapsed timer ────────────────────────────────────────────────
     useEffect(() => {
@@ -959,15 +968,12 @@ export function WorkspaceView({ onBack }) {
                 name: ws.name,
                 type: ws.type,
                 description: ws.description,
-                currentPhase: ws.currentPhase,
-                allPhases: ws.phases,
                 rules: ws.rules,
                 conversationSummary: ws.conversationSummary,
                 activeTasks: (ws.tasks || []).filter(t => t.status !== "completed").map(t => ({
                     title: t.title,
                     status: t.status,
                     priority: t.priority,
-                    phase: t.phase,
                 })),
                 completedTasks: (ws.tasks || []).filter(t => t.status === "completed").map(t => t.title),
                 filesOutput: (ws.outputs || []).map(o => o.filename),
@@ -1052,10 +1058,10 @@ export function WorkspaceView({ onBack }) {
         <div className="ws-root flex flex-col" style={{ position: "relative", zIndex: 1 }}>
             {/* ── TOPBAR ────────────────────────────────────────────────── */}
             <div style={{
-                borderBottom: "1px solid rgba(57,255,20,0.1)",
-                background: "rgba(5,7,8,0.95)",
-                padding: "0 20px",
-                height: 48,
+                borderBottom: "1px solid rgba(57,255,20,0.08)",
+                background: "rgba(10,12,15,0.95)",
+                padding: "0 24px",
+                height: 52,
                 display: "flex",
                 alignItems: "center",
                 gap: 16,
@@ -1064,12 +1070,12 @@ export function WorkspaceView({ onBack }) {
                 zIndex: 10,
             }}>
                 {onBack && (
-                    <button onClick={onBack} className="ws-btn-ghost flex items-center gap-1.5" style={{ padding: "4px 8px" }}>
+                    <button onClick={onBack} className="ws-btn-ghost flex items-center gap-1.5" style={{ padding: "5px 10px" }}>
                         <ArrowLeft size={10} /> back
                     </button>
                 )}
 
-                <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.06)" }} />
+                <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.05)" }} />
 
                 {/* Workspace selector */}
                 <button onClick={() => setWsList(p => !p)} className="flex items-center gap-2" style={{ background: "none", border: "none", cursor: "pointer" }}>
@@ -1078,7 +1084,7 @@ export function WorkspaceView({ onBack }) {
                         <p style={{ fontSize: 11, fontWeight: 700, color: ws ? "#39ff14" : "rgba(200,255,192,0.3)", letterSpacing: "0.05em" }}>
                             {ws?.name || "select workspace"}
                         </p>
-                        {ws && <p style={{ fontSize: 9, color: "rgba(200,255,192,0.3)", letterSpacing: "0.1em" }}>{ws.type} \u00B7 {ws.currentPhase}</p>}
+                        {ws && <p style={{ fontSize: 9, color: "rgba(200,255,192,0.25)", letterSpacing: "0.1em" }}>{ws.type}</p>}
                     </div>
                     <ChevronDown size={10} style={{ color: "rgba(200,255,192,0.3)", transform: showWsList ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
                 </button>
@@ -1087,9 +1093,9 @@ export function WorkspaceView({ onBack }) {
                 {agentRun?.isRunning && (
                     <div style={{
                         display: "flex", alignItems: "center", gap: 6,
-                        background: "rgba(57,255,20,0.06)",
-                        border: "1px solid rgba(57,255,20,0.2)",
-                        borderRadius: 3, padding: "3px 10px",
+                        background: "rgba(57,255,20,0.05)",
+                        border: "1px solid rgba(57,255,20,0.18)",
+                        borderRadius: 6, padding: "4px 12px",
                     }}>
                         <span style={{
                             width: 6, height: 6, borderRadius: "50%", background: "#39ff14",
@@ -1112,7 +1118,7 @@ export function WorkspaceView({ onBack }) {
                 <button onClick={() => { setEditMode(false); setShowForm(true); }} className="ws-btn-primary flex items-center gap-1.5">
                     <Plus size={10} /> new workspace
                 </button>
-                <button onClick={() => importRef.current?.click()} className="ws-btn-ghost" style={{ padding: "5px 7px" }} title="Import">
+                <button onClick={() => importRef.current?.click()} className="ws-btn-ghost" style={{ padding: "6px 8px" }} title="Import">
                     <Upload size={10} />
                 </button>
                 <input ref={importRef} type="file" accept=".json" className="hidden"
@@ -1128,28 +1134,28 @@ export function WorkspaceView({ onBack }) {
                 {showWsList && (
                     <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
                         style={{
-                            position: "absolute", top: 48, left: 0, right: 0, zIndex: 50,
-                            background: "rgba(5,7,8,0.98)", borderBottom: "1px solid rgba(57,255,20,0.1)",
-                            maxHeight: 240, overflowY: "auto",
+                            position: "absolute", top: 52, left: 0, right: 0, zIndex: 50,
+                            background: "rgba(10,12,15,0.98)", borderBottom: "1px solid rgba(57,255,20,0.08)",
+                            maxHeight: 260, overflowY: "auto",
                         }}
                         className="ws-scrollbar">
                         {activeList.length === 0 && (
-                            <p className="text-center py-6 text-xs" style={{ color: "rgba(200,255,192,0.2)" }}>no workspaces yet</p>
+                            <p className="text-center py-8 text-xs" style={{ color: "rgba(200,255,192,0.15)" }}>no workspaces yet</p>
                         )}
                         {activeList.map(w => (
                             <div key={w.id} onClick={() => { setActiveWorkspaceId(w.id); setWsList(false); }}
                                 role="button" aria-label={`Open ${w.name}`} tabIndex={0}
-                                className="w-full flex items-center gap-3 px-5 py-3 group cursor-pointer"
+                                className="w-full flex items-center gap-3 px-6 py-3.5 group cursor-pointer"
                                 onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { setActiveWorkspaceId(w.id); setWsList(false); } }}
                                 style={{
-                                    background: w.id === activeWorkspaceId ? "rgba(57,255,20,0.04)" : "transparent",
-                                    borderBottom: "1px solid rgba(255,255,255,0.03)",
-                                    transition: "background 0.1s",
+                                    background: w.id === activeWorkspaceId ? "rgba(57,255,20,0.03)" : "transparent",
+                                    borderBottom: "1px solid rgba(255,255,255,0.025)",
+                                    transition: "background 0.2s ease",
                                 }}>
                                 <span style={{ fontSize: 15 }}>{w.emoji || "\u{1F310}"}</span>
                                 <div className="flex-1 text-left min-w-0">
-                                    <p style={{ fontSize: 11, color: w.id === activeWorkspaceId ? "#39ff14" : "rgba(200,255,192,0.75)", fontWeight: 700 }}>{w.name}</p>
-                                    <p style={{ fontSize: 9, color: "rgba(200,255,192,0.3)" }}>{w.type} \u00B7 {w.tasks?.filter(t => t.status !== "completed").length || 0} open tasks</p>
+                                    <p style={{ fontSize: 11, color: w.id === activeWorkspaceId ? "#39ff14" : "rgba(200,255,192,0.7)", fontWeight: 700 }}>{w.name}</p>
+                                    <p style={{ fontSize: 9, color: "rgba(200,255,192,0.25)" }}>{w.type} &middot; {w.tasks?.filter(t => t.status !== "completed").length || 0} open tasks</p>
                                 </div>
                                 {w.id === activeWorkspaceId && <Check size={10} style={{ color: "#39ff14" }} />}
                                 <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
@@ -1171,10 +1177,10 @@ export function WorkspaceView({ onBack }) {
             <AnimatePresence>
                 {showForm && (
                     <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                        style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.6)", display: "flex", alignItems: "center", justifyContent: "center" }}
                         onClick={() => { setShowForm(false); setEditMode(false); }}>
                         <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
-                            className="ws-panel" style={{ width: 460, maxHeight: "85vh", overflowY: "auto" }}
+                            className="ws-panel" style={{ width: 480, maxHeight: "85vh", overflowY: "auto" }}
                             onClick={e => e.stopPropagation()}>
                             <WorkspaceForm
                                 initial={editMode ? ws : null}
@@ -1193,9 +1199,8 @@ export function WorkspaceView({ onBack }) {
             {/* ── NO WORKSPACE ──────────────────────────────────────────── */}
             {!ws && !showForm && (
                 <div className="flex flex-col items-center justify-center flex-1 gap-6" style={{ paddingTop: 80 }}>
-                    <div style={{ border: "1px solid rgba(57,255,20,0.08)", borderRadius: 4, padding: "32px 40px", textAlign: "center", background: "rgba(57,255,20,0.02)" }}>
-                        {/* <p style={{ fontSize: 32, marginBottom: 12 }}>\u{1F5C2}</p> */}
-                        <p style={{ fontSize: 11, color: "rgba(200,255,192,0.3)", letterSpacing: "0.15em", marginBottom: 20 }}>NO WORKSPACE ACTIVE</p>
+                    <div style={{ border: "1px solid rgba(57,255,20,0.06)", borderRadius: 12, padding: "40px 48px", textAlign: "center", background: "rgba(57,255,20,0.015)" }}>
+                        <p style={{ fontSize: 11, color: "rgba(200,255,192,0.25)", letterSpacing: "0.15em", marginBottom: 24 }}>NO WORKSPACE ACTIVE</p>
                         <button className="ws-btn-primary" onClick={() => setShowForm(true)}>+ create workspace</button>
                     </div>
                 </div>
@@ -1209,74 +1214,37 @@ export function WorkspaceView({ onBack }) {
 
                     {/* ── LEFT SIDEBAR ─────────────────────────────────────── */}
                     <div style={{
-                        width: 220, flexShrink: 0, borderRight: "1px solid rgba(57,255,20,0.08)",
-                        background: "rgba(5,7,8,0.6)", display: "flex", flexDirection: "column",
-                        overflowY: "auto", padding: "16px 0",
+                        width: 240, flexShrink: 0, borderRight: "1px solid rgba(57,255,20,0.06)",
+                        background: "rgba(8,10,13,0.6)", display: "flex", flexDirection: "column",
+                        overflowY: "auto", padding: "20px 0",
                     }} className="ws-scrollbar">
 
                         {/* Stats */}
                         {stats && (
-                            <div style={{ padding: "0 16px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
-                                <div className="flex items-center justify-between mb-3">
-                                    <span style={{ fontSize: 9, letterSpacing: "0.2em", color: "rgba(200,255,192,0.3)", textTransform: "uppercase" }}>progress</span>
+                            <div style={{ padding: "0 20px 20px", borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+                                <div className="flex items-center justify-between mb-4">
+                                    <span style={{ fontSize: 9, letterSpacing: "0.2em", color: "rgba(200,255,192,0.25)", textTransform: "uppercase" }}>progress</span>
                                     <ProgressRing pct={stats.progress} size={44} />
                                 </div>
                                 <ProgressBar value={stats.progress} />
-                                <div className="grid grid-cols-2 gap-2 mt-3">
+                                <div className="grid grid-cols-2 gap-2 mt-4">
                                     {[
                                         { l: "to do", v: stats.toDo, c: TASK_STATUS_COLORS.coming_soon },
                                         { l: "doing", v: stats.inProgress, c: TASK_STATUS_COLORS.in_progress },
                                         { l: "done", v: stats.done, c: "#39ff14" },
                                         { l: "blocked", v: stats.blocked, c: "#ff2d78" },
                                     ].map(s => (
-                                        <div key={s.l} style={{ background: "rgba(255,255,255,0.02)", borderRadius: 3, padding: "6px 8px" }}>
+                                        <div key={s.l} style={{ background: "rgba(255,255,255,0.015)", borderRadius: 6, padding: "8px 10px" }}>
                                             <p style={{ fontSize: 14, fontWeight: 700, color: s.c, lineHeight: 1 }}>{s.v}</p>
-                                            <p style={{ fontSize: 8, color: "rgba(200,255,192,0.3)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.l}</p>
+                                            <p style={{ fontSize: 8, color: "rgba(200,255,192,0.25)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 3 }}>{s.l}</p>
                                         </div>
                                     ))}
                                 </div>
                             </div>
                         )}
 
-                        {/* Phases */}
-                        <div style={{ padding: "12px 16px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: 12 }}>
-                            <p style={{ fontSize: 8, letterSpacing: "0.2em", color: "rgba(200,255,192,0.2)", textTransform: "uppercase", marginBottom: 8 }}>phases</p>
-                            <div className="flex flex-col gap-1.5">
-                                {(ws.phases || []).map(phase => (
-                                    <div key={phase} onClick={() => setWorkspacePhase(phase)}
-                                        role="button" aria-label={`Select phase ${phase}`} tabIndex={0}
-                                        className="flex items-center gap-2 text-left group cursor-pointer"
-                                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setWorkspacePhase(phase); }}
-                                        style={{
-                                            background: ws.currentPhase === phase ? "rgba(57,255,20,0.08)" : "transparent",
-                                            border: `1px solid ${ws.currentPhase === phase ? "rgba(57,255,20,0.25)" : "transparent"}`,
-                                            borderRadius: 3, padding: "5px 8px", transition: "all 0.15s",
-                                        }}>
-                                        {ws.currentPhase === phase
-                                            ? <Dot color="#39ff14" pulse />
-                                            : <span style={{ width: 6, height: 6, borderRadius: "50%", border: "1px solid rgba(200,255,192,0.15)", display: "block", flexShrink: 0 }} />
-                                        }
-                                        <span style={{ fontSize: 10, color: ws.currentPhase === phase ? "#39ff14" : "rgba(200,255,192,0.45)", flex: 1 }}>{phase}</span>
-                                        <button onClick={e => { e.stopPropagation(); removePhase(phase); }}
-                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
-                                            style={{ color: "rgba(255,45,120,0.5)" }}><X size={8} /></button>
-                                    </div>
-                                ))}
-                                {showPhaseAdd ? (
-                                    <input autoFocus className="ws-input text-xs" style={{ padding: "4px 8px" }}
-                                        placeholder="phase name\u2026" value={phaseInput} onChange={e => setPhaseIn(e.target.value)}
-                                        onKeyDown={e => {
-                                            if (e.key === "Enter" && phaseInput.trim()) { addPhase(phaseInput.trim()); setPhaseIn(""); setPhaseAdd(false); }
-                                            if (e.key === "Escape") { setPhaseAdd(false); setPhaseIn(""); }
-                                        }} onBlur={() => { setPhaseAdd(false); setPhaseIn(""); }} />
-                                ) : (
-                                    <button onClick={() => setPhaseAdd(true)} style={{ fontSize: 9, color: "rgba(200,255,192,0.2)", padding: "3px 8px", textAlign: "left" }}>+ add phase</button>
-                                )}
-                            </div>
-                        </div>
-
                         {/* Nav */}
-                        <div style={{ padding: "12px 0" }}>
+                        <div style={{ padding: "16px 0" }}>
                             {[
                                 { id: "mission", icon: Cpu, label: "Mission" },
                                 { id: "tasks", icon: ListTodo, label: "Tasks", count: tasks.filter(t => t.status !== "completed").length },
@@ -1288,16 +1256,16 @@ export function WorkspaceView({ onBack }) {
                                 const isActive = view === id;
                                 return (
                                     <button key={id} onClick={() => setView(id)}
-                                        className="w-full flex items-center gap-2.5 px-4 py-2.5 transition-all"
+                                        className="w-full flex items-center gap-3 px-5 py-3 transition-all"
                                         style={{
-                                            background: isActive ? "rgba(57,255,20,0.06)" : "transparent",
+                                            background: isActive ? "rgba(57,255,20,0.05)" : "transparent",
                                             borderLeft: `2px solid ${isActive ? "#39ff14" : "transparent"}`,
                                             color: isActive ? "#39ff14" : "rgba(200,255,192,0.4)",
                                         }}>
-                                        <Icon size={12} />
+                                        <Icon size={13} />
                                         <span style={{ fontSize: 11, fontWeight: isActive ? 700 : 400, flex: 1, textAlign: "left" }}>{label}</span>
                                         {count !== undefined && count > 0 && (
-                                            <span style={{ fontSize: 8, background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "1px 6px", color: "rgba(200,255,192,0.4)" }}>{count}</span>
+                                            <span style={{ fontSize: 8, background: "rgba(255,255,255,0.06)", borderRadius: 10, padding: "1px 7px", color: "rgba(200,255,192,0.35)" }}>{count}</span>
                                         )}
                                         {/* Mission running indicator */}
                                         {id === "mission" && agentRun?.isRunning && (
@@ -1313,11 +1281,11 @@ export function WorkspaceView({ onBack }) {
 
                         {/* Rules */}
                         {ws.rules?.length > 0 && (
-                            <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: "auto" }}>
-                                <p style={{ fontSize: 8, letterSpacing: "0.2em", color: "rgba(200,255,192,0.2)", textTransform: "uppercase", marginBottom: 6 }}>agent rules</p>
+                            <div style={{ padding: "16px 20px", borderTop: "1px solid rgba(255,255,255,0.03)", marginTop: "auto" }}>
+                                <p style={{ fontSize: 8, letterSpacing: "0.2em", color: "rgba(200,255,192,0.18)", textTransform: "uppercase", marginBottom: 8 }}>agent rules</p>
                                 {ws.rules.map((r, i) => (
-                                    <p key={i} style={{ fontSize: 9, color: "rgba(200,255,192,0.35)", lineHeight: 1.6, paddingLeft: 8 }}>
-                                        <span style={{ color: "rgba(200,255,192,0.2)", marginRight: 4 }}>{i + 1}.</span>{r}
+                                    <p key={i} style={{ fontSize: 9, color: "rgba(200,255,192,0.3)", lineHeight: 1.7, paddingLeft: 8 }}>
+                                        <span style={{ color: "rgba(200,255,192,0.18)", marginRight: 4 }}>{i + 1}.</span>{r}
                                     </p>
                                 ))}
                             </div>
@@ -1344,26 +1312,24 @@ export function WorkspaceView({ onBack }) {
                             <div style={{ flex: 1 }}>
                                 {/* Toolbar */}
                                 <div style={{
-                                    padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                                    padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.03)",
                                     display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
-                                    background: "rgba(0,0,0,0.2)",
+                                    background: "rgba(0,0,0,0.15)",
                                 }}>
                                     {/* Search */}
                                     <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
-                                        <Search size={10} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "rgba(200,255,192,0.2)" }} />
-                                        <input className="ws-input w-full" style={{ paddingLeft: 26, fontSize: 10 }}
+                                        <Search size={10} style={{ position: "absolute", left: 10, top: "50%", transform: "translateY(-50%)", color: "rgba(200,255,192,0.18)" }} />
+                                        <input className="ws-input w-full" style={{ paddingLeft: 28, fontSize: 10 }}
                                             placeholder="search tasks\u2026" value={search} onChange={e => setSearch(e.target.value)} />
                                     </div>
 
                                     {/* Status filters */}
                                     <div className="flex items-center gap-1.5 flex-wrap">
                                         {["all", "coming_soon", "in_progress", "completed", "blocked"].map(f => (
-                                            <button key={f} onClick={() => setFilter(f)} className="ws-phase-pill"
+                                            <button key={f} onClick={() => setFilter(f)}
+                                                className={`ws-filter-pill ${taskFilter === f ? "active" : ""}`}
                                                 style={{
-                                                    background: taskFilter === f ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.03)",
-                                                    borderColor: taskFilter === f ? "rgba(57,255,20,0.35)" : "transparent",
-                                                    color: taskFilter === f ? "#39ff14" : "rgba(200,255,192,0.35)",
-                                                    padding: "3px 10px",
+                                                    padding: "4px 11px",
                                                 }}>
                                                 {f === "all" ? `all (${tasks.length})` : `${TASK_STATUS_LABELS[f]} (${tasks.filter(t => t.status === f).length})`}
                                             </button>
@@ -1373,38 +1339,38 @@ export function WorkspaceView({ onBack }) {
 
                                 {/* Quick add */}
                                 <div style={{
-                                    padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)",
-                                    display: "flex", alignItems: "center", gap: 10, background: "rgba(57,255,20,0.02)",
+                                    padding: "12px 24px", borderBottom: "1px solid rgba(255,255,255,0.03)",
+                                    display: "flex", alignItems: "center", gap: 10, background: "rgba(57,255,20,0.015)",
                                 }}>
-                                    <span style={{ color: "#39ff14", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>\u203A</span>
+                                    <span style={{ color: "#39ff14", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>&rsaquo;</span>
                                     <input className="ws-input flex-1" style={{ border: "none", background: "transparent", padding: "4px 0", fontSize: 11 }}
                                         placeholder="add task and press enter\u2026" value={newTask}
                                         onChange={e => setNewTask(e.target.value)}
                                         onKeyDown={e => e.key === "Enter" && handleAddTask()} />
-                                    <div className="flex items-center gap-1">
+                                    <div className="flex items-center gap-1.5">
                                         {["low", "normal", "high", "urgent"].map(p => (
                                             <button key={p} title={p} onClick={() => setNewPri(p)}
                                                 style={{
                                                     width: 10, height: 10, borderRadius: "50%",
                                                     background: newPriority === p ? TASK_PRIORITY_COLORS[p] : "transparent",
                                                     border: `1.5px solid ${TASK_PRIORITY_COLORS[p]}`,
-                                                    transition: "all 0.15s", cursor: "pointer",
+                                                    transition: "all 0.2s ease", cursor: "pointer",
                                                 }} />
                                         ))}
                                     </div>
-                                    <button className="ws-btn-primary" style={{ padding: "4px 12px" }} onClick={handleAddTask}>add</button>
+                                    <button className="ws-btn-primary" style={{ padding: "5px 14px" }} onClick={handleAddTask}>add</button>
                                 </div>
 
                                 {/* Bulk bar */}
                                 <AnimatePresence>
                                     {selected.size > 0 && (
                                         <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
-                                            style={{ padding: "8px 20px", borderBottom: "1px solid rgba(57,255,20,0.1)", background: "rgba(57,255,20,0.04)", display: "flex", alignItems: "center", gap: 10 }}>
+                                            style={{ padding: "10px 24px", borderBottom: "1px solid rgba(57,255,20,0.08)", background: "rgba(57,255,20,0.03)", display: "flex", alignItems: "center", gap: 10 }}>
                                             <span style={{ fontSize: 10, color: "#39ff14", fontWeight: 700 }}>{selected.size} selected</span>
                                             <button className="ws-btn-ghost flex items-center gap-1.5" onClick={() => { bulkUpdateTasks([...selected], { status: "completed", completedAt: new Date().toISOString() }); clearSel(); }}>
                                                 <CheckSquare size={9} /> complete all
                                             </button>
-                                            <button className="ws-btn-ghost flex items-center gap-1.5" style={{ color: "#ff2d78", borderColor: "rgba(255,45,120,0.25)" }}
+                                            <button className="ws-btn-ghost flex items-center gap-1.5" style={{ color: "#ff2d78", borderColor: "rgba(255,45,120,0.2)" }}
                                                 onClick={() => { bulkDeleteTasks([...selected]); clearSel(); }}>
                                                 <Trash2 size={9} /> delete all
                                             </button>
@@ -1419,8 +1385,8 @@ export function WorkspaceView({ onBack }) {
                                 <div>
                                     <AnimatePresence>
                                         {displayTasks.length === 0 ? (
-                                            <div style={{ padding: "60px 20px", textAlign: "center" }}>
-                                                <p style={{ fontSize: 10, color: "rgba(200,255,192,0.2)", letterSpacing: "0.15em" }}>
+                                            <div style={{ padding: "60px 24px", textAlign: "center" }}>
+                                                <p style={{ fontSize: 10, color: "rgba(200,255,192,0.15)", letterSpacing: "0.15em" }}>
                                                     {search ? "no tasks match your search" : "no tasks yet \u2014 add one above"}
                                                 </p>
                                             </div>
@@ -1436,10 +1402,10 @@ export function WorkspaceView({ onBack }) {
 
                         {/* ═══ OUTPUTS VIEW ════════════════════════════════════ */}
                         {view === "outputs" && (
-                            <div style={{ padding: 20 }}>
+                            <div style={{ padding: 24 }}>
                                 {outputs.length === 0 ? (
                                     <div style={{ padding: "60px 0", textAlign: "center" }}>
-                                        <p style={{ fontSize: 10, color: "rgba(200,255,192,0.2)", letterSpacing: "0.15em" }}>no outputs yet \u2014 the agent will save files here</p>
+                                        <p style={{ fontSize: 10, color: "rgba(200,255,192,0.15)", letterSpacing: "0.15em" }}>no outputs yet \u2014 the agent will save files here</p>
                                     </div>
                                 ) : (
                                     <AnimatePresence>
@@ -1454,30 +1420,30 @@ export function WorkspaceView({ onBack }) {
                         {/* ═══ TIMELINE VIEW ═══════════════════════════════════ */}
                         {view === "timeline" && (
                             <div style={{ flex: 1 }}>
-                                <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                    <span style={{ fontSize: 9, color: "rgba(200,255,192,0.3)", letterSpacing: "0.15em", textTransform: "uppercase" }}>{timeline.length} events</span>
+                                <div style={{ padding: "14px 24px", borderBottom: "1px solid rgba(255,255,255,0.03)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                    <span style={{ fontSize: 9, color: "rgba(200,255,192,0.25)", letterSpacing: "0.15em", textTransform: "uppercase" }}>{timeline.length} events</span>
                                     {timeline.length > 0 && (
-                                        <button className="ws-btn-ghost flex items-center gap-1.5" style={{ color: "rgba(255,45,120,0.6)", borderColor: "rgba(255,45,120,0.15)" }}
+                                        <button className="ws-btn-ghost flex items-center gap-1.5" style={{ color: "rgba(255,45,120,0.5)", borderColor: "rgba(255,45,120,0.12)" }}
                                             onClick={clearTimeline}>
                                             <RotateCcw size={9} /> clear log
                                         </button>
                                     )}
                                 </div>
-                                <div style={{ padding: "8px 20px" }}>
+                                <div style={{ padding: "12px 24px" }}>
                                     {timeline.length === 0 ? (
-                                        <p style={{ fontSize: 10, color: "rgba(200,255,192,0.2)", textAlign: "center", padding: "60px 0", letterSpacing: "0.15em" }}>no activity yet</p>
+                                        <p style={{ fontSize: 10, color: "rgba(200,255,192,0.15)", textAlign: "center", padding: "60px 0", letterSpacing: "0.15em" }}>no activity yet</p>
                                     ) : timeline.map((ev, i) => (
-                                        <div key={ev.id} style={{ display: "flex", gap: 14, paddingBottom: 14, position: "relative" }}>
+                                        <div key={ev.id} style={{ display: "flex", gap: 14, paddingBottom: 16, position: "relative" }}>
                                             {i < timeline.length - 1 && (
-                                                <div style={{ position: "absolute", left: 6, top: 18, bottom: 0, width: 1, background: "rgba(255,255,255,0.04)" }} />
+                                                <div style={{ position: "absolute", left: 6, top: 18, bottom: 0, width: 1, background: "rgba(255,255,255,0.03)" }} />
                                             )}
                                             <span style={{ fontSize: 12, color: tlColors[ev.type] || "rgba(200,255,192,0.3)", flexShrink: 0, lineHeight: 1, marginTop: 2 }}>
                                                 {tlIcons[ev.type] || "\u203A"}
                                             </span>
                                             <div>
-                                                <p style={{ fontSize: 11, color: "rgba(200,255,192,0.65)", lineHeight: 1.5 }}>{ev.text}</p>
-                                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.2)", marginTop: 2 }}>
-                                                    {fmt(ev.timestamp)} \u00B7 {fmtTime(ev.timestamp)}
+                                                <p style={{ fontSize: 11, color: "rgba(200,255,192,0.6)", lineHeight: 1.6 }}>{ev.text}</p>
+                                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.18)", marginTop: 3 }}>
+                                                    {fmt(ev.timestamp)} &middot; {fmtTime(ev.timestamp)}
                                                 </p>
                                             </div>
                                         </div>
@@ -1488,16 +1454,16 @@ export function WorkspaceView({ onBack }) {
 
                         {/* ═══ NOTES VIEW ══════════════════════════════════════ */}
                         {view === "notes" && (
-                            <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
-                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.25)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10 }}>// WORKSPACE NOTES</p>
+                            <div style={{ padding: 24, flex: 1, display: "flex", flexDirection: "column" }}>
+                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.2)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 12 }}>// WORKSPACE NOTES</p>
                                 <textarea className="ws-input ws-scrollbar" style={{
-                                    flex: 1, minHeight: 300, resize: "none", lineHeight: 1.75,
-                                    fontSize: 11, padding: 14, fontFamily: "JetBrains Mono, monospace",
+                                    flex: 1, minHeight: 300, resize: "none", lineHeight: 1.8,
+                                    fontSize: 11, padding: 16, fontFamily: "JetBrains Mono, monospace",
                                 }}
                                     placeholder="free-form notes, ideas, context\u2026"
                                     value={ws.notes || ""}
                                     onChange={e => updateNotes(e.target.value)} />
-                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.15)", marginTop: 6 }}>auto-saved \u00B7 {ws.notes?.length || 0} chars</p>
+                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.12)", marginTop: 8 }}>auto-saved &middot; {ws.notes?.length || 0} chars</p>
                             </div>
                         )}
 

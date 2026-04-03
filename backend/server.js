@@ -464,8 +464,6 @@ You are not a chatbot. You are a workspace execution engine running a continuous
 Name: ${workspaceState.name || "Untitled Workspace"}
 Type/Format: ${workspaceState.type}
 Description: ${workspaceState.description}
-Current Phase: ${workspaceState.currentPhase}
-All Phases: ${workspaceState.allPhases || workspaceState.currentPhase}
 
 ${workspaceState.immortalRules}
 ${memorySummary}
@@ -514,11 +512,10 @@ Structure your 'answer' field using this exact format every turn:
   🔁 STATUS: "Looping to next task..." or "Awaiting approval — all tasks complete."
 
 ### WORKSPACE OPERATIONAL FLOW
-1. [Brainstorming] → Define vision and goals.
-2. [Planning] → Break down into small, atomic, independently-completable tasks.
-3. [Executing] → Write code for ONE task at a time. Full code only — no snippets or stubs.
-4. [Review/Testing] → Polish, bug fixes, and edge case handling.
-5. [Completed] → Only when 100% functional and all tasks are done.
+1. [Understand] → Analyze the goal and break it into atomic tasks.
+2. [Execute] → Write code for ONE task at a time. Full code only — no snippets.
+3. [Verify] → Check that the implementation works and handles edge cases.
+4. [Complete] → Only when 100% functional and all tasks are done.
 
 ### RESPONSE FORMAT (STRICT JSON ONLY)
 Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping it.
@@ -526,7 +523,6 @@ Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping
   "thought": "Step-by-step internal reasoning: current state, root cause of any issue, chosen next action.",
   "tool_calls": [{"tool": "read_file", "fileName": "App.jsx"}],
   "observation": "What I see right now: files present, tasks pending/done, errors detected.",
-  "phase": "Brainstorming | Planning | Executing | Review/Testing | Completed",
   "add_tasks": [{"title": "Atomic Task Name", "status": "pending"}],
   "complete_tasks": ["Exact title of the ONE task finished this turn"],
   "save_outputs": [{"fileName": "filename.ext", "content": "FULL CODE — NEVER PARTIAL OR STUBBED", "language": "javascript"}],
@@ -971,9 +967,6 @@ function buildWorkspaceContext(workspaceState) {
   if (workspaceState.name) parts.push(`Name: ${workspaceState.name}`);
   if (workspaceState.type) parts.push(`Type: ${workspaceState.type}`);
   if (workspaceState.description) parts.push(`Description: ${workspaceState.description}`);
-  if (workspaceState.currentPhase) parts.push(`Current Phase: ${workspaceState.currentPhase}`);
-  if (workspaceState.allPhases) parts.push(`All Phases: ${workspaceState.allPhases}`);
-
   if (workspaceState.immortalRules) {
     parts.push(`\n==== IMMORTAL RULES ====\n${workspaceState.immortalRules}`);
   }
@@ -1016,9 +1009,8 @@ You MUST return ONLY a valid JSON object. No markdown, no text outside the JSON.
 {
   "thought": "Your reasoning: what does the user want? How should we break it down? What order makes sense?",
   "add_tasks": [
-    { "title": "Task name (specific, actionable, atomic)", "status": "pending", "priority": "high|medium|low", "phase": "Executing" }
+    { "title": "Task name (specific, actionable, atomic)", "status": "pending", "priority": "high|medium|low" }
   ],
-  "phase": "Planning",
   "answer": "A brief, clear summary of the plan for the user. 2-4 sentences explaining what tasks were created and why."
 }
 
@@ -1228,12 +1220,12 @@ app.post("/api/agent/run", async (req, res) => {
     // ── INIT EVENT ──
     sendEvent({ type: "init", goal: userGoal });
 
-    // Track completed outputs across all phases for reflection
+    // Track completed outputs for reflection
     const allCompletedOutputs = [];
     const allCompletedTaskTitles = [];
 
     // ═══════════════════════════════════════════
-    // PHASE 1: ARCHITECT — Plan the goal
+    // STEP 1: ARCHITECT — Plan the goal
     // ═══════════════════════════════════════════
     sendEvent({ type: "agent_start", agent: "architect", message: "Planning tasks for your goal..." });
 
@@ -1254,8 +1246,7 @@ app.post("/api/agent/run", async (req, res) => {
     if (!architectPayload) {
       architectPayload = {
         thought: "Failed to parse architect response.",
-        add_tasks: [{ title: userGoal, status: "pending", priority: "high", phase: "Executing" }],
-        phase: "Planning",
+        add_tasks: [{ title: userGoal, status: "pending", priority: "high" }],
         answer: architectResult.text,
       };
     }
@@ -1264,9 +1255,6 @@ app.post("/api/agent/run", async (req, res) => {
     const architectAction = {};
     if (architectPayload.add_tasks && architectPayload.add_tasks.length > 0) {
       architectAction.add_tasks = architectPayload.add_tasks;
-    }
-    if (architectPayload.phase) {
-      architectAction.phase = architectPayload.phase;
     }
     sendEvent({ type: "action", payload: architectAction });
 
@@ -1277,7 +1265,7 @@ app.post("/api/agent/run", async (req, res) => {
     });
 
     // ═══════════════════════════════════════════
-    // PHASE 2: EXECUTE — Work through tasks
+    // STEP 2: EXECUTE — Work through tasks
     // ═══════════════════════════════════════════
     // Build the pending task list from architect output + any existing workspace pending tasks
     let pendingTasks = [];
@@ -1286,14 +1274,14 @@ app.post("/api/agent/run", async (req, res) => {
     if (architectPayload.add_tasks && Array.isArray(architectPayload.add_tasks)) {
       pendingTasks = architectPayload.add_tasks
         .filter(t => t.status !== "completed" && t.status !== "done")
-        .map(t => ({ title: t.title, priority: t.priority || "medium", phase: t.phase || "Executing" }));
+        .map(t => ({ title: t.title, priority: t.priority || "medium" }));
     }
 
     // Also pull pending tasks from workspace state if available
     if (workspaceState && workspaceState.pendingTaskTitles && Array.isArray(workspaceState.pendingTaskTitles)) {
       for (const title of workspaceState.pendingTaskTitles) {
         if (!pendingTasks.some(t => t.title === title)) {
-          pendingTasks.push({ title, priority: "medium", phase: "Executing" });
+          pendingTasks.push({ title, priority: "medium" });
         }
       }
     }
@@ -1368,14 +1356,10 @@ app.post("/api/agent/run", async (req, res) => {
         // Add newly discovered tasks to the queue (if within budget)
         for (const newTask of taskPayload.add_tasks) {
           if (newTask.status !== "completed" && newTask.status !== "done" && tasksToRun.length < MAX_TASKS + 3) {
-            tasksToRun.push({ title: newTask.title, priority: newTask.priority || "medium", phase: newTask.phase || "Executing" });
+            tasksToRun.push({ title: newTask.title, priority: newTask.priority || "medium" });
           }
         }
       }
-      if (taskPayload.phase) {
-        taskAction.phase = taskPayload.phase;
-      }
-
       if (Object.keys(taskAction).length > 0) {
         sendEvent({ type: "action", payload: taskAction });
       }
@@ -1388,7 +1372,7 @@ app.post("/api/agent/run", async (req, res) => {
     }
 
     // ═══════════════════════════════════════════
-    // PHASE 3: REFLECT — Review the work
+    // STEP 3: REFLECT — Review the work
     // ═══════════════════════════════════════════
     sendEvent({ type: "agent_start", agent: "reflector", message: "Reviewing all work for quality..." });
 

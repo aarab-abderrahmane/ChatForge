@@ -1,9 +1,9 @@
 /**
  * WorkspacePanel.jsx
- * 
- * Full workspace agent UI panel.
+ *
+ * Full workspace agent UI panel — clean surface, powerful underneath.
  * Drop this inside SettingsPanel (or any modal) where workspace section was.
- * 
+ *
  * Usage:
  *   import { WorkspacePanel } from "./WorkspacePanel";
  *   <WorkspacePanel />
@@ -13,10 +13,10 @@ import { useContext, useState, useRef, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import {
   Plus, Trash2, Check, X, Pencil, ChevronDown, ChevronRight,
-  Archive, Copy, Download, Upload, Clock, Layers, Flag,
+  Archive, Copy, Download, Upload, Clock, Flag,
   FileText, Tag, BarChart2, ListTodo, Folder, Zap,
   AlertTriangle, StickyNote, RotateCcw, CheckSquare, Square,
-  ArrowRight, RefreshCw, Play, Square as StopIcon,
+  RefreshCw, Play, Square as StopIcon,
 } from "lucide-react";
 import { api } from "../../services/api";
 import { WorkspaceContext, TASK_STATUS_LABELS, TASK_STATUS_COLORS, TASK_PRIORITY_COLORS, WORKSPACE_PRESETS } from "../../context/workspaceContext";
@@ -35,9 +35,9 @@ function Badge({ label, color, bg }) {
 
 function SectionHeader({ icon: Icon, label, count, action, actionLabel }) {
   return (
-    <div className="flex items-center justify-between px-3 pt-4 pb-1.5">
-      <div className="flex items-center gap-1.5">
-        <Icon size={11} style={{ color: "var(--neon-cyan)" }} />
+    <div className="flex items-center justify-between px-4 pt-5 pb-2">
+      <div className="flex items-center gap-2">
+        <Icon size={12} style={{ color: "var(--neon-cyan)" }} />
         <span className="text-[9px] font-black uppercase tracking-[0.18em]" style={{ color: "rgba(200,255,192,0.5)" }}>
           {label}
         </span>
@@ -57,22 +57,22 @@ function SectionHeader({ icon: Icon, label, count, action, actionLabel }) {
 }
 
 // ─── Progress Ring ─────────────────────────────────────────────────────────────
-function ProgressRing({ percent, size = 40, stroke = 3 }) {
+function ProgressRing({ percent, size = 42, stroke = 3 }) {
   const r = (size - stroke * 2) / 2;
   const circ = 2 * Math.PI * r;
   const off = circ - (percent / 100) * circ;
   return (
     <svg width={size} height={size}>
-      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.07)" strokeWidth={stroke} />
+      <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
       <circle
         cx={size / 2} cy={size / 2} r={r} fill="none"
         stroke="var(--neon-green)" strokeWidth={stroke}
         strokeDasharray={circ} strokeDashoffset={off}
         strokeLinecap="round"
         transform={`rotate(-90 ${size / 2} ${size / 2})`}
-        style={{ transition: "stroke-dashoffset 0.5s ease" }}
+        style={{ transition: "stroke-dashoffset 0.6s cubic-bezier(0.4, 0, 0.2, 1)" }}
       />
-      <text x={size / 2} y={size / 2 + 3} textAnchor="middle" fontSize="9" fontWeight="bold" fill="var(--neon-green)">
+      <text x={size / 2} y={size / 2 + 3} textAnchor="middle" fontSize="10" fontWeight="bold" fill="var(--neon-green)">
         {percent}%
       </text>
     </svg>
@@ -98,18 +98,17 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
     blocked: "coming_soon",
   };
 
-  const priorityIcon = { low: "·", normal: "◆", high: "▲", urgent: "!!!" };
-
   return (
     <motion.div
       layout
-      initial={{ opacity: 0, x: -8 }}
+      initial={{ opacity: 0, x: -6 }}
       animate={{ opacity: 1, x: 0 }}
-      exit={{ opacity: 0, x: 8, height: 0 }}
-      className="group flex items-start gap-2 px-3 py-2 rounded-lg mx-2 mb-1 transition-colors"
+      exit={{ opacity: 0, x: 6, height: 0 }}
+      className="group flex items-start gap-2.5 px-3 py-2.5 rounded-lg mx-2 mb-1 transition-all duration-200"
       style={{
-        background: isSelected ? "rgba(57,255,20,0.05)" : "rgba(255,255,255,0.02)",
+        background: isSelected ? "rgba(57,255,20,0.05)" : "rgba(255,255,255,0.015)",
         border: `1px solid ${isSelected ? "rgba(57,255,20,0.15)" : "rgba(255,255,255,0.04)"}`,
+        borderRadius: 8,
       }}
     >
       {/* Checkbox for bulk select */}
@@ -124,12 +123,12 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
       {/* Status toggle */}
       <button
         onClick={() => onUpdate(task.id, { status: statusCycle[task.status] })}
-        className="mt-0.5 flex-shrink-0 rounded-full w-3.5 h-3.5 border flex items-center justify-center transition-all hover:scale-110"
+        className="mt-0.5 flex-shrink-0 rounded-full w-3.5 h-3.5 border flex items-center justify-center transition-all duration-200 hover:scale-110"
         style={{
           borderColor: TASK_STATUS_COLORS[task.status],
           background: task.status === "completed" ? TASK_STATUS_COLORS[task.status] : "transparent",
         }}
-        title={`Status: ${TASK_STATUS_LABELS[task.status]} → click to cycle`}
+        title={`Status: ${TASK_STATUS_LABELS[task.status]} — click to cycle`}
       >
         {task.status === "completed" && <Check size={8} color="#000" />}
         {task.status === "blocked" && <X size={8} style={{ color: TASK_STATUS_COLORS.blocked }} />}
@@ -149,7 +148,7 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
           />
         ) : (
           <p
-            className="text-xs leading-snug cursor-pointer"
+            className="text-xs leading-relaxed cursor-pointer transition-colors duration-200"
             style={{
               color: task.status === "completed" ? "rgba(200,255,192,0.3)" : "rgba(200,255,192,0.8)",
               textDecoration: task.status === "completed" ? "line-through" : "none",
@@ -161,7 +160,7 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
           </p>
         )}
 
-        <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+        <div className="flex items-center gap-2 mt-1 flex-wrap">
           <Badge
             label={TASK_STATUS_LABELS[task.status]}
             color={TASK_STATUS_COLORS[task.status]}
@@ -172,11 +171,6 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
               color={TASK_PRIORITY_COLORS[task.priority]}
             />
           )}
-          {task.phase && (
-            <span className="text-[8px]" style={{ color: "rgba(200,255,192,0.25)" }}>
-              {task.phase}
-            </span>
-          )}
           {task.dueDate && (
             <span className="text-[8px] flex items-center gap-0.5" style={{ color: new Date(task.dueDate) < new Date() ? "var(--neon-magenta, #ff2d78)" : "rgba(200,255,192,0.3)" }}>
               <Clock size={7} /> {new Date(task.dueDate).toLocaleDateString()}
@@ -186,14 +180,14 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
       </div>
 
       {/* Action buttons */}
-      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
-        <button onClick={() => setEditing(true)} className="p-1 rounded hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }} title="Edit">
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex-shrink-0">
+        <button onClick={() => setEditing(true)} className="p-1 rounded-md hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }} title="Edit">
           <Pencil size={9} />
         </button>
         <div className="relative">
           <button
             onClick={() => setShowMenu(p => !p)}
-            className="p-1 rounded hover:bg-white/5"
+            className="p-1 rounded-md hover:bg-white/5"
             style={{ color: "rgba(200,255,192,0.4)" }}
             title="Priority"
           >
@@ -202,9 +196,10 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
           <AnimatePresence>
             {showMenu && (
               <motion.div
-                initial={{ opacity: 0, scale: 0.9 }}
+                initial={{ opacity: 0, scale: 0.95 }}
                 animate={{ opacity: 1, scale: 1 }}
-                exit={{ opacity: 0, scale: 0.9 }}
+                exit={{ opacity: 0, scale: 0.95 }}
+                transition={{ duration: 0.15 }}
                 className="absolute right-0 top-6 z-50 rounded-lg border p-1 min-w-[90px]"
                 style={{ background: "var(--bg-panel, #0d1117)", borderColor: "var(--border-green, rgba(57,255,20,0.2))" }}
               >
@@ -212,7 +207,7 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
                   <button
                     key={p}
                     onClick={() => { onUpdate(task.id, { priority: p }); setShowMenu(false); }}
-                    className="w-full text-left px-2 py-1 text-[9px] rounded hover:bg-white/5 flex items-center gap-1.5"
+                    className="w-full text-left px-2 py-1 text-[9px] rounded-md hover:bg-white/5 flex items-center gap-1.5 transition-colors duration-150"
                     style={{ color: TASK_PRIORITY_COLORS[p] }}
                   >
                     <span>{p}</span>
@@ -223,7 +218,7 @@ function TaskItem({ task, onUpdate, onDelete, onSelect, isSelected }) {
             )}
           </AnimatePresence>
         </div>
-        <button onClick={() => onDelete(task.id)} className="p-1 rounded hover:bg-white/5" style={{ color: "rgba(255,45,120,0.5)" }} title="Delete">
+        <button onClick={() => onDelete(task.id)} className="p-1 rounded-md hover:bg-white/5" style={{ color: "rgba(255,45,120,0.5)" }} title="Delete">
           <Trash2 size={9} />
         </button>
       </div>
@@ -249,10 +244,10 @@ function OutputItem({ output, onDelete, onRename }) {
 
   return (
     <div
-      className="mx-2 mb-1 rounded-lg border overflow-hidden transition-all"
-      style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.02)" }}
+      className="mx-2 mb-1.5 rounded-lg border overflow-hidden transition-all duration-200"
+      style={{ borderColor: "rgba(255,255,255,0.05)", background: "rgba(255,255,255,0.015)", borderRadius: 8 }}
     >
-      <div className="flex items-center gap-2 px-3 py-2 group">
+      <div className="flex items-center gap-2 px-3 py-2.5 group">
         <span style={{ fontSize: 11 }}>{TYPE_ICONS[output.type] || "📄"}</span>
         <div className="flex-1 min-w-0">
           {renaming ? (
@@ -270,28 +265,26 @@ function OutputItem({ output, onDelete, onRename }) {
               {output.filename}
             </p>
           )}
-          <div className="flex items-center gap-2 mt-0.5">
-            {output.phase && <span className="text-[8px]" style={{ color: "rgba(200,255,192,0.25)" }}>{output.phase}</span>}
-            <span className="text-[8px]" style={{ color: "rgba(200,255,192,0.2)" }}>
-              {new Date(output.updatedAt || output.createdAt).toLocaleDateString()}
-            </span>
-          </div>
+          <span className="text-[8px] mt-0.5 block" style={{ color: "rgba(200,255,192,0.2)" }}>
+            {new Date(output.updatedAt || output.createdAt).toLocaleDateString()}
+          </span>
         </div>
-        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-          <button onClick={() => setExpanded(p => !p)} className="p-1 rounded hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }}>
+        <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity duration-200">
+          <button onClick={() => setExpanded(p => !p)} className="p-1 rounded-md hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }}>
             {expanded ? <ChevronDown size={9} /> : <ChevronRight size={9} />}
           </button>
-          <button onClick={() => setRenaming(true)} className="p-1 rounded hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }}>
+          <button onClick={() => setRenaming(true)} className="p-1 rounded-md hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }}>
             <Pencil size={9} />
           </button>
           <button
             onClick={() => { navigator.clipboard.writeText(output.content); }}
-            className="p-1 rounded hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }}
+            className="p-1 rounded-md hover:bg-white/5"
+            style={{ color: "rgba(200,255,192,0.4)" }}
             title="Copy content"
           >
             <Copy size={9} />
           </button>
-          <button onClick={() => onDelete(output.id)} className="p-1 rounded hover:bg-white/5" style={{ color: "rgba(255,45,120,0.5)" }}>
+          <button onClick={() => onDelete(output.id)} className="p-1 rounded-md hover:bg-white/5" style={{ color: "rgba(255,45,120,0.5)" }}>
             <Trash2 size={9} />
           </button>
         </div>
@@ -302,6 +295,7 @@ function OutputItem({ output, onDelete, onRename }) {
             initial={{ height: 0 }}
             animate={{ height: "auto" }}
             exit={{ height: 0 }}
+            transition={{ duration: 0.2 }}
             className="overflow-hidden"
           >
             <pre
@@ -317,7 +311,7 @@ function OutputItem({ output, onDelete, onRename }) {
   );
 }
 
-// ─── Workspace Create/Edit Modal ──────────────────────────────────────────────
+// ─── Workspace Create/Edit Form ───────────────────────────────────────────────
 function WorkspaceForm({ initial, onSave, onCancel }) {
   const [form, setForm] = useState({
     name: initial?.name || "",
@@ -325,11 +319,9 @@ function WorkspaceForm({ initial, onSave, onCancel }) {
     emoji: initial?.emoji || "🌐",
     description: initial?.description || "",
     rules: initial?.rules?.join("\n") || "",
-    phases: initial?.phases?.join(", ") || "",
     tags: initial?.tags?.join(", ") || "",
   });
 
-  const preset = WORKSPACE_PRESETS[form.type] || WORKSPACE_PRESETS.General;
   const isValid = form.name.trim().length > 0;
 
   const handleTypeChange = (type) => {
@@ -337,25 +329,29 @@ function WorkspaceForm({ initial, onSave, onCancel }) {
     setForm(f => ({
       ...f, type,
       emoji: p?.emoji || f.emoji,
-      phases: !f.phases || f.phases === Object.values(WORKSPACE_PRESETS).find(pp => pp.emoji === f.emoji)?.defaultPhases?.join(", ")
-        ? p?.defaultPhases?.join(", ") || f.phases
-        : f.phases,
     }));
   };
 
+  const inputStyle = {
+    borderColor: "rgba(255,255,255,0.08)",
+    color: "rgba(200,255,192,0.8)",
+    borderRadius: 8,
+  };
+
   return (
-    <div className="p-3 space-y-2">
+    <div className="p-4 space-y-3">
       {/* Type selector */}
       <div className="flex gap-1.5 flex-wrap">
         {Object.entries(WORKSPACE_PRESETS).map(([type, { emoji }]) => (
           <button
             key={type}
             onClick={() => handleTypeChange(type)}
-            className="flex items-center gap-1 px-2 py-1 rounded-lg text-[9px] font-bold transition-all"
+            className="flex items-center gap-1 px-2.5 py-1.5 text-[9px] font-bold transition-all duration-200"
             style={{
               background: form.type === type ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.03)",
               border: `1px solid ${form.type === type ? "var(--neon-green)" : "rgba(255,255,255,0.06)"}`,
               color: form.type === type ? "var(--neon-green)" : "rgba(200,255,192,0.5)",
+              borderRadius: 8,
             }}
           >
             <span>{emoji}</span> {type}
@@ -366,8 +362,8 @@ function WorkspaceForm({ initial, onSave, onCancel }) {
       {/* Name + emoji */}
       <div className="flex gap-2">
         <button
-          className="w-9 h-9 text-xl rounded-lg border flex items-center justify-center"
-          style={{ borderColor: "rgba(255,255,255,0.1)", background: "rgba(255,255,255,0.03)" }}
+          className="w-9 h-9 text-xl border flex items-center justify-center transition-all duration-200 hover:bg-white/5"
+          style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)", borderRadius: 8 }}
           onClick={() => {
             const emojis = Object.values(WORKSPACE_PRESETS).map(p => p.emoji);
             const idx = emojis.indexOf(form.emoji);
@@ -381,8 +377,8 @@ function WorkspaceForm({ initial, onSave, onCancel }) {
           type="text" maxLength={40} placeholder="Workspace name…"
           value={form.name}
           onChange={e => setForm(f => ({ ...f, name: e.target.value }))}
-          className="flex-1 bg-transparent border rounded px-2 text-xs outline-none"
-          style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.9)", height: 36 }}
+          className="flex-1 bg-transparent border px-3 text-xs outline-none transition-colors duration-200 focus:border-[rgba(57,255,20,0.3)]"
+          style={{ ...inputStyle, height: 38 }}
         />
       </div>
 
@@ -390,16 +386,8 @@ function WorkspaceForm({ initial, onSave, onCancel }) {
         type="text" placeholder="Description (optional)…"
         value={form.description}
         onChange={e => setForm(f => ({ ...f, description: e.target.value }))}
-        className="w-full bg-transparent border rounded px-2 text-xs outline-none"
-        style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.7)", height: 30 }}
-      />
-
-      <input
-        type="text" placeholder={`Phases (comma separated, e.g. ${preset.defaultPhases.join(", ")})`}
-        value={form.phases}
-        onChange={e => setForm(f => ({ ...f, phases: e.target.value }))}
-        className="w-full bg-transparent border rounded px-2 text-xs outline-none"
-        style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.7)", height: 30 }}
+        className="w-full bg-transparent border px-3 text-xs outline-none transition-colors duration-200 focus:border-[rgba(57,255,20,0.3)]"
+        style={{ ...inputStyle, height: 34 }}
       />
 
       <textarea
@@ -407,40 +395,40 @@ function WorkspaceForm({ initial, onSave, onCancel }) {
         value={form.rules}
         onChange={e => setForm(f => ({ ...f, rules: e.target.value }))}
         rows={3}
-        className="w-full bg-transparent border rounded px-2 py-1.5 text-xs outline-none resize-none"
-        style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.8)" }}
+        className="w-full bg-transparent border px-3 py-2 text-xs outline-none resize-none transition-colors duration-200 focus:border-[rgba(57,255,20,0.3)]"
+        style={{ ...inputStyle, lineHeight: 1.6 }}
       />
 
       <input
         type="text" placeholder="Tags (comma separated)…"
         value={form.tags}
         onChange={e => setForm(f => ({ ...f, tags: e.target.value }))}
-        className="w-full bg-transparent border rounded px-2 text-xs outline-none"
-        style={{ borderColor: "rgba(255,255,255,0.1)", color: "rgba(200,255,192,0.7)", height: 30 }}
+        className="w-full bg-transparent border px-3 text-xs outline-none transition-colors duration-200 focus:border-[rgba(57,255,20,0.3)]"
+        style={{ ...inputStyle, height: 34 }}
       />
 
       <div className="flex gap-2 pt-1">
         <button
           onClick={() => isValid && onSave({
             ...form,
-            phases: form.phases.split(",").map(p => p.trim()).filter(Boolean),
             tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
           })}
           disabled={!isValid}
-          className="flex-1 py-2 rounded text-[10px] font-bold uppercase tracking-widest transition-all"
+          className="flex-1 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all duration-200"
           style={{
             background: isValid ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.03)",
             color: isValid ? "var(--neon-green)" : "rgba(200,255,192,0.2)",
             border: `1px solid ${isValid ? "var(--neon-green)" : "rgba(255,255,255,0.05)"}`,
             cursor: isValid ? "pointer" : "not-allowed",
+            borderRadius: 8,
           }}
         >
           {initial ? "✓ Save Changes" : "✓ Create Workspace"}
         </button>
         <button
           onClick={onCancel}
-          className="px-4 py-2 rounded text-[10px] hover:bg-white/5 transition-all"
-          style={{ color: "rgba(200,255,192,0.4)", border: "1px solid rgba(255,255,255,0.05)" }}
+          className="px-4 py-2.5 text-[10px] hover:bg-white/5 transition-all duration-200"
+          style={{ color: "rgba(200,255,192,0.4)", border: "1px solid rgba(255,255,255,0.05)", borderRadius: 8 }}
         >
           Cancel
         </button>
@@ -465,8 +453,6 @@ export function WorkspacePanel() {
   const [newTaskPriority, setNewTaskPriority] = useState("normal");
   const [showWsList, setShowWsList] = useState(false);
   const [confirmDelete, setConfirmDelete] = useState(null);
-  const [phaseInput, setPhaseInput] = useState("");
-  const [showPhaseInput, setShowPhaseInput] = useState(false);
   const [agentPrompt, setAgentPrompt] = useState("");
   const importRef = useRef(null);
 
@@ -485,7 +471,6 @@ export function WorkspacePanel() {
     workspaces, activeWorkspaceId, activeWorkspace, workspaceStats,
     setActiveWorkspaceId, createWorkspace, updateWorkspace, duplicateWorkspace,
     deleteWorkspace, archiveWorkspace, exportWorkspace, importWorkspace,
-    setWorkspacePhase, addPhase, removePhase,
     addTask, updateTask, updateTaskStatus, deleteTask, bulkUpdateTasks, bulkDeleteTasks,
     saveOutput, deleteOutput, renameOutput,
     updateNotes, addTimelineEvent, clearTimeline,
@@ -543,12 +528,11 @@ export function WorkspacePanel() {
   const timelineTypeColor = {
     info: "rgba(200,255,192,0.3)",
     task: "var(--neon-cyan)",
-    phase: "#ffd700",
     output: "var(--neon-green)",
     agent: "rgba(255,165,0,0.8)",
     error: "var(--neon-magenta, #ff2d78)",
   };
-  const timelineTypeIcon = { info: "·", task: "✓", phase: "▶", output: "📄", agent: "⚡", error: "⚠" };
+  const timelineTypeIcon = { info: "·", task: "✓", output: "📄", agent: "⚡", error: "⚠" };
 
   // ── Import handler ─────────────────────────────────────────────
   const handleImport = (e) => {
@@ -575,45 +559,45 @@ export function WorkspacePanel() {
 
       {/* ── Workspace Selector Header ── */}
       <div
-        className="flex items-center justify-between px-3 py-2.5 border-b"
-        style={{ borderColor: "rgba(57,255,20,0.12)" }}
+        className="flex items-center justify-between px-4 py-3 border-b"
+        style={{ borderColor: "rgba(57,255,20,0.1)" }}
       >
         <button
           onClick={() => setShowWsList(p => !p)}
-          className="flex items-center gap-2 flex-1 min-w-0 hover:opacity-80 transition-opacity"
+          className="flex items-center gap-2.5 flex-1 min-w-0 hover:opacity-80 transition-opacity duration-200"
         >
-          <span style={{ fontSize: 15 }}>{ws?.emoji || "🌐"}</span>
+          <span style={{ fontSize: 16 }}>{ws?.emoji || "🌐"}</span>
           <div className="min-w-0 text-left">
             <p className="text-xs font-bold truncate" style={{ color: ws ? "var(--neon-green)" : "rgba(200,255,192,0.4)" }}>
               {ws?.name || "No workspace selected"}
             </p>
             {ws && (
               <p className="text-[9px] truncate" style={{ color: "rgba(200,255,192,0.35)" }}>
-                {ws.type} · {ws.currentPhase}
+                {ws.type}
               </p>
             )}
           </div>
           <ChevronDown size={11} style={{ color: "rgba(200,255,192,0.35)", flexShrink: 0, transform: showWsList ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
         </button>
 
-        <div className="flex items-center gap-1 ml-2">
+        <div className="flex items-center gap-1 ml-3">
           {ws && (
             <>
-              <button onClick={() => setShowEdit(true)} className="p-1.5 rounded hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }} title="Edit workspace">
+              <button onClick={() => setShowEdit(true)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors duration-150" style={{ color: "rgba(200,255,192,0.4)" }} title="Edit workspace">
                 <Pencil size={10} />
               </button>
-              <button onClick={() => exportWorkspace(ws.id)} className="p-1.5 rounded hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }} title="Export workspace">
+              <button onClick={() => exportWorkspace(ws.id)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors duration-150" style={{ color: "rgba(200,255,192,0.4)" }} title="Export workspace">
                 <Download size={10} />
               </button>
-              <button onClick={() => duplicateWorkspace(ws.id)} className="p-1.5 rounded hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }} title="Duplicate workspace">
+              <button onClick={() => duplicateWorkspace(ws.id)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors duration-150" style={{ color: "rgba(200,255,192,0.4)" }} title="Duplicate workspace">
                 <Copy size={10} />
               </button>
             </>
           )}
-          <button onClick={() => setShowCreate(true)} className="p-1.5 rounded hover:bg-white/5" style={{ color: "var(--neon-green)" }} title="New workspace">
+          <button onClick={() => setShowCreate(true)} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors duration-150" style={{ color: "var(--neon-green)" }} title="New workspace">
             <Plus size={11} />
           </button>
-          <button onClick={() => importRef.current?.click()} className="p-1.5 rounded hover:bg-white/5" style={{ color: "rgba(200,255,192,0.4)" }} title="Import workspace">
+          <button onClick={() => importRef.current?.click()} className="p-1.5 rounded-lg hover:bg-white/5 transition-colors duration-150" style={{ color: "rgba(200,255,192,0.4)" }} title="Import workspace">
             <Upload size={10} />
           </button>
           <input ref={importRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
@@ -627,18 +611,19 @@ export function WorkspacePanel() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
             className="overflow-hidden border-b"
             style={{ borderColor: "rgba(57,255,20,0.08)" }}
           >
             <div className="max-h-[200px] overflow-y-auto py-1">
               {activeWorkspaces.length === 0 && archivedWorkspaces.length === 0 && (
-                <p className="text-[10px] text-center py-3" style={{ color: "rgba(200,255,192,0.25)" }}>No workspaces yet</p>
+                <p className="text-[10px] text-center py-4" style={{ color: "rgba(200,255,192,0.25)" }}>No workspaces yet</p>
               )}
               {activeWorkspaces.map(w => (
                 <button
                   key={w.id}
                   onClick={() => { setActiveWorkspaceId(w.id); setShowWsList(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-2 text-left hover:bg-white/5 transition-colors"
+                  className="w-full flex items-center gap-2.5 px-4 py-2.5 text-left hover:bg-white/5 transition-colors duration-150"
                 >
                   <span style={{ fontSize: 13 }}>{w.emoji || "🌐"}</span>
                   <div className="flex-1 min-w-0">
@@ -647,7 +632,7 @@ export function WorkspacePanel() {
                   </div>
                   {w.id === activeWorkspaceId && <Check size={10} style={{ color: "var(--neon-green)", flexShrink: 0 }} />}
                   <div className="flex items-center gap-0.5">
-                    <button onClick={e => { e.stopPropagation(); archiveWorkspace(w.id); }} className="p-1 rounded hover:bg-white/10 opacity-0 group-hover:opacity-100" style={{ color: "rgba(200,255,192,0.4)" }} title="Archive">
+                    <button onClick={e => { e.stopPropagation(); archiveWorkspace(w.id); }} className="p-1 rounded-lg hover:bg-white/10 opacity-0 group-hover:opacity-100" style={{ color: "rgba(200,255,192,0.4)" }} title="Archive">
                       <Archive size={9} />
                     </button>
                     <button
@@ -656,7 +641,7 @@ export function WorkspacePanel() {
                         if (confirmDelete === w.id) { deleteWorkspace(w.id); setConfirmDelete(null); }
                         else { setConfirmDelete(w.id); setTimeout(() => setConfirmDelete(null), 2500); }
                       }}
-                      className="p-1 rounded hover:bg-white/10"
+                      className="p-1 rounded-lg hover:bg-white/10 transition-colors duration-150"
                       style={{ color: confirmDelete === w.id ? "var(--neon-magenta, #ff2d78)" : "rgba(200,255,192,0.3)" }}
                       title={confirmDelete === w.id ? "Click again to confirm delete" : "Delete"}
                     >
@@ -666,17 +651,17 @@ export function WorkspacePanel() {
                 </button>
               ))}
               {archivedWorkspaces.length > 0 && (
-                <div className="px-3 py-1 text-[8px] uppercase tracking-widest" style={{ color: "rgba(200,255,192,0.2)" }}>Archived</div>
+                <div className="px-4 py-1.5 text-[8px] uppercase tracking-widest" style={{ color: "rgba(200,255,192,0.2)" }}>Archived</div>
               )}
               {archivedWorkspaces.map(w => (
                 <button
                   key={w.id}
                   onClick={() => { setActiveWorkspaceId(w.id); setShowWsList(false); }}
-                  className="w-full flex items-center gap-2 px-3 py-1.5 text-left hover:bg-white/5 opacity-50"
+                  className="w-full flex items-center gap-2.5 px-4 py-2 text-left hover:bg-white/5 opacity-50 transition-colors duration-150"
                 >
                   <span style={{ fontSize: 11 }}>{w.emoji || "🌐"}</span>
                   <span className="text-[10px] truncate" style={{ color: "rgba(200,255,192,0.5)" }}>{w.name}</span>
-                  <button onClick={e => { e.stopPropagation(); archiveWorkspace(w.id); }} className="ml-auto p-1 rounded hover:bg-white/10" style={{ color: "var(--neon-cyan)" }} title="Unarchive"><RefreshCw size={9} /></button>
+                  <button onClick={e => { e.stopPropagation(); archiveWorkspace(w.id); }} className="ml-auto p-1 rounded-lg hover:bg-white/10" style={{ color: "var(--neon-cyan)" }} title="Unarchive"><RefreshCw size={9} /></button>
                 </button>
               ))}
             </div>
@@ -691,8 +676,9 @@ export function WorkspacePanel() {
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.2 }}
             className="overflow-hidden border-b"
-            style={{ borderColor: "rgba(0,245,255,0.15)", background: "rgba(0,245,255,0.02)" }}
+            style={{ borderColor: "rgba(0,245,255,0.12)", background: "rgba(0,245,255,0.015)" }}
           >
             <WorkspaceForm
               initial={showEditForm ? ws : null}
@@ -711,13 +697,13 @@ export function WorkspacePanel() {
 
       {/* ── No workspace selected ── */}
       {!ws && !showCreateForm && (
-        <div className="flex flex-col items-center justify-center py-10 gap-3">
-          <Folder size={28} style={{ color: "rgba(200,255,192,0.15)" }} />
+        <div className="flex flex-col items-center justify-center py-12 gap-4">
+          <Folder size={30} style={{ color: "rgba(200,255,192,0.12)" }} />
           <p className="text-xs" style={{ color: "rgba(200,255,192,0.3)" }}>No workspace active</p>
           <button
             onClick={() => setShowCreate(true)}
-            className="px-4 py-2 rounded-lg text-[10px] font-bold uppercase tracking-widest transition-all"
-            style={{ background: "rgba(57,255,20,0.1)", color: "var(--neon-green)", border: "1px solid var(--neon-green)" }}
+            className="px-5 py-2.5 text-[10px] font-bold uppercase tracking-widest transition-all duration-200 hover:opacity-90"
+            style={{ background: "rgba(57,255,20,0.1)", color: "var(--neon-green)", border: "1px solid var(--neon-green)", borderRadius: 8 }}
           >
             + Create Workspace
           </button>
@@ -733,33 +719,34 @@ export function WorkspacePanel() {
           {/* ── Stats bar ── */}
           {workspaceStats && (
             <div
-              className="flex items-center gap-3 px-3 py-2.5 border-b"
-              style={{ borderColor: "rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.15)" }}
+              className="flex items-center gap-5 px-4 py-3.5 border-b"
+              style={{ borderColor: "rgba(255,255,255,0.04)", background: "rgba(0,0,0,0.12)" }}
             >
-              <ProgressRing percent={workspaceStats.progress} size={38} stroke={3} />
-              <div className="flex gap-3 flex-wrap">
+              <ProgressRing percent={workspaceStats.progress} size={42} stroke={2.5} />
+              <div className="flex gap-5 flex-wrap">
                 {[
                   { label: "To Do", val: workspaceStats.toDo, color: TASK_STATUS_COLORS.coming_soon },
                   { label: "Doing", val: workspaceStats.inProgress, color: TASK_STATUS_COLORS.in_progress },
                   { label: "Done", val: workspaceStats.done, color: TASK_STATUS_COLORS.completed },
                   { label: "Blocked", val: workspaceStats.blocked, color: TASK_STATUS_COLORS.blocked },
                 ].map(s => (
-                  <div key={s.label} className="flex flex-col">
-                    <span className="text-[10px] font-bold" style={{ color: s.color }}>{s.val}</span>
-                    <span className="text-[8px]" style={{ color: "rgba(200,255,192,0.3)" }}>{s.label}</span>
+                  <div key={s.label} className="flex flex-col items-start">
+                    <span className="text-[11px] font-bold tabular-nums" style={{ color: s.color }}>{s.val}</span>
+                    <span className="text-[8px] mt-0.5" style={{ color: "rgba(200,255,192,0.3)" }}>{s.label}</span>
                   </div>
                 ))}
               </div>
               {/* ── Agent LIVE indicator ── */}
               {agentRun?.isRunning && (
-                <div className="ml-auto flex items-center gap-1.5">
+                <div className="ml-auto flex items-center gap-2">
                   <span
-                    className="text-[8px] px-2 py-0.5 rounded-full font-bold uppercase tracking-widest"
+                    className="text-[8px] px-2.5 py-0.5 rounded-full font-bold uppercase tracking-widest"
                     style={{
                       color: "#ff8c00",
-                      background: "rgba(255,140,0,0.12)",
-                      border: "1px solid rgba(255,140,0,0.3)",
+                      background: "rgba(255,140,0,0.1)",
+                      border: "1px solid rgba(255,140,0,0.25)",
                       animation: "db-pulse 1.5s infinite",
+                      borderRadius: 8,
                     }}
                   >
                     ● LIVE
@@ -779,66 +766,75 @@ export function WorkspacePanel() {
             </div>
           )}
 
-          {/* ── Quick Agent Run ── */}
+          {/* ── Agent ── */}
           <div
-            className="px-3 py-2.5 border-b"
+            className="px-4 py-3 border-b"
             style={{
-              borderColor: agentRun?.isRunning ? "rgba(255,140,0,0.2)" : "rgba(255,255,255,0.04)",
-              background: agentRun?.isRunning ? "rgba(255,140,0,0.03)" : "rgba(0,0,0,0.1)",
+              borderColor: agentRun?.isRunning ? "rgba(255,140,0,0.15)" : "rgba(255,255,255,0.04)",
+              background: agentRun?.isRunning ? "rgba(255,140,0,0.025)" : "transparent",
             }}
           >
-            <div className="flex items-center gap-1.5 mb-1">
-              <Zap size={9} style={{ color: agentRun?.isRunning ? "#ff8c00" : "rgba(200,255,192,0.35)" }} />
-              <span className="text-[8px] font-bold uppercase tracking-[0.18em]" style={{ color: agentRun?.isRunning ? "#ff8c00" : "rgba(200,255,192,0.35)" }}>
-                Quick Agent Run
+            <div className="flex items-center gap-1.5 mb-2">
+              <Zap size={10} style={{ color: agentRun?.isRunning ? "#ff8c00" : "rgba(200,255,192,0.3)" }} />
+              <span className="text-[8px] font-bold uppercase tracking-[0.15em]" style={{ color: agentRun?.isRunning ? "#ff8c00" : "rgba(200,255,192,0.3)" }}>
+                Agent
               </span>
             </div>
-            <div className="flex items-center gap-1.5">
-              <input
-                type="text"
-                placeholder="Tell the agent what to do…"
-                value={agentPrompt}
-                onChange={e => setAgentPrompt(e.target.value)}
-                onKeyDown={e => e.key === "Enter" && handleAgentRun()}
-                disabled={agentRun?.isRunning}
-                className="flex-1 bg-transparent text-[10px] outline-none"
+            <div className="flex items-center gap-2">
+              <div
+                className="flex-1 rounded-lg px-3 py-2 transition-all duration-200"
                 style={{
-                  color: "rgba(200,255,192,0.8)",
+                  background: "rgba(255,255,255,0.03)",
+                  border: "1px solid rgba(255,255,255,0.06)",
+                  borderRadius: 8,
                   opacity: agentRun?.isRunning ? 0.5 : 1,
                 }}
-              />
+              >
+                <input
+                  type="text"
+                  placeholder="Tell the agent what to do…"
+                  value={agentPrompt}
+                  onChange={e => setAgentPrompt(e.target.value)}
+                  onKeyDown={e => e.key === "Enter" && handleAgentRun()}
+                  disabled={agentRun?.isRunning}
+                  className="w-full bg-transparent text-[10px] outline-none"
+                  style={{ color: "rgba(200,255,192,0.8)" }}
+                />
+              </div>
               {agentRun?.isRunning ? (
                 <button
                   onClick={handleStopAgent}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold transition-all hover:opacity-80"
+                  className="flex items-center gap-1 px-3 py-2 text-[9px] font-bold transition-all duration-200 hover:opacity-80"
                   style={{
                     color: "#ff2d78",
                     background: "rgba(255,45,120,0.1)",
-                    border: "1px solid rgba(255,45,120,0.3)",
+                    border: "1px solid rgba(255,45,120,0.25)",
+                    borderRadius: 8,
                   }}
                 >
-                  <StopIcon size={8} /> ■ Stop
+                  <StopIcon size={8} /> Stop
                 </button>
               ) : (
                 <button
                   onClick={handleAgentRun}
                   disabled={!agentPrompt.trim()}
-                  className="flex items-center gap-1 px-2 py-1 rounded text-[9px] font-bold transition-all hover:opacity-80"
+                  className="flex items-center gap-1 px-3 py-2 text-[9px] font-bold transition-all duration-200 hover:opacity-80"
                   style={{
-                    color: agentPrompt.trim() ? "#ff8c00" : "rgba(200,255,192,0.2)",
+                    color: agentPrompt.trim() ? "#ff8c00" : "rgba(200,255,192,0.15)",
                     background: agentPrompt.trim() ? "rgba(255,140,0,0.1)" : "rgba(255,255,255,0.02)",
-                    border: `1px solid ${agentPrompt.trim() ? "rgba(255,140,0,0.3)" : "rgba(255,255,255,0.05)"}`,
+                    border: `1px solid ${agentPrompt.trim() ? "rgba(255,140,0,0.25)" : "rgba(255,255,255,0.04)"}`,
+                    borderRadius: 8,
                     cursor: agentPrompt.trim() ? "pointer" : "not-allowed",
                   }}
                 >
-                  <Play size={8} /> ▶ Run
+                  <Play size={8} /> Run
                 </button>
               )}
             </div>
 
             {/* Agent status when running */}
             {agentRun?.isRunning && (
-              <div className="mt-2">
+              <div className="mt-2.5">
                 <div className="flex items-center gap-2 mb-1.5">
                   {agentRun.currentAgent && (
                     <Badge label={agentRun.currentAgent} color="#ff8c00" bg="rgba(255,140,0,0.1)" />
@@ -853,24 +849,25 @@ export function WorkspacePanel() {
                 {/* Mini console (last 5 entries) */}
                 {agentConsoleEntries.length > 0 && (
                   <div
-                    className="rounded border overflow-hidden"
+                    className="rounded-lg border overflow-hidden"
                     style={{
-                      borderColor: "rgba(255,140,0,0.15)",
-                      background: "rgba(0,0,0,0.3)",
+                      borderColor: "rgba(255,140,0,0.12)",
+                      background: "rgba(0,0,0,0.25)",
                       maxHeight: 100,
                       overflowY: "auto",
+                      borderRadius: 8,
                     }}
                   >
-                    <div className="px-2 py-1 space-y-0.5">
+                    <div className="px-3 py-2 space-y-1">
                       {agentConsoleEntries.map((entry, i) => (
                         <div key={i} className="flex items-start gap-1.5">
                           <span className="text-[7px] mt-0.5 flex-shrink-0" style={{ color: "rgba(255,140,0,0.5)" }}>
                             {entry.type === "error" ? "⚠" : entry.type === "result" ? "✓" : "›"}
                           </span>
                           <span
-                            className="text-[8px] leading-snug break-all"
+                            className="text-[8px] leading-relaxed break-all"
                             style={{
-                              color: entry.type === "error" ? "rgba(255,45,120,0.8)" : "rgba(200,255,192,0.5)",
+                              color: entry.type === "error" ? "rgba(255,45,120,0.8)" : "rgba(200,255,192,0.45)",
                             }}
                           >
                             {typeof entry.text === "string" ? entry.text.slice(0, 120) : JSON.stringify(entry.text).slice(0, 120)}
@@ -881,54 +878,6 @@ export function WorkspacePanel() {
                   </div>
                 )}
               </div>
-            )}
-          </div>
-
-          {/* ── Phase selector ── */}
-          <div className="px-3 py-2 border-b flex items-center gap-2 flex-wrap" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-            <Layers size={10} style={{ color: "rgba(200,255,192,0.3)", flexShrink: 0 }} />
-            {(ws.phases || []).map(phase => (
-              <button
-                key={phase}
-                onClick={() => setWorkspacePhase(phase)}
-                className="group flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold transition-all"
-                style={{
-                  background: ws.currentPhase === phase ? "rgba(57,255,20,0.12)" : "rgba(255,255,255,0.04)",
-                  color: ws.currentPhase === phase ? "var(--neon-green)" : "rgba(200,255,192,0.4)",
-                  border: `1px solid ${ws.currentPhase === phase ? "rgba(57,255,20,0.4)" : "transparent"}`,
-                }}
-              >
-                {ws.currentPhase === phase && <ArrowRight size={8} />}
-                {phase}
-                <button
-                  onClick={e => { e.stopPropagation(); removePhase(phase); }}
-                  className="hidden group-hover:inline ml-0.5"
-                  style={{ color: "rgba(255,45,120,0.6)" }}
-                >
-                  <X size={7} />
-                </button>
-              </button>
-            ))}
-
-            {/* Add phase */}
-            {showPhaseInput ? (
-              <input
-                autoFocus
-                className="bg-transparent border-b text-[9px] outline-none w-20"
-                style={{ borderColor: "var(--neon-cyan)", color: "rgba(200,255,192,0.8)" }}
-                placeholder="Phase name…"
-                value={phaseInput}
-                onChange={e => setPhaseInput(e.target.value)}
-                onKeyDown={e => {
-                  if (e.key === "Enter" && phaseInput.trim()) { addPhase(phaseInput.trim()); setPhaseInput(""); setShowPhaseInput(false); }
-                  if (e.key === "Escape") { setShowPhaseInput(false); setPhaseInput(""); }
-                }}
-                onBlur={() => { setShowPhaseInput(false); setPhaseInput(""); }}
-              />
-            ) : (
-              <button onClick={() => setShowPhaseInput(true)} className="text-[8px] hover:opacity-80" style={{ color: "rgba(200,255,192,0.3)" }}>
-                <Plus size={9} />
-              </button>
             )}
           </div>
 
@@ -943,16 +892,16 @@ export function WorkspacePanel() {
               <button
                 key={id}
                 onClick={() => setTab(id)}
-                className="flex-1 flex items-center justify-center gap-1 py-2 text-[9px] font-bold uppercase tracking-widest transition-all"
+                className="flex-1 flex items-center justify-center gap-1.5 py-2.5 text-[9px] font-bold uppercase tracking-widest transition-all duration-200"
                 style={{
-                  color: tab === id ? "var(--neon-green)" : "rgba(200,255,192,0.3)",
+                  color: tab === id ? "var(--neon-green)" : "rgba(200,255,192,0.28)",
                   borderBottom: tab === id ? "2px solid var(--neon-green)" : "2px solid transparent",
-                  background: tab === id ? "rgba(57,255,20,0.03)" : "transparent",
+                  background: tab === id ? "rgba(57,255,20,0.025)" : "transparent",
                 }}
               >
                 <Icon size={9} /> {label}
-                {id === "tasks" && tasks.length > 0 && <span className="text-[7px] px-1 rounded-full bg-white/10">{tasks.length}</span>}
-                {id === "outputs" && outputs.length > 0 && <span className="text-[7px] px-1 rounded-full bg-white/10">{outputs.length}</span>}
+                {id === "tasks" && tasks.length > 0 && <span className="text-[7px] px-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>{tasks.length}</span>}
+                {id === "outputs" && outputs.length > 0 && <span className="text-[7px] px-1 rounded-full" style={{ background: "rgba(255,255,255,0.08)" }}>{outputs.length}</span>}
               </button>
             ))}
           </div>
@@ -961,24 +910,29 @@ export function WorkspacePanel() {
           {tab === "tasks" && (
             <div>
               {/* Quick-add */}
-              <div className="flex items-center gap-1.5 px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-                <input
-                  type="text"
-                  placeholder="Add task…"
-                  value={newTaskInput}
-                  onChange={e => setNewTaskInput(e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleAddTask()}
-                  className="flex-1 bg-transparent text-xs outline-none"
-                  style={{ color: "rgba(200,255,192,0.8)" }}
-                />
+              <div className="flex items-center gap-2 px-4 py-2.5 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+                <div
+                  className="flex-1 rounded-lg px-3 py-1.5"
+                  style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.06)", borderRadius: 8 }}
+                >
+                  <input
+                    type="text"
+                    placeholder="Add task…"
+                    value={newTaskInput}
+                    onChange={e => setNewTaskInput(e.target.value)}
+                    onKeyDown={e => e.key === "Enter" && handleAddTask()}
+                    className="w-full bg-transparent text-xs outline-none"
+                    style={{ color: "rgba(200,255,192,0.8)" }}
+                  />
+                </div>
                 {/* Priority picker */}
-                <div className="flex items-center gap-0.5">
+                <div className="flex items-center gap-1">
                   {["low", "normal", "high", "urgent"].map(p => (
                     <button
                       key={p}
                       onClick={() => setNewTaskPriority(p)}
                       title={p}
-                      className="w-3 h-3 rounded-full border transition-all"
+                      className="w-3 h-3 rounded-full border transition-all duration-200"
                       style={{
                         background: newTaskPriority === p ? TASK_PRIORITY_COLORS[p] : "transparent",
                         borderColor: TASK_PRIORITY_COLORS[p],
@@ -988,7 +942,7 @@ export function WorkspacePanel() {
                 </div>
                 <button
                   onClick={handleAddTask}
-                  className="p-1 rounded hover:bg-white/10 flex-shrink-0"
+                  className="p-1.5 rounded-lg hover:bg-white/10 flex-shrink-0 transition-colors duration-150"
                   style={{ color: "var(--neon-green)" }}
                 >
                   <Plus size={12} />
@@ -996,16 +950,17 @@ export function WorkspacePanel() {
               </div>
 
               {/* Status filter */}
-              <div className="flex items-center gap-1 px-3 py-1.5 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
+              <div className="flex items-center gap-1.5 px-4 py-2 overflow-x-auto" style={{ borderBottom: "1px solid rgba(255,255,255,0.03)" }}>
                 {["all", "coming_soon", "in_progress", "completed", "blocked"].map(f => (
                   <button
                     key={f}
                     onClick={() => setTaskFilter(f)}
-                    className="flex-shrink-0 px-2 py-0.5 rounded-full text-[8px] font-bold transition-all"
+                    className="flex-shrink-0 px-2.5 py-0.5 text-[8px] font-bold transition-all duration-200"
                     style={{
                       background: taskFilter === f ? "rgba(57,255,20,0.1)" : "transparent",
-                      color: taskFilter === f ? "var(--neon-green)" : "rgba(200,255,192,0.35)",
-                      border: `1px solid ${taskFilter === f ? "rgba(57,255,20,0.3)" : "transparent"}`,
+                      color: taskFilter === f ? "var(--neon-green)" : "rgba(200,255,192,0.3)",
+                      border: `1px solid ${taskFilter === f ? "rgba(57,255,20,0.25)" : "transparent"}`,
+                      borderRadius: 8,
                     }}
                   >
                     {f === "all" ? `All (${tasks.length})` : `${TASK_STATUS_LABELS[f]} (${tasks.filter(t => t.status === f).length})`}
@@ -1020,16 +975,16 @@ export function WorkspacePanel() {
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
-                    className="flex items-center gap-2 px-3 py-1.5 border-b"
-                    style={{ borderColor: "rgba(57,255,20,0.1)", background: "rgba(57,255,20,0.04)" }}
+                    className="flex items-center gap-2 px-4 py-2 border-b"
+                    style={{ borderColor: "rgba(57,255,20,0.08)", background: "rgba(57,255,20,0.03)" }}
                   >
                     <span className="text-[9px] font-bold" style={{ color: "var(--neon-green)" }}>
                       {selectedTasks.size} selected
                     </span>
-                    <button onClick={handleBulkComplete} className="flex items-center gap-1 text-[9px] px-2 py-0.5 rounded border" style={{ color: "var(--neon-green)", borderColor: "rgba(57,255,20,0.3)" }}>
+                    <button onClick={handleBulkComplete} className="flex items-center gap-1 text-[9px] px-2.5 py-1 transition-colors duration-150" style={{ color: "var(--neon-green)", border: "1px solid rgba(57,255,20,0.25)", borderRadius: 8 }}>
                       <CheckSquare size={9} /> Complete
                     </button>
-                    <button onClick={handleBulkDelete} className="flex items-center gap-1 text-[9px] px-2 py-0.5 rounded border" style={{ color: "var(--neon-magenta, #ff2d78)", borderColor: "rgba(255,45,120,0.3)" }}>
+                    <button onClick={handleBulkDelete} className="flex items-center gap-1 text-[9px] px-2.5 py-1 transition-colors duration-150" style={{ color: "var(--neon-magenta, #ff2d78)", border: "1px solid rgba(255,45,120,0.25)", borderRadius: 8 }}>
                       <Trash2 size={9} /> Delete
                     </button>
                     <button onClick={clearSelection} className="ml-auto" style={{ color: "rgba(200,255,192,0.3)" }}>
@@ -1043,7 +998,7 @@ export function WorkspacePanel() {
               <div className="py-1">
                 <AnimatePresence>
                   {filteredTasks.length === 0 && (
-                    <p className="text-[10px] text-center py-4" style={{ color: "rgba(200,255,192,0.2)" }}>
+                    <p className="text-[10px] text-center py-6" style={{ color: "rgba(200,255,192,0.2)" }}>
                       {taskFilter === "all" ? "No tasks yet. Add one above." : `No ${TASK_STATUS_LABELS[taskFilter]} tasks.`}
                     </p>
                   )}
@@ -1066,7 +1021,7 @@ export function WorkspacePanel() {
           {tab === "outputs" && (
             <div className="py-1">
               {outputs.length === 0 && (
-                <p className="text-[10px] text-center py-6" style={{ color: "rgba(200,255,192,0.2)" }}>
+                <p className="text-[10px] text-center py-8" style={{ color: "rgba(200,255,192,0.2)" }}>
                   No outputs yet. The AI agent will save files here.
                 </p>
               )}
@@ -1086,27 +1041,27 @@ export function WorkspacePanel() {
           {/* ══ TIMELINE TAB ═══════════════════════════════════════ */}
           {tab === "timeline" && (
             <div>
-              <div className="flex items-center justify-between px-3 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+              <div className="flex items-center justify-between px-4 py-2.5 border-b" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
                 <span className="text-[9px]" style={{ color: "rgba(200,255,192,0.3)" }}>{timeline.length} events</span>
                 {timeline.length > 0 && (
-                  <button onClick={clearTimeline} className="flex items-center gap-1 text-[9px] hover:opacity-80" style={{ color: "rgba(255,45,120,0.6)" }}>
+                  <button onClick={clearTimeline} className="flex items-center gap-1 text-[9px] hover:opacity-80 transition-opacity duration-150" style={{ color: "rgba(255,45,120,0.6)" }}>
                     <RotateCcw size={9} /> Clear
                   </button>
                 )}
               </div>
-              <div className="py-1 px-3">
+              <div className="py-1 px-4">
                 {timeline.length === 0 && (
-                  <p className="text-[10px] text-center py-6" style={{ color: "rgba(200,255,192,0.2)" }}>
+                  <p className="text-[10px] text-center py-8" style={{ color: "rgba(200,255,192,0.2)" }}>
                     No events yet.
                   </p>
                 )}
                 {timeline.map((ev, i) => (
-                  <div key={ev.id} className="flex items-start gap-2 py-1.5 border-b" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
+                  <div key={ev.id} className="flex items-start gap-2.5 py-2 border-b" style={{ borderColor: "rgba(255,255,255,0.03)" }}>
                     <span className="text-[10px] flex-shrink-0 mt-0.5 w-3 text-center" style={{ color: timelineTypeColor[ev.type] || "rgba(200,255,192,0.3)" }}>
                       {timelineTypeIcon[ev.type] || "·"}
                     </span>
                     <div className="flex-1 min-w-0">
-                      <p className="text-[10px] leading-snug" style={{ color: "rgba(200,255,192,0.65)" }}>{ev.text}</p>
+                      <p className="text-[10px] leading-relaxed" style={{ color: "rgba(200,255,192,0.65)" }}>{ev.text}</p>
                       <p className="text-[8px] mt-0.5" style={{ color: "rgba(200,255,192,0.2)" }}>
                         {new Date(ev.timestamp).toLocaleString()}
                       </p>
@@ -1119,17 +1074,18 @@ export function WorkspacePanel() {
 
           {/* ══ NOTES TAB ══════════════════════════════════════════ */}
           {tab === "notes" && (
-            <div className="px-3 py-2 flex flex-col gap-2">
+            <div className="px-4 py-3 flex flex-col gap-2">
               <p className="text-[9px] uppercase tracking-widest" style={{ color: "rgba(200,255,192,0.3)" }}>
                 Workspace Notes
               </p>
               <textarea
-                className="w-full bg-transparent border rounded px-2 py-2 text-xs outline-none resize-none"
+                className="w-full bg-transparent border px-3 py-2.5 text-xs outline-none resize-none transition-colors duration-200 focus:border-[rgba(57,255,20,0.3)]"
                 style={{
                   borderColor: "rgba(255,255,255,0.08)",
                   color: "rgba(200,255,192,0.8)",
                   minHeight: 180,
-                  lineHeight: 1.65,
+                  lineHeight: 1.7,
+                  borderRadius: 8,
                 }}
                 placeholder="Free-form notes for this workspace…"
                 value={ws.notes || ""}
@@ -1143,15 +1099,15 @@ export function WorkspacePanel() {
 
           {/* ── Rules display (always visible at bottom) ── */}
           {ws.rules?.length > 0 && (
-            <div className="px-3 py-2 mt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
-              <p className="text-[8px] uppercase tracking-widest mb-1.5" style={{ color: "rgba(200,255,192,0.25)" }}>
+            <div className="px-4 py-3 mt-2 border-t" style={{ borderColor: "rgba(255,255,255,0.04)" }}>
+              <p className="text-[8px] uppercase tracking-widest mb-2" style={{ color: "rgba(200,255,192,0.25)" }}>
                 Agent Rules ({ws.rules.length})
               </p>
-              <div className="space-y-1">
+              <div className="space-y-1.5">
                 {ws.rules.map((rule, i) => (
-                  <div key={i} className="flex items-start gap-1.5">
+                  <div key={i} className="flex items-start gap-2">
                     <span className="text-[8px] mt-0.5 flex-shrink-0" style={{ color: "rgba(200,255,192,0.2)" }}>{i + 1}.</span>
-                    <p className="text-[9px] leading-snug" style={{ color: "rgba(200,255,192,0.45)" }}>{rule}</p>
+                    <p className="text-[9px] leading-relaxed" style={{ color: "rgba(200,255,192,0.45)" }}>{rule}</p>
                   </div>
                 ))}
               </div>
