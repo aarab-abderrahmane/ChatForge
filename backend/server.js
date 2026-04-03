@@ -385,8 +385,48 @@ export async function smartRouter(messages, keys, options = {}) {
   );
 }
 
+
+
 // ─────────────────────────────────────────────
-// POST /api/chat — main chat endpoint
+// POST /api/search — Tavily web search for agent
+// ─────────────────────────────────────────────
+app.post("/api/search", async (req, res) => {
+  const { query, userId } = req.body;
+  if (!query) return res.status(400).json({ error: "query is required" });
+
+  const TAVILY_KEY = process.env.TAVILY_API_KEY;
+  if (!TAVILY_KEY) return res.status(503).json({ error: "Tavily API key not configured" });
+
+  try {
+    const response = await fetch("https://api.tavily.com/search", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        api_key: TAVILY_KEY,
+        query,
+        search_depth: "basic",
+        max_results: 5,
+        include_answer: true,
+      }),
+    });
+    const data = await response.json();
+    res.json({
+      answer: data.answer || "",
+      results: (data.results || []).map(r => ({
+        title: r.title,
+        url: r.url,
+        content: r.content?.slice(0, 400),
+      })),
+    });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+
+
+// ─────────────────────────────────────────────
+// POST /api/agent — main chat endpoint
 // ─────────────────────────────────────────────
 app.post("/api/agent", async (req, res) => {
   const { userId, messages, skillPrompt, model, parameters, workspaceState, clientKeys } = req.body;
@@ -407,20 +447,28 @@ app.post("/api/agent", async (req, res) => {
   res.flushHeaders();
 
   try {
+
     let finalSystemPrompt = skillPrompt || "You are ChatForge AI.";
 
     if (workspaceState) {
+      // Build conversation summary if provided
+      const memorySummary = workspaceState.conversationSummary
+        ? `\n==== LONG-TERM MEMORY (Summary of earlier conversation) ====\n${workspaceState.conversationSummary}\n`
+        : "";
+
       finalSystemPrompt = `### ROLE: ULTRA-AUTONOMOUS LOGIC ENGINE (ReAct Framework)
 You are not a chatbot. You are a workspace execution engine running a continuous loop of:
   OBSERVE → THINK → PLAN → EXECUTE → REPEAT
 
 ==== WORKSPACE IDENTITY ====
+Name: ${workspaceState.name || "Untitled Workspace"}
 Type/Format: ${workspaceState.type}
 Description: ${workspaceState.description}
 Current Phase: ${workspaceState.currentPhase}
+All Phases: ${workspaceState.allPhases || workspaceState.currentPhase}
 
 ${workspaceState.immortalRules}
-
+${memorySummary}
 ==== WORKSPACE STATE ====
 Active / Pending Tasks:
 ${workspaceState.activeTasks}
@@ -444,8 +492,9 @@ ${workspaceState.filesOutput}
 6. LAW OF CONTINUITY: If pending tasks remain, you MUST set "requires_approval": false to trigger the next loop automatically.
 
 ### 🛠 TOOL CALLS
-You have access to the following tools. If you need to use a tool, specify it in the "tool_calls" array. The system will execute it and return the results before you give your final answer.
+You have access to the following tools. If you need to use a tool, specify it in the "tool_calls" array. The system will execute it and return results before you give your final answer.
 - {"tool": "read_file", "fileName": "exact_file_name"}
+- {"tool": "web_search", "query": "your search query here"}
 
 ### 👻 GHOST TASK DISCOVERY (Proactive Intelligence)
 Whenever you receive a broad user request, you MUST automatically deduce the necessary sub-tasks and include them in the 'add_tasks' array. For example, if asked to "Build a Login Page", proactively add "Ghost Tasks" such as "Setup User Auth Provider" and "Create Password Reset Flow". Never wait for the user to specify obvious technical prerequisites.
@@ -475,14 +524,15 @@ Structure your 'answer' field using this exact format every turn:
 Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping it.
 {
   "thought": "Step-by-step internal reasoning: current state, root cause of any issue, chosen next action.",
-  "tool_calls": [{"tool": "read_file", "fileName": "App.jsx"}], // optional array of tools to execute BEFORE proceeding
+  "tool_calls": [{"tool": "read_file", "fileName": "App.jsx"}],
   "observation": "What I see right now: files present, tasks pending/done, errors detected.",
   "phase": "Brainstorming | Planning | Executing | Review/Testing | Completed",
   "add_tasks": [{"title": "Atomic Task Name", "status": "pending"}],
   "complete_tasks": ["Exact title of the ONE task finished this turn"],
   "save_outputs": [{"fileName": "filename.ext", "content": "FULL CODE — NEVER PARTIAL OR STUBBED", "language": "javascript"}],
-  "answer": "🔍 OBSERVATION: ...\n🤔 REASONING: ...\n🗺️ LIVE PLAN: ...\n🛠️ ACTION: ...\n🔁 STATUS: ...",
-  "requires_approval": false
+  "answer": "🔍 OBSERVATION: ...\\n🤔 REASONING: ...\\n🗺️ LIVE PLAN: ...\\n🛠️ ACTION: ...\\n🔁 STATUS: ...",
+  "requires_approval": false,
+  "timeline_event": "One short sentence describing what you did this turn, for the activity log."
 }
 
 ### DOMAIN ADAPTABILITY
@@ -543,12 +593,44 @@ Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping
           // We have tools to execute!
           const toolResults = [];
           for (const tc of parsedJSON.tool_calls) {
+
             if (tc.tool === "read_file") {
               const fileData = workspaceState?.rawOutputs?.find(f => f.filename === tc.fileName);
               if (fileData) {
                 toolResults.push(`File ${tc.fileName}:\n${fileData.content}`);
               } else {
                 toolResults.push(`File ${tc.fileName} not found.`);
+              }
+            }
+
+            if (tc.tool === "web_search" && tc.query) {
+              // Notify frontend that a search is happening
+              res.write(`data: ${JSON.stringify({ searching: tc.query })}\n\n`);
+              try {
+                const TAVILY_KEY = process.env.TAVILY_API_KEY;
+                if (TAVILY_KEY) {
+                  const searchRes = await fetch("https://api.tavily.com/search", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      api_key: TAVILY_KEY,
+                      query: tc.query,
+                      search_depth: "basic",
+                      max_results: 4,
+                      include_answer: true,
+                    }),
+                  });
+                  const searchData = await searchRes.json();
+                  const summary = searchData.answer || "";
+                  const snippets = (searchData.results || [])
+                    .map(r => `- ${r.title}: ${r.content?.slice(0, 300)}`)
+                    .join("\n");
+                  toolResults.push(`Web Search Results for "${tc.query}":\n${summary}\n${snippets}`);
+                } else {
+                  toolResults.push(`Web search unavailable: TAVILY_API_KEY not set.`);
+                }
+              } catch (searchErr) {
+                toolResults.push(`Web search failed: ${searchErr.message}`);
               }
             }
           }

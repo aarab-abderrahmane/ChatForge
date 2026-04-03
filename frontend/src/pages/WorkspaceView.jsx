@@ -17,6 +17,8 @@ export function WorkspaceView() {
         saveOutput,
         setWorkspacePhase,
         syncAgentAction,
+        updateConversationSummary,   // NEW
+        addTimelineEvent,            // NEW
     } = useContext(WorkspaceContext);
 
     const { preferences, setPreferences, settings, loading, setLoading } = useContext(chatsContext);
@@ -133,6 +135,51 @@ export function WorkspaceView() {
 
     // Chat Submission Logic
     async function askAI(question, id, controllerSignal) {
+
+        // ── Sliding window memory ──────────────────────────────
+        // If chat is getting long, summarize old messages to save tokens
+        const MAX_MESSAGES = 14;
+        const currentChats = activeWorkspace.chats || [];
+        if (currentChats.length > MAX_MESSAGES) {
+            const oldMessages = currentChats.slice(0, currentChats.length - 6);
+            const recentMessages = currentChats.slice(currentChats.length - 6);
+
+            // Build a plain text version of old messages for summarization
+            const oldText = oldMessages
+                .filter(c => c.type === "ch" || c.type === "ms")
+                .map(c => {
+                    if (c.type === "ch") return `User: ${c.content}`;
+                    if (c.type === "ms") {
+                        const content = Array.isArray(c.content) ? c.content.join(" ") : c.content;
+                        return `Assistant: ${typeof content === "string" ? content.slice(0, 200) : ""}`;
+                    }
+                    return "";
+                })
+                .filter(Boolean)
+                .join("\n");
+
+            if (oldText.length > 200 && !activeWorkspace.conversationSummary?.includes(oldText.slice(0, 50))) {
+                try {
+                    const summaryRes = await api.chat({
+                        userId: preferences.userId,
+                        messages: [{ role: "user", content: `Summarize this conversation in 4 sentences, focusing on what was built and what decisions were made:\n\n${oldText}` }],
+                        skillPrompt: "You are a summarizer. Reply with only the summary, no preamble.",
+                        clientKeys: settings.clientKeys,
+                    });
+                    if (summaryRes?.content) {
+                        updateConversationSummary(summaryRes.content);
+                    }
+                } catch (e) {
+                    // Summary failed silently — not critical
+                    console.warn("Memory summary failed:", e.message);
+                }
+            }
+
+            // Trim the chat array in the workspace to only keep recent messages
+            setChats(() => recentMessages);
+        }
+        // ── End sliding window ─────────────────────────────────
+
         setLoading(true);
 
         const activeModelId = settings.activeModelId || "meta-llama/llama-3.3-70b-instruct:free";
@@ -157,9 +204,12 @@ export function WorkspaceView() {
 
         // Send the raw outputs array so the server can handle `read_file` internally
         const workspaceState = {
+            name: activeWorkspace.name,
             type: activeWorkspace.type,
             description: activeWorkspace.description || 'No description provided.',
             currentPhase: activeWorkspace.currentPhase,
+            allPhases: activeWorkspace.phases?.join(", ") || "",  // NEW
+            conversationSummary: activeWorkspace.conversationSummary || "", // NEW
             immortalRules,
             activeTasks,
             completedTasks,
@@ -225,12 +275,26 @@ export function WorkspaceView() {
                         const data = JSON.parse(dataStr);
                         if (data.error) throw new Error(data.error);
 
+                        // Handle web search notification from server
+                        if (data.searching) {
+                            setChats((prev) => {
+                                const last = prev[prev.length - 1];
+                                if (last && last.type === "agent_searching") {
+                                    return prev.map((m, i) => i === prev.length - 1 ? { ...m, query: data.searching } : m);
+                                }
+                                return [...prev, { id: `search_${Date.now()}`, type: "agent_searching", query: data.searching }];
+                            });
+                            continue;
+                        }
+
                         const content = data.choices?.[0]?.delta?.content || "";
                         if (content) {
                             fullContent += content;
-                            setChats((prev) =>
-                                prev.map((obj) => (obj.id === id ? { ...obj, answer: fullContent } : obj))
-                            );
+                            // Remove searching card once real content starts flowing
+                            setChats((prev) => {
+                                const filtered = prev.filter(m => m.type !== "agent_searching");
+                                return filtered.map((obj) => (obj.id === id ? { ...obj, answer: fullContent } : obj));
+                            });
                         }
                     } catch (e) {
                         if (e.message) throw e;
@@ -306,6 +370,22 @@ export function WorkspaceView() {
                                                 const data = JSON.parse(dataStr);
                                                 if (data.choices?.[0]?.delta?.content) {
                                                     critAns += data.choices[0].delta.content;
+
+                                                    if (data.searching) {
+                                                        // Show a "searching the web" card in the chat
+                                                        setChats(prev => {
+                                                            const updated = [...prev];
+                                                            const last = updated[updated.length - 1];
+                                                            if (last && last.type === "agent_searching") {
+                                                                updated[updated.length - 1] = { ...last, query: data.searching };
+                                                            } else {
+                                                                updated.push({ type: "agent_searching", query: data.searching, id: Date.now() });
+                                                            }
+                                                            return updated;
+                                                        });
+                                                        continue; // don't process as normal text
+                                                    }
+
                                                 }
                                             } catch (e) { }
                                         }
@@ -481,11 +561,41 @@ export function WorkspaceView() {
                     <button onClick={() => setCenterTab("editor")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "editor" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Editor</button>
                     <button onClick={() => setCenterTab("preview")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "preview" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Preview</button>
                     <button onClick={() => setCenterTab("analysis")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "analysis" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Analysis</button>
+                    <button onClick={() => setCenterTab("timeline")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "timeline" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Timeline</button>
                 </header>
 
                 <div className="flex-1 p-6 overflow-hidden">
                     {/* UNIVERSAL CONTENT RENDERER */}
                     <div className="rounded-xl border border-slate-800 bg-black/50 h-full w-full overflow-hidden shadow-2xl relative flex flex-col">
+                        {/* Timeline Tab */}
+                        {centerTab === "timeline" && (
+                            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl p-6 z-10 overflow-y-auto">
+                                <h4 className="text-cyan-400 font-bold tracking-widest text-sm uppercase mb-6 flex items-center gap-2">
+                                    <Sparkles size={16} /> Agent Activity Timeline
+                                </h4>
+                                {(activeWorkspace.timeline || []).length === 0 ? (
+                                    <p className="text-slate-500 text-xs text-center mt-16 opacity-50">No activity yet. Start chatting with the agent.</p>
+                                ) : (
+                                    <div className="flex flex-col gap-0">
+                                        {(activeWorkspace.timeline || []).map((event, i) => (
+                                            <div key={event.id} className="flex gap-3 items-start relative">
+                                                {/* Vertical line */}
+                                                {i < (activeWorkspace.timeline.length - 1) && (
+                                                    <div className="absolute left-[5px] top-4 bottom-0 w-px bg-slate-800" />
+                                                )}
+                                                <div className="w-3 h-3 rounded-full bg-cyan-500/30 border border-cyan-500/50 shrink-0 mt-1 z-10" />
+                                                <div className="pb-4 flex-1">
+                                                    <div className="text-[10px] text-slate-500 font-mono mb-0.5">
+                                                        {new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
+                                                    </div>
+                                                    <div className="text-xs text-slate-300">{event.text}</div>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
+                        )}
                         {/* Fake Browser/Terminal Header if in Preview */}
                         {centerTab === "preview" && (
                             <div className="h-8 border-b border-slate-800 bg-black/40 flex items-center gap-2 px-3 shrink-0">
@@ -587,6 +697,19 @@ export function WorkspaceView() {
 
                         {activeWorkspace.chats.map((obj, index) => {
                             if (obj.type === "ms") return null;
+
+                            // Searching card
+                            if (obj.type === "agent_searching") {
+                                return (
+                                    <div key={obj.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border text-sm font-mono"
+                                        style={{ background: "rgba(0,245,255,0.04)", borderColor: "rgba(0,245,255,0.2)", color: "#00f5ff" }}>
+                                        <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                                        <span className="text-[11px] uppercase tracking-widest">Searching the web for:</span>
+                                        <span className="text-white font-bold text-xs truncate">{obj.query}</span>
+                                    </div>
+                                );
+                            }
+
                             return <AgentOutputBlock key={obj.id || index} obj={obj} />;
                         })}
                         <div ref={messagesEndRef} className="h-2 shrink-0" />

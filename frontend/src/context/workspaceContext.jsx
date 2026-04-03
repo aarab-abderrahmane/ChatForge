@@ -58,6 +58,8 @@ export function WorkspaceProvider({ children }) {
             currentPhase: data.phases ? data.phases[0] : "Phase 1",
             tasks: [],
             outputs: [],
+            conversationSummary: "",
+            timeline: [],
             chats: [
                 {
                     type: "ms",
@@ -204,6 +206,30 @@ export function WorkspaceProvider({ children }) {
         );
     }, [activeWorkspaceId]);
 
+    const updateConversationSummary = useCallback((summary) => {
+        if (!activeWorkspaceId) return;
+        setWorkspaces((prev) =>
+            prev.map((ws) =>
+                ws.id === activeWorkspaceId ? { ...ws, conversationSummary: summary } : ws
+            )
+        );
+    }, [activeWorkspaceId]);
+
+    const addTimelineEvent = useCallback((text) => {
+        if (!activeWorkspaceId) return;
+        setWorkspaces((prev) =>
+            prev.map((ws) => {
+                if (ws.id !== activeWorkspaceId) return ws;
+                const event = {
+                    id: uuid(),
+                    text,
+                    timestamp: new Date().toISOString(),
+                };
+                return { ...ws, timeline: [event, ...(ws.timeline || [])].slice(0, 50) };
+            })
+        );
+    }, [activeWorkspaceId]);
+
     const activeWorkspace = workspaces.find((ws) => ws.id === activeWorkspaceId) || null;
 
     const syncAgentAction = useCallback((jsonPayload) => {
@@ -231,7 +257,11 @@ export function WorkspaceProvider({ children }) {
                 if (o.fileName) saveOutput(o.fileName, o.content || "");
             });
         }
-    }, [activeWorkspaceId, setWorkspacePhase, addTask, completeTaskByTitle, saveOutput]);
+        // Log to timeline if agent provided an event description
+        if (jsonResp.timeline_event) {
+            addTimelineEvent(jsonResp.timeline_event);
+        }
+    }, [activeWorkspaceId, setWorkspacePhase, addTask, completeTaskByTitle, saveOutput, addTimelineEvent]);
 
     return (
         <WorkspaceContext.Provider
@@ -251,6 +281,8 @@ export function WorkspaceProvider({ children }) {
                 deleteOutput,
                 setWorkspacePhase,
                 syncAgentAction,
+                updateConversationSummary,   // NEW
+                addTimelineEvent,            // NEW
             }}
         >
             {children}

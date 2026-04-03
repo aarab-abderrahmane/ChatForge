@@ -122,9 +122,28 @@ export function WorkspaceDashboard() {
                                         </div>
                                     )}
 
-                                    <div className="mt-auto flex items-center justify-between text-xs opacity-50">
-                                        <span>{ws.outputs.length} files</span>
-                                        <span>{ws.chats.filter(c => c.type === "ch").length} messages</span>
+                                    <div className="mt-auto flex flex-col gap-2">
+                                        {/* Memory indicator */}
+                                        {ws.conversationSummary && (
+                                            <div className="text-[9px] text-purple-400/70 flex items-center gap-1 truncate">
+                                                <span>🧠</span>
+                                                <span className="truncate">{ws.conversationSummary.slice(0, 60)}...</span>
+                                            </div>
+                                        )}
+                                        {/* Timeline last event */}
+                                        {ws.timeline?.length > 0 && (
+                                            <div className="text-[9px] text-slate-500 flex items-center gap-1 truncate">
+                                                <span>⚡</span>
+                                                <span className="truncate">{ws.timeline[0].text}</span>
+                                            </div>
+                                        )}
+                                        <div className="flex items-center justify-between text-xs opacity-50">
+                                            <span>{ws.outputs.length} files</span>
+                                            <span>{ws.chats.filter(c => c.type === "ch").length} messages</span>
+                                            {ws.timeline?.length > 0 && (
+                                                <span>{ws.timeline.length} events</span>
+                                            )}
+                                        </div>
                                     </div>
 
                                     {/* Delete button (hidden by default) */}

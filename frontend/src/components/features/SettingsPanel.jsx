@@ -17,6 +17,7 @@ import {
   Zap,
   MousePointerClick,
   Sparkles,
+  Play,
   ChevronDown,
   ChevronUp,
   Palette,
@@ -38,8 +39,10 @@ import {
   Loader,
   Eye,
   EyeOff,
+  Briefcase,
 } from "lucide-react";
 import { chatsContext, SKILLS, MODELS, THEMES } from "../../context/chatsContext";
+import { WorkspaceContext } from "../../context/workspaceContext";
 import { api } from "../../services/api";
 import { StorageService } from "../../services/db";
 import { useEffect as useAppEffect } from "react";
@@ -332,7 +335,7 @@ const TABS = [
 ];
 
 // ── Main Settings Panel ───────────────────────────────────────
-export function SettingsPanel({ onClose }) {
+export function SettingsPanel({ onClose, setCenterTab }) {
   const {
     settings,
     setSettings,
@@ -352,6 +355,8 @@ export function SettingsPanel({ onClose }) {
     providerStatus,
     setProviderStatus,
   } = useContext(chatsContext);
+
+  const { activeWorkspace } = useContext(WorkspaceContext);
 
   const [activeTab, setActiveTab] = useState("appearance");
   const [showSkillForm, setShowSkillForm] = useState(false);
@@ -675,6 +680,69 @@ export function SettingsPanel({ onClose }) {
                     <Toggle value={settings.compactMode} onToggle={() => toggle("compactMode")} />
                   </div>
                 </>
+              )}
+
+              {/* Workspace Insights — only if active */}
+              {activeWorkspace && (
+                <div className="workspace-insights-section px-4 pb-4 border-b border-white/[0.05] mb-4">
+                  <div className="text-[9px] uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "var(--neon-green)" }}>
+                    <Briefcase size={10} /> Workspace: {activeWorkspace.name}
+                  </div>
+
+                  {/* Active Tasks Summary */}
+                  {activeWorkspace.tasks.filter(t => t.status !== "completed").length > 0 && (
+                    <div className="mb-4">
+                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-2 flex items-center gap-1">
+                        <Play size={9} /> Active Tasks ({activeWorkspace.tasks.filter(t => t.status !== "completed").length})
+                      </h4>
+                      <div className="space-y-1">
+                        {activeWorkspace.tasks.filter(t => t.status !== "completed").slice(0, 5).map(t => (
+                          <div key={t.id} className="flex items-center gap-2 text-[11px] p-1.5 rounded bg-white/[0.02] border border-white/5">
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.status === "in_progress" ? "bg-yellow-400 animate-pulse" : "bg-slate-600"}`} />
+                            <span className="truncate text-slate-300">{t.title}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Memory Summary Badge */}
+                  {activeWorkspace.conversationSummary && (
+                    <div className="mb-4 rounded-lg border border-purple-900/30 bg-purple-950/10 p-3">
+                      <div className="text-[10px] uppercase font-bold tracking-widest text-purple-400/70 mb-1 flex items-center gap-1">
+                        <Sparkles size={9} /> Long-term Memory
+                      </div>
+                      <div className="text-[11px] text-slate-400 leading-relaxed line-clamp-3">
+                        {activeWorkspace.conversationSummary}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Recent Timeline (last 5 events) */}
+                  {(activeWorkspace.timeline || []).length > 0 && (
+                    <div className="mb-2">
+                      <h4 className="text-[10px] uppercase tracking-widest font-bold text-slate-500 mb-2">Recent Activity</h4>
+                      <div className="space-y-2">
+                        {(activeWorkspace.timeline || []).slice(0, 5).map(event => (
+                          <div key={event.id} className="flex gap-2 text-[10px]">
+                            <span className="text-slate-600 font-mono shrink-0">
+                              {new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
+                            </span>
+                            <span className="text-slate-400">{event.text}</span>
+                          </div>
+                        ))}
+                      </div>
+                      {setCenterTab && (
+                        <button
+                          onClick={() => { setCenterTab("timeline"); onClose(); }}
+                          className="mt-2 text-[10px] text-cyan-500 hover:text-cyan-300 transition-colors"
+                        >
+                          View full timeline →
+                        </button>
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
 
               {/* ══════════════════════════════════════════════
