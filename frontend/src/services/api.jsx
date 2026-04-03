@@ -5,7 +5,7 @@ const BASE_URL = "http://localhost:5000/api";
 export const api = {
 
   // ── Legacy: check if OpenRouter key exists ──────────────────────
-  checkKeyExists: async (userId) => {
+  checkKeyExists: async () => {
     try {
       const status = await KeysService.getStatus();
       if (status.openrouter) return { exists: true, res: "key Exists" };
@@ -18,6 +18,7 @@ export const api = {
   // ── Legacy: test & save single OpenRouter key ───────────────────
   testKey: async (key, userId) => {
     try {
+      // eslint-disable-next-line no-control-regex
       const cleanKey = String(key || "").replace(/[^\x00-\x7F]/g, "").trim();
       let payload = { userId };
 
@@ -38,6 +39,7 @@ export const api = {
 
       if (data.type === "success") {
         const results = data.results || {};
+        // eslint-disable-next-line no-unused-vars
         const successEntry = Object.entries(results).find(([_, r]) => r.ok);
 
         if (successEntry) {
@@ -105,7 +107,7 @@ export const api = {
   },
 
   // ── Get which providers are active ─────────────────────────────
-  getKeysStatus: async (userId) => {
+  getKeysStatus: async () => {
     try {
       return await KeysService.getStatus();
     } catch {
@@ -156,31 +158,54 @@ export const api = {
 
   // ── WORKSPACE AGENT (JSON/Tasks Logic) ─────────────────────────
   agentChat: async (userId, messages, skillPrompt, model, parameters = {}, workspaceState = null, signal) => {
-    try {
-      const keys = await KeysService.getKeys();
+    const keys = await KeysService.getKeys();
 
-      // Ensure max_tokens is reasonable to avoid 413 or excessive costs
-      const safeParams = {
-        ...parameters,
-        max_tokens: 4096 // Increase this specifically for agentic tasks
-      };
+    // Ensure max_tokens is reasonable to avoid 413 or excessive costs
+    const safeParams = {
+      ...parameters,
+      max_tokens: 4096 // Increase this specifically for agentic tasks
+    };
 
-      const clientKeys = {
-        openrouter: keys.openrouter,
-        groq: keys.groq,
-        gemini: keys.gemini,
-        huggingface: keys.huggingface,
-      };
+    const clientKeys = {
+      openrouter: keys.openrouter,
+      groq: keys.groq,
+      gemini: keys.gemini,
+      huggingface: keys.huggingface,
+    };
 
-      const res = await fetch(`${BASE_URL}/agent`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, messages, skillPrompt, model, parameters: safeParams, workspaceState, clientKeys }),
-        signal,
-      });
-      return res;
-    } catch (error) {
-      throw error;
-    }
+    const res = await fetch(`${BASE_URL}/agent`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId, messages, skillPrompt, model, parameters: safeParams, workspaceState, clientKeys }),
+      signal,
+    });
+    return res;
+  },
+
+  // ── AGENT RUN (Orchestrator) ───────────────────────────────────
+  agentRun: async (userId, goal, workspaceState, clientKeys, model, parameters = {}, signal) => {
+    // Correctly resolve keys: if clientKeys is missing or empty, fetch from local storage
+    const keys = (clientKeys && Object.keys(clientKeys).length > 0)
+      ? clientKeys
+      : await KeysService.getKeys();
+    const safeParams = {
+      ...parameters,
+      max_tokens: 4096,
+    };
+
+    const res = await fetch(`${BASE_URL}/agent/run`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        userId,
+        goal,
+        workspaceState,
+        clientKeys: keys,
+        model,
+        parameters: safeParams,
+      }),
+      signal,
+    });
+    return res;  // Returns the raw Response for SSE parsing by the UI
   },
 };

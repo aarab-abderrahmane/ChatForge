@@ -669,6 +669,8 @@ Return ONLY a valid JSON object. No text outside it. No markdown fences wrapping
 
 
 
+
+
 // ─────────────────────────────────────────────
 // POST /api/chat — main chat endpoint  (normal chat)
 // ─────────────────────────────────────────────
@@ -743,6 +745,7 @@ app.post("/api/chat", async (req, res) => {
     res.end();
   }
 });
+
 
 
 
@@ -906,6 +909,540 @@ app.post("/api/key-exists", async (req, res) => {
   const keystatus = await check_key_Exists(userId);
   res.json(keystatus);
 });
+
+
+// ═══════════════════════════════════════════════
+// AGENT ORCHESTRATOR — Helper Functions & Prompts
+// ═══════════════════════════════════════════════
+
+/**
+ * Parse an LLM text response and extract JSON.
+ * Handles: raw JSON, markdown ```json fences, leading/trailing text.
+ */
+function parseAgentResponse(text) {
+  if (!text || typeof text !== "string") return null;
+  const trimmed = text.trim();
+
+  // Try raw JSON first
+  try {
+    return JSON.parse(trimmed);
+  } catch (_) { /* continue */ }
+
+  // Try extracting from markdown code fences
+  const fenceMatch = trimmed.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fenceMatch) {
+    try {
+      return JSON.parse(fenceMatch[1].trim());
+    } catch (_) { /* continue */ }
+  }
+
+  // Try finding the outermost { ... } block
+  const firstBrace = trimmed.indexOf("{");
+  const lastBrace = trimmed.lastIndexOf("}");
+  if (firstBrace !== -1 && lastBrace > firstBrace) {
+    try {
+      return JSON.parse(trimmed.slice(firstBrace, lastBrace + 1));
+    } catch (_) { /* continue */ }
+  }
+
+  return null;
+}
+
+/**
+ * Classify a task title as "researcher" or "coder" based on keywords.
+ */
+function detectTaskAgentType(taskTitle) {
+  if (!taskTitle) return "coder";
+  const lower = taskTitle.toLowerCase();
+  const researchKeywords = ["research", "search", "find", "analyze", "investigate", "lookup", "look up", "explore", "compare", "review", "survey", "gather"];
+  if (researchKeywords.some(kw => lower.includes(kw))) return "researcher";
+  return "coder";
+}
+
+/**
+ * Build a human-readable workspace context string from the workspace state object.
+ */
+function buildWorkspaceContext(workspaceState) {
+  if (!workspaceState) return "No workspace context available.";
+
+  const parts = [];
+
+  parts.push(`==== WORKSPACE CONTEXT ====`);
+  if (workspaceState.name) parts.push(`Name: ${workspaceState.name}`);
+  if (workspaceState.type) parts.push(`Type: ${workspaceState.type}`);
+  if (workspaceState.description) parts.push(`Description: ${workspaceState.description}`);
+  if (workspaceState.currentPhase) parts.push(`Current Phase: ${workspaceState.currentPhase}`);
+  if (workspaceState.allPhases) parts.push(`All Phases: ${workspaceState.allPhases}`);
+
+  if (workspaceState.immortalRules) {
+    parts.push(`\n==== IMMORTAL RULES ====\n${workspaceState.immortalRules}`);
+  }
+
+  if (workspaceState.activeTasks) {
+    parts.push(`\n==== ACTIVE / PENDING TASKS ====\n${workspaceState.activeTasks}`);
+  }
+
+  if (workspaceState.completedTasks) {
+    parts.push(`\n==== COMPLETED TASKS ====\n${workspaceState.completedTasks}`);
+  }
+
+  if (workspaceState.filesOutput) {
+    parts.push(`\n==== EXISTING FILES ====\n${workspaceState.filesOutput}`);
+  }
+
+  if (workspaceState.conversationSummary) {
+    parts.push(`\n==== CONVERSATION MEMORY ====\n${workspaceState.conversationSummary}`);
+  }
+
+  // Include raw outputs if available (for file content awareness)
+  if (workspaceState.rawOutputs && Array.isArray(workspaceState.rawOutputs) && workspaceState.rawOutputs.length > 0) {
+    parts.push(`\n==== FILE CONTENTS (for reference) ====\n${workspaceState.rawOutputs.map(f => `--- ${f.filename} ---\n${f.content}`).join("\n\n")}`);
+  }
+
+  parts.push(`===========================`);
+  return parts.join("\n");
+}
+
+// ─────────────────────────────────────────────
+// System Prompts for Sub-Agents
+// ─────────────────────────────────────────────
+
+const ARCHITECT_PROMPT = `You are the ARCHITECT — a strategic planning agent in a multi-agent orchestrator system.
+Your SOLE responsibility is to receive a high-level goal and break it into atomic, independently-completable tasks.
+
+You MUST return ONLY a valid JSON object. No markdown, no text outside the JSON.
+
+## RESPONSE FORMAT
+{
+  "thought": "Your reasoning: what does the user want? How should we break it down? What order makes sense?",
+  "add_tasks": [
+    { "title": "Task name (specific, actionable, atomic)", "status": "pending", "priority": "high|medium|low", "phase": "Executing" }
+  ],
+  "phase": "Planning",
+  "answer": "A brief, clear summary of the plan for the user. 2-4 sentences explaining what tasks were created and why."
+}
+
+## RULES
+1. Break the goal into 3-8 small, atomic tasks that can be completed independently.
+2. Each task should be specific enough that a coder or researcher agent can execute it in one shot.
+3. Order tasks logically — setup before features, features before polish.
+4. Use "high" priority for critical-path tasks, "medium" for enhancements, "low" for nice-to-haves.
+5. If research is needed ( APIs, libraries, best practices ), create research tasks.
+6. Never create tasks that are vague like "Build the app" — instead create "Create App.jsx with header component".
+7. Consider what files already exist (from workspace context) and avoid duplicating work.
+`;
+
+const CODER_PROMPT = `You are the CODER — an elite code-generation agent in a multi-agent orchestrator system.
+Your job is to write complete, production-quality code for a single assigned task.
+
+You MUST return ONLY a valid JSON object. No markdown, no text outside the JSON.
+
+## RESPONSE FORMAT
+{
+  "thought": "Your reasoning: what file(s) need to be created or updated? What approach will you take?",
+  "save_outputs": [
+    { "fileName": "path/to/file.ext", "content": "FULL COMPLETE CODE — no stubs, no TODOs, no placeholders", "type": "file" }
+  ],
+  "complete_tasks": ["Exact title of the task you just completed"],
+  "answer": "A brief summary of what you built. Mention file names and key decisions."
+}
+
+## RULES
+1. ALWAYS write COMPLETE, WORKING code. Never use TODO, FIXME, "// your code here", or placeholder comments.
+2. Always use 'createRoot' from 'react-dom/client' for React 18 index.js/index.jsx files (NOT ReactDOM.render).
+3. Look at existing files in the workspace context — don't re-create files that already exist. Extend them.
+4. Each save_output entry must have the FULL file content, not a diff or snippet.
+5. Use modern best practices: functional components, hooks, clean imports.
+6. If the task involves styling, use Tailwind CSS classes or inline styles — whichever fits the project.
+7. Handle errors gracefully. Include loading states and empty states where appropriate.
+8. Import paths should be relative (e.g., '../components/Header').
+9. For index files, always include createRoot and a clean render call.
+10. Complete the task fully in ONE response. Do not leave anything half-done.
+`;
+
+const RESEARCHER_PROMPT = `You are the RESEARCHER — an information-gathering agent in a multi-agent orchestrator system.
+Your job is to investigate topics, find information, and return structured findings.
+
+You have access to the web_search tool. Use it to gather up-to-date information.
+
+You MUST return ONLY a valid JSON object. No markdown, no text outside the JSON.
+
+## RESPONSE FORMAT
+{
+  "thought": "Your reasoning: what information is needed? What search queries will help?",
+  "tool_calls": [
+    { "tool": "web_search", "query": "your search query here" }
+  ],
+  "save_outputs": [
+    { "fileName": "research-topic-name.md", "content": "Structured findings document with key insights, links, and recommendations", "type": "research" }
+  ],
+  "complete_tasks": ["Exact title of the research task you just completed"],
+  "answer": "A concise summary of your key findings. 2-4 sentences."
+}
+
+## RULES
+1. Formulate specific, targeted search queries — not overly broad ones.
+2. If you need to search, ALWAYS use the tool_calls array with web_search.
+3. After receiving search results, synthesize the findings into a clear, structured document.
+4. Save your research as a markdown file in save_outputs so it persists in the workspace.
+5. Include specific URLs, code examples, and actionable recommendations in your research output.
+6. Mark the task as complete ONLY after you have synthesized findings into a save_output.
+`;
+
+const REFLECTOR_PROMPT = `You are the REFLECTOR — a quality-review agent in a multi-agent orchestrator system.
+Your job is to review all completed work and ensure quality, completeness, and correctness.
+
+You MUST return ONLY a valid JSON object. No markdown, no text outside the JSON.
+
+## RESPONSE FORMAT
+{
+  "thought": "Your analysis: Is the work complete? Are there bugs? Missing features? Quality issues?",
+  "save_outputs": [
+    { "fileName": "path/to/file.ext", "content": "Fixed/improved full file content", "type": "fix" }
+  ],
+  "answer": "A brief quality assessment. What looks good, what needs improvement, what was fixed."
+}
+
+## RULES
+1. Review all outputs for correctness, completeness, and best practices.
+2. Check for: missing imports, broken references, TODO comments left behind, incomplete features.
+3. If you find issues, include the FIXED file in save_outputs with type "fix".
+4. If everything looks good, return an empty save_outputs array.
+5. Be specific about what you found — don't just say "looks good" without actually reviewing.
+6. For React projects, ensure createRoot is used (not ReactDOM.render) and hooks follow rules of hooks.
+7. Consider UX: are there loading states, error boundaries, responsive design?
+`;
+
+/**
+ * Run a sub-agent by calling smartRouter with the appropriate system prompt.
+ * Returns { text: string, parsed: object|null }
+ */
+async function runSubAgent(agentType, messages, keys, options = {}) {
+  const systemPrompts = {
+    architect: ARCHITECT_PROMPT,
+    coder: CODER_PROMPT,
+    researcher: RESEARCHER_PROMPT,
+    reflector: REFLECTOR_PROMPT,
+  };
+
+  const systemPrompt = systemPrompts[agentType];
+  if (!systemPrompt) throw new Error(`Unknown agent type: ${agentType}`);
+
+  const routerOptions = {
+    ...options,
+    systemPrompt,
+    stream: false,
+    temperature: agentType === "architect" || agentType === "reflector" ? 0.4 : 0.6,
+  };
+
+  const { stream: respData } = await smartRouter(messages, keys, routerOptions);
+  let responseText = "";
+
+  // Consume response — handle both fetch Response objects and generators
+  if (respData.text) {
+    const bodyJSON = await respData.json();
+    responseText = bodyJSON.choices?.[0]?.message?.content || "";
+  } else if (respData.next) {
+    for await (const chunk of respData) responseText += chunk;
+  }
+
+  const parsed = parseAgentResponse(responseText);
+
+  return { text: responseText, parsed };
+}
+
+
+// ═══════════════════════════════════════════════
+// POST /api/agent/run — Orchestrator Endpoint (SSE)
+// ═══════════════════════════════════════════════
+app.post("/api/agent/run", async (req, res) => {
+  const { userId, goal, messages: incomingMessages, model, parameters, workspaceState, clientKeys } = req.body;
+
+  // ── Key Resolution ──
+  let keys = clientKeys;
+  if (!keys || (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface)) {
+    keys = await getUserKeys(userId);
+  }
+
+  if (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface) {
+    return res.status(401).json({ error: "No API keys found! Please add at least one key in Settings." });
+  }
+
+  // ── SSE Headers ──
+  res.setHeader("Content-Type", "text/event-stream");
+  res.setHeader("Cache-Control", "no-cache");
+  res.setHeader("Connection", "keep-alive");
+  res.setHeader("X-Accel-Buffering", "no");
+  res.flushHeaders();
+
+  // ── SSE Helper ──
+  function sendEvent(data) {
+    try {
+      res.write(`data: ${JSON.stringify(data)}\n\n`);
+    } catch (_) {
+      // Client disconnected, ignore
+    }
+  }
+
+  // ── Web Search Helper (Tavily) ──
+  async function executeWebSearch(query) {
+    const TAVILY_KEY = process.env.TAVILY_API_KEY;
+    if (!TAVILY_KEY) return "Web search unavailable: TAVILY_API_KEY not configured.";
+
+    try {
+      const searchRes = await fetch("https://api.tavily.com/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          api_key: TAVILY_KEY,
+          query,
+          search_depth: "basic",
+          max_results: 5,
+          include_answer: true,
+        }),
+      });
+      const data = await searchRes.json();
+      const summary = data.answer || "No summary available.";
+      const snippets = (data.results || [])
+        .map(r => `- ${r.title} (${r.url}): ${r.content?.slice(0, 300)}`)
+        .join("\n");
+      return `Summary: ${summary}\n\nResults:\n${snippets}`;
+    } catch (err) {
+      return `Web search failed: ${err.message}`;
+    }
+  }
+
+  // ── Stream text as agent_stream chunks ──
+  function streamAgentText(text) {
+    const chunkSize = 60;
+    for (let i = 0; i < text.length; i += chunkSize) {
+      sendEvent({ type: "agent_stream", content: text.slice(i, i + chunkSize) });
+    }
+  }
+
+  try {
+    // Determine the goal
+    const userGoal = goal || (incomingMessages && incomingMessages[incomingMessages.length - 1]?.content) || "Build something useful";
+    const workspaceCtx = buildWorkspaceContext(workspaceState);
+
+    // ── INIT EVENT ──
+    sendEvent({ type: "init", goal: userGoal });
+
+    // Track completed outputs across all phases for reflection
+    const allCompletedOutputs = [];
+    const allCompletedTaskTitles = [];
+
+    // ═══════════════════════════════════════════
+    // PHASE 1: ARCHITECT — Plan the goal
+    // ═══════════════════════════════════════════
+    sendEvent({ type: "agent_start", agent: "architect", message: "Planning tasks for your goal..." });
+
+    const architectMessages = [
+      {
+        role: "user",
+        content: `${workspaceCtx}\n\n==== USER GOAL ====\n${userGoal}\n\nBreak this goal into atomic, executable tasks. Consider what already exists in the workspace.`
+      },
+    ];
+
+    const architectResult = await runSubAgent("architect", architectMessages, keys, { model, ...(parameters || {}) });
+
+    // Stream the architect's full response text
+    streamAgentText(architectResult.text);
+
+    // Parse and emit action
+    let architectPayload = architectResult.parsed;
+    if (!architectPayload) {
+      architectPayload = {
+        thought: "Failed to parse architect response.",
+        add_tasks: [{ title: userGoal, status: "pending", priority: "high", phase: "Executing" }],
+        phase: "Planning",
+        answer: architectResult.text,
+      };
+    }
+
+    // Emit the action event for the frontend
+    const architectAction = {};
+    if (architectPayload.add_tasks && architectPayload.add_tasks.length > 0) {
+      architectAction.add_tasks = architectPayload.add_tasks;
+    }
+    if (architectPayload.phase) {
+      architectAction.phase = architectPayload.phase;
+    }
+    sendEvent({ type: "action", payload: architectAction });
+
+    sendEvent({
+      type: "agent_done",
+      agent: "architect",
+      summary: architectPayload.answer || "Planning complete.",
+    });
+
+    // ═══════════════════════════════════════════
+    // PHASE 2: EXECUTE — Work through tasks
+    // ═══════════════════════════════════════════
+    // Build the pending task list from architect output + any existing workspace pending tasks
+    let pendingTasks = [];
+
+    // Merge architect tasks
+    if (architectPayload.add_tasks && Array.isArray(architectPayload.add_tasks)) {
+      pendingTasks = architectPayload.add_tasks
+        .filter(t => t.status !== "completed" && t.status !== "done")
+        .map(t => ({ title: t.title, priority: t.priority || "medium", phase: t.phase || "Executing" }));
+    }
+
+    // Also pull pending tasks from workspace state if available
+    if (workspaceState && workspaceState.pendingTaskTitles && Array.isArray(workspaceState.pendingTaskTitles)) {
+      for (const title of workspaceState.pendingTaskTitles) {
+        if (!pendingTasks.some(t => t.title === title)) {
+          pendingTasks.push({ title, priority: "medium", phase: "Executing" });
+        }
+      }
+    }
+
+    const MAX_TASKS = 5;
+    const tasksToRun = pendingTasks.slice(0, MAX_TASKS);
+    const totalTasks = tasksToRun.length;
+
+    sendEvent({ type: "iteration", number: 0, total: totalTasks, task: "Starting execution..." });
+
+    for (let i = 0; i < tasksToRun.length; i++) {
+      const task = tasksToRun[i];
+      const taskNum = i + 1;
+      const agentType = detectTaskAgentType(task.title);
+
+      sendEvent({ type: "iteration", number: taskNum, total: totalTasks, task: task.title });
+      sendEvent({ type: "agent_start", agent: agentType, message: `Working on: ${task.title}` });
+
+      // Build the task prompt
+      const taskPrompt = `${workspaceCtx}\n\n==== YOUR TASK ====\n${task.title}\n\nExecute this task completely. Return ONLY valid JSON with your results.`;
+
+      const taskMessages = [{ role: "user", content: taskPrompt }];
+
+      let taskResult = await runSubAgent(agentType, taskMessages, keys, { model, ...(parameters || {}) });
+
+      // ── Handle researcher tool_calls ──
+      if (agentType === "researcher" && taskResult.parsed && taskResult.parsed.tool_calls && taskResult.parsed.tool_calls.length > 0) {
+        for (const tc of taskResult.parsed.tool_calls) {
+          if (tc.tool === "web_search" && tc.query) {
+            sendEvent({ type: "tool_call", tool: "web_search", query: tc.query });
+            const searchResult = await executeWebSearch(tc.query);
+            sendEvent({ type: "tool_result", result: searchResult });
+
+            // Re-call the researcher with results appended
+            taskMessages.push({ role: "assistant", content: taskResult.text });
+            taskMessages.push({
+              role: "user",
+              content: `Here are the search results:\n\n${searchResult}\n\nNow synthesize these findings and return your final JSON response with save_outputs and complete_tasks.`,
+            });
+
+            taskResult = await runSubAgent("researcher", taskMessages, keys, { model, ...(parameters || {}) });
+          }
+        }
+      }
+
+      // Stream the task response
+      streamAgentText(taskResult.text);
+
+      // Parse and emit action
+      let taskPayload = taskResult.parsed;
+      if (!taskPayload) {
+        taskPayload = {
+          thought: "Task executed but response could not be parsed as JSON.",
+          save_outputs: [],
+          complete_tasks: [task.title],
+          answer: taskResult.text,
+        };
+      }
+
+      // Emit action for the frontend
+      const taskAction = {};
+      if (taskPayload.save_outputs && taskPayload.save_outputs.length > 0) {
+        taskAction.save_outputs = taskPayload.save_outputs;
+        allCompletedOutputs.push(...taskPayload.save_outputs);
+      }
+      if (taskPayload.complete_tasks && taskPayload.complete_tasks.length > 0) {
+        taskAction.complete_tasks = taskPayload.complete_tasks;
+        allCompletedTaskTitles.push(...taskPayload.complete_tasks);
+      }
+      if (taskPayload.add_tasks && taskPayload.add_tasks.length > 0) {
+        taskAction.add_tasks = taskPayload.add_tasks;
+        // Add newly discovered tasks to the queue (if within budget)
+        for (const newTask of taskPayload.add_tasks) {
+          if (newTask.status !== "completed" && newTask.status !== "done" && tasksToRun.length < MAX_TASKS + 3) {
+            tasksToRun.push({ title: newTask.title, priority: newTask.priority || "medium", phase: newTask.phase || "Executing" });
+          }
+        }
+      }
+      if (taskPayload.phase) {
+        taskAction.phase = taskPayload.phase;
+      }
+
+      if (Object.keys(taskAction).length > 0) {
+        sendEvent({ type: "action", payload: taskAction });
+      }
+
+      sendEvent({
+        type: "agent_done",
+        agent: agentType,
+        summary: taskPayload.answer || `Completed: ${task.title}`,
+      });
+    }
+
+    // ═══════════════════════════════════════════
+    // PHASE 3: REFLECT — Review the work
+    // ═══════════════════════════════════════════
+    sendEvent({ type: "agent_start", agent: "reflector", message: "Reviewing all work for quality..." });
+
+    // Build a summary of everything that was done
+    const reflectContext = `${workspaceCtx}\n\n==== COMPLETED WORK SUMMARY ====\n\nTasks Completed:\n${allCompletedTaskTitles.map((t, i) => `${i + 1}. ${t}`).join("\n")}\n\nFiles Created/Updated:\n${allCompletedOutputs.map(o => `- ${o.fileName} (${o.type || "file"})`).join("\n")}\n\nPlease review this work for quality, correctness, and completeness. If you find issues, include fixed files in save_outputs.`;
+
+    const reflectorMessages = [{ role: "user", content: reflectContext }];
+
+    const reflectorResult = await runSubAgent("reflector", reflectorMessages, keys, { model, ...(parameters || {}) });
+
+    // Stream the reflector's response
+    streamAgentText(reflectorResult.text);
+
+    // Parse and emit action if fixes are needed
+    const reflectorPayload = reflectorResult.parsed;
+    if (reflectorPayload) {
+      const reflectAction = {};
+      if (reflectorPayload.save_outputs && reflectorPayload.save_outputs.length > 0) {
+        reflectAction.save_outputs = reflectorPayload.save_outputs;
+        allCompletedOutputs.push(...reflectorPayload.save_outputs);
+      }
+      if (Object.keys(reflectAction).length > 0) {
+        sendEvent({ type: "action", payload: reflectAction });
+      }
+
+      sendEvent({
+        type: "agent_done",
+        agent: "reflector",
+        summary: reflectorPayload.answer || "Review complete.",
+      });
+    } else {
+      sendEvent({
+        type: "agent_done",
+        agent: "reflector",
+        summary: "Review complete (response could not be parsed).",
+      });
+    }
+
+    // ── DONE EVENT ──
+    const totalFiles = allCompletedOutputs.length;
+    const totalTasksDone = allCompletedTaskTitles.length;
+    sendEvent({
+      type: "done",
+      summary: `Orchestration complete. ${totalTasksDone} task(s) executed, ${totalFiles} file(s) created/updated.`,
+    });
+
+    res.end();
+  } catch (error) {
+    console.error("[Orchestrator] Fatal error:", error);
+    sendEvent({ type: "error", error: error.message });
+    res.end();
+  }
+});
+
 
 app.get("/", (_, res) => res.json({ message: "Welcome to ChatForge" }));
 

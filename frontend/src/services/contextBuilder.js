@@ -94,12 +94,13 @@ export const ContextBuilder = {
             ]);
         }
 
-        // 2. LAST OUTPUT INJECTION: Find the last assistant response and ensure it's weighted correctly
-        const lastAnswer = [...chatHistory].reverse().find(c => c.answer)?.answer;
-        if (lastAnswer && lastAnswer.length > 50) {
+        // 2. LAST OUTPUT INJECTION: Only inject if it's very fresh and relevant
+        const lastAnswerMsg = [...chatHistory].reverse().find(c => c.answer);
+        const lastAnswer = lastAnswerMsg?.answer;
+        if (lastAnswer && lastAnswer.length > 50 && lastAnswer.length < 5000) {
             messages.push({
                 role: "system",
-                content: "CRITICAL CONTEXT (Last Generated Output):\n" + truncate(lastAnswer, 5000, true)
+                content: "PREVIOUS CONTEXT (Last Assistant Output):\n" + truncate(lastAnswer, 2000, true)
             });
         }
 
@@ -119,10 +120,9 @@ export const ContextBuilder = {
                 .map((r, i) => `- Rule ${i + 1}: ${r}`)
                 .join('\n');
 
-            systemPrompt = `You are a helper for Project [${project.name}]\n` +
-                `Type: [${project.type}]\n` +
+            systemPrompt = `CONTEXT: You are assisting with Project [${project.name}] (Type: ${project.type}).\n` +
                 `Current Phase: [${project.currentPhase}]\n` +
-                `Rules:\n${rulesText}\n\n`;
+                (rulesText ? `Rules:\n${rulesText}\n\n` : "\n");
 
             // Truncate project part if it's too huge
             if (systemPrompt.length > MAX_SYSTEM_PROMPT_PROJECT_PART) {
@@ -247,7 +247,7 @@ export const ContextBuilder = {
                         try {
                             const data = JSON.parse(dataStr);
                             summary += data.choices?.[0]?.delta?.content || "";
-                        } catch { }
+                        } catch { /* ignore parse errors */ }
                     }
                 }
             }

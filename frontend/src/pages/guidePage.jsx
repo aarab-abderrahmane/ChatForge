@@ -1,5 +1,5 @@
 import { useState, useContext, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { AnimatePresence } from "motion/react";
 import { chatsContext } from "../context/chatsContext";
 import { api } from "../services/api";
 import {
@@ -85,8 +85,6 @@ export const GuidePage = () => {
   // Show logo then boot messages
   useEffect(() => {
     const timers = [];
-    setMessages([]); // reset on mount to avoid duplicates
-    setLogoVisible(false);
 
     timers.push(setTimeout(() => setLogoVisible(true), 100));
     BOOT_MESSAGES.forEach(({ type, content, delay }) => {

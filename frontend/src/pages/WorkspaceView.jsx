@@ -1,957 +1,1509 @@
-import { useState, useContext, useEffect, useRef, useCallback } from "react";
-import { ChevronLeft, Plus, CheckCircle, Circle, Play, FileText, Send, SquareTerminal, Briefcase, Copy, Check as CheckIcon, StopCircle, Target, Sparkles } from "lucide-react";
-import { WorkspaceContext } from "../context/workspaceContext";
-import { chatsContext, MODELS, SKILLS } from "../context/chatsContext";
-import { api } from "../services/api";
-import { Response } from "../components/ui/shadcn-io/ai/response";
+/**
+ * WorkspaceView.jsx
+ * Full-page workspace view. Use as a "page" in your router/tab system.
+ * 
+ * Usage in your main layout:
+ *   import { WorkspaceView } from "./WorkspaceView";
+ *   {currentPage === "workspace" && <WorkspaceView onBack={() => setPage("chat")} />}
+ */
+
+import { useContext, useState, useRef, useEffect, useCallback } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { Sandpack } from "@codesandbox/sandpack-react";
+import {
+    ArrowLeft, Plus, Trash2, Check, X, Pencil, ChevronDown,
+    Archive, Copy, Download, Upload, Clock, Layers, Flag,
+    FileText, BarChart2, ListTodo, Folder, Zap, StickyNote,
+    RotateCcw, CheckSquare, Square, ArrowRight, RefreshCw,
+    AlertTriangle, Play, Pause, Target, TrendingUp, Activity,
+    Search, Filter, MoreHorizontal, Star, Eye, EyeOff,
+    ChevronRight, ChevronUp, Hash, Cpu, GitBranch, SquareTerminal,
+    StopCircle, Timer,
+} from "lucide-react";
+import {
+    WorkspaceContext,
+    TASK_STATUS_LABELS,
+    TASK_STATUS_COLORS,
+    TASK_PRIORITY_COLORS,
+    WORKSPACE_PRESETS,
+} from "../context/workspaceContext";
+import { api } from "../services/api";
+import { chatsContext } from "../context/chatsContext";
 
-export function WorkspaceView() {
-    const {
-        activeWorkspace,
-        activeWorkspaceId,
-        updateWorkspace,
-        addTask,
-        updateTaskStatus,
-        saveOutput,
-        setWorkspacePhase,
-        syncAgentAction,
-        updateConversationSummary,   // NEW
-        addTimelineEvent,            // NEW
-    } = useContext(WorkspaceContext);
+// ─── Agent Config ───────────────────────────────────────────────────────────────
+const AGENT_CONFIG = {
+    architect: { color: "#ff8c00", bg: "rgba(255,140,0,0.12)", icon: "\u{1F9E0}", label: "Architect" },
+    coder: { color: "#39ff14", bg: "rgba(57,255,20,0.12)", icon: "\u2328\uFE0F", label: "Coder" },
+    researcher: { color: "#00f5ff", bg: "rgba(0,245,255,0.12)", icon: "\u{1F50D}", label: "Researcher" },
+    reflector: { color: "#a855f7", bg: "rgba(168,85,247,0.12)", icon: "\u{1FA9E}", label: "Reflector" },
+};
 
-    const { preferences, setPreferences, settings, loading, setLoading } = useContext(chatsContext);
+const CONSOLE_TYPE_COLORS = {
+    info: "rgba(200,255,192,0.35)",
+    agent_start: "#00f5ff",
+    action: "#39ff14",
+    error: "#ff2d78",
+    done: "#ffd700",
+    agent_stream: "rgba(200,255,192,0.55)",
+    system: "rgba(200,255,192,0.25)",
+};
 
-    const [query, setQuery] = useState("");
-    const messagesEndRef = useRef(null);
-    const scrollRef = useRef(null);
-    const abortControllerRef = useRef(null);
-    const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
-    const [previewFile, setPreviewFile] = useState(null);
-    const [isAutoExecuting, setIsAutoExecuting] = useState(false);
-    const [copiedFileId, setCopiedFileId] = useState(null);
-    const [critiqueMode, setCritiqueMode] = useState(false);
-    const loadingRef = useRef(false);
-    const [loadingMessage, setLoadingMessage] = useState("AI is analyzing project context...");
-    const [centerTab, setCenterTab] = useState("preview");
-    const inputRef = useRef(null);
+// ─── CSS injected once ────────────────────────────────────────────────────────
+const WS_STYLES = `
+@import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Syne:wght@400;700;800&display=swap');
 
-    // Global CMD+K shortcut
-    useEffect(() => {
-        const handleKeyDown = (e) => {
-            if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-                e.preventDefault();
-                inputRef.current?.focus();
-            }
-        };
-        window.addEventListener('keydown', handleKeyDown);
-        return () => window.removeEventListener('keydown', handleKeyDown);
-    }, []);
+.ws-root {
+  font-family: 'JetBrains Mono', monospace;
+  background: #050708;
+  color: rgba(200,255,192,0.85);
+  min-height: 100vh;
+  position: relative;
+  overflow: hidden;
+}
 
-    // Progressive thinking messages
-    useEffect(() => {
-        if (!loading) return;
-        const messages = [
-            "AI is analyzing project context...",
-            "Loading codebase into context window...",
-            "Agent Architect is planning strategy...",
-            "Specialist reviewing file tree...",
-            "Formulating code changes...",
-            "Almost there..."
-        ];
-        let index = 0;
-        const interval = setInterval(() => {
-            index = (index + 1) % messages.length;
-            setLoadingMessage(messages[index]);
-        }, 3000);
-        return () => clearInterval(interval);
-    }, [loading]);
+.ws-root::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background: repeating-linear-gradient(
+    0deg,
+    transparent,
+    transparent 2px,
+    rgba(57,255,20,0.012) 2px,
+    rgba(57,255,20,0.012) 4px
+  );
+  pointer-events: none;
+  z-index: 0;
+}
 
-    // If no active workspace, go back to dashboard
-    useEffect(() => {
-        if (!activeWorkspace) {
-            setPreferences(p => ({ ...p, currentPage: "workspaces" }));
-        }
-    }, [activeWorkspace, setPreferences]);
+.ws-root::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 60% 40% at 20% 10%, rgba(57,255,20,0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 50% at 80% 80%, rgba(0,245,255,0.03) 0%, transparent 60%);
+  pointer-events: none;
+  z-index: 0;
+}
 
-    // Auto-scroll — triggers on new messages AND new output files
-    useEffect(() => {
-        messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-    }, [activeWorkspace?.chats, activeWorkspace?.outputs]);
+.ws-panel {
+  background: rgba(8,12,10,0.95);
+  border: 1px solid rgba(57,255,20,0.12);
+  border-radius: 4px;
+  position: relative;
+  overflow: hidden;
+}
 
-    const setChats = useCallback((updater) => {
-        if (!activeWorkspaceId) return;
-        updateWorkspace(activeWorkspaceId, (ws) => ({
-            chats: typeof updater === "function" ? updater(ws.chats) : updater
-        }));
-    }, [activeWorkspaceId, updateWorkspace]);
+.ws-panel::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(57,255,20,0.4), transparent);
+}
 
-    if (!activeWorkspace) return null;
+.ws-btn-primary {
+  background: rgba(57,255,20,0.1);
+  border: 1px solid rgba(57,255,20,0.4);
+  color: #39ff14;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 6px 14px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ws-btn-primary:hover {
+  background: rgba(57,255,20,0.18);
+  box-shadow: 0 0 16px rgba(57,255,20,0.2);
+}
 
-    // Render tasks
-    const renderTaskSection = (title, status, icon) => {
-        const sectionTasks = activeWorkspace.tasks.filter(t => t.status === status);
-        if (!sectionTasks.length) return null;
-        return (
-            <div className="mb-4">
-                <h4 className="text-[10px] uppercase font-bold tracking-widest opacity-50 mb-2 flex items-center gap-2">
-                    {icon} {title} ({sectionTasks.length})
-                </h4>
-                <ul className="space-y-1">
-                    {sectionTasks.map(task => (
-                        <li key={task.id} className="flex items-start gap-2 text-sm group cursor-pointer"
-                            onClick={() => updateTaskStatus(task.id, status === "completed" ? "in_progress" : status === "in_progress" ? "completed" : "in_progress")}>
-                            <div className="mt-0.5 opacity-60 group-hover:opacity-100 transition-opacity">
-                                {status === "completed" ? <CheckCircle size={14} className="text-green-400" /> :
-                                    status === "in_progress" ? <Play size={14} className="text-yellow-400" /> :
-                                        <Circle size={14} />}
-                            </div>
-                            <span className={`flex-1 leading-tight ${status === "completed" ? "line-through opacity-50" : ""}`}>{task.title}</span>
-                        </li>
-                    ))}
-                </ul>
-            </div>
-        );
-    };
+.ws-btn-ghost {
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.07);
+  color: rgba(200,255,192,0.4);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 9px;
+  letter-spacing: 0.1em;
+  padding: 5px 10px;
+  border-radius: 3px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.ws-btn-ghost:hover {
+  border-color: rgba(200,255,192,0.2);
+  color: rgba(200,255,192,0.7);
+  background: rgba(255,255,255,0.03);
+}
 
-    // Keep loadingRef in sync so handleAutoContinue avoids stale closure
-    useEffect(() => { loadingRef.current = loading; }, [loading]);
+.ws-input {
+  background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.08);
+  color: rgba(200,255,192,0.9);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  padding: 7px 10px;
+  border-radius: 3px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+.ws-input:focus {
+  border-color: rgba(57,255,20,0.4);
+  background: rgba(57,255,20,0.03);
+}
+.ws-input::placeholder { color: rgba(200,255,192,0.2); }
 
-    // Prevent 'Empty Workspace' Context Blindness loop
-    useEffect(() => {
-        if (isAutoExecuting && !loading && activeWorkspace) {
-            const timer = setTimeout(() => {
-                const pendingTasks = activeWorkspace.tasks?.filter(t => t.status !== "completed");
-                if (pendingTasks?.length > 0) {
-                    handleAutoContinue(); // Trigger next auto-step
-                } else {
-                    setIsAutoExecuting(false);
-                }
-            }, 1000); // Give the state 1 second to "settle"
-            return () => clearTimeout(timer);
-        }
-    }, [isAutoExecuting, loading, activeWorkspace?.outputs?.length]); // Watch outputs specifically
+.ws-tag {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 2px;
+}
 
-    // Chat Submission Logic
-    async function askAI(question, id, controllerSignal) {
+.ws-scrollbar::-webkit-scrollbar { width: 4px; }
+.ws-scrollbar::-webkit-scrollbar-track { background: transparent; }
+.ws-scrollbar::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.15); border-radius: 2px; }
+.ws-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(57,255,20,0.3); }
 
-        // ── Sliding window memory ──────────────────────────────
-        // If chat is getting long, summarize old messages to save tokens
-        const MAX_MESSAGES = 14;
-        const currentChats = activeWorkspace.chats || [];
-        if (currentChats.length > MAX_MESSAGES) {
-            const oldMessages = currentChats.slice(0, currentChats.length - 6);
-            const recentMessages = currentChats.slice(currentChats.length - 6);
+.ws-task-row {
+  border-bottom: 1px solid rgba(255,255,255,0.03);
+  transition: background 0.1s;
+}
+.ws-task-row:hover { background: rgba(57,255,20,0.03); }
 
-            // Build a plain text version of old messages for summarization
-            const oldText = oldMessages
-                .filter(c => c.type === "ch" || c.type === "ms")
-                .map(c => {
-                    if (c.type === "ch") return `User: ${c.content}`;
-                    if (c.type === "ms") {
-                        const content = Array.isArray(c.content) ? c.content.join(" ") : c.content;
-                        return `Assistant: ${typeof content === "string" ? content.slice(0, 200) : ""}`;
-                    }
-                    return "";
-                })
-                .filter(Boolean)
-                .join("\n");
+.ws-phase-pill {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  padding: 3px 10px;
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.15s;
+  border: 1px solid transparent;
+}
+.ws-phase-pill.active {
+  background: rgba(57,255,20,0.12);
+  border-color: rgba(57,255,20,0.35);
+  color: #39ff14;
+}
+.ws-phase-pill:not(.active) {
+  background: rgba(255,255,255,0.03);
+  color: rgba(200,255,192,0.35);
+}
+.ws-phase-pill:not(.active):hover {
+  background: rgba(255,255,255,0.06);
+  color: rgba(200,255,192,0.6);
+}
 
-            if (oldText.length > 200 && !activeWorkspace.conversationSummary?.includes(oldText.slice(0, 50))) {
-                try {
-                    const summaryRes = await api.chat({
-                        userId: preferences.userId,
-                        messages: [{ role: "user", content: `Summarize this conversation in 4 sentences, focusing on what was built and what decisions were made:\n\n${oldText}` }],
-                        skillPrompt: "You are a summarizer. Reply with only the summary, no preamble.",
-                        clientKeys: settings.clientKeys,
-                    });
-                    if (summaryRes?.content) {
-                        updateConversationSummary(summaryRes.content);
-                    }
-                } catch (e) {
-                    // Summary failed silently — not critical
-                    console.warn("Memory summary failed:", e.message);
-                }
-            }
+.ws-stat-card {
+  background: rgba(255,255,255,0.02);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 4px;
+  padding: 14px;
+  transition: border-color 0.2s;
+}
+.ws-stat-card:hover { border-color: rgba(57,255,20,0.15); }
 
-            // Trim the chat array in the workspace to only keep recent messages
-            setChats(() => recentMessages);
-        }
-        // ── End sliding window ─────────────────────────────────
+.ws-progress-bar {
+  height: 3px;
+  background: rgba(255,255,255,0.06);
+  border-radius: 2px;
+  overflow: hidden;
+}
+.ws-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #39ff14, #00f5ff);
+  border-radius: 2px;
+  transition: width 0.6s ease;
+}
 
-        setLoading(true);
+/* ── Mission Control Styles ────────────────────────────────────── */
+.ws-console {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 10px;
+  line-height: 1.7;
+  background: rgba(0,0,0,0.3);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 4px;
+  overflow-y: auto;
+}
+.ws-console::-webkit-scrollbar { width: 3px; }
+.ws-console::-webkit-scrollbar-thumb { background: rgba(57,255,20,0.2); border-radius: 2px; }
+.ws-console-entry { padding: 2px 12px; border-bottom: 1px solid rgba(255,255,255,0.02); }
+.ws-console-entry:hover { background: rgba(255,255,255,0.02); }
+.ws-agent-badge {
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 2px;
+}
+.ws-goal-input {
+  background: rgba(57,255,20,0.03);
+  border: 1px solid rgba(57,255,20,0.15);
+  color: rgba(200,255,192,0.95);
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  padding: 10px 14px;
+  border-radius: 4px;
+  outline: none;
+  width: 100%;
+  transition: all 0.2s;
+}
+.ws-goal-input:focus {
+  border-color: rgba(57,255,20,0.5);
+  background: rgba(57,255,20,0.05);
+  box-shadow: 0 0 20px rgba(57,255,20,0.08);
+}
+.ws-goal-input::placeholder { color: rgba(200,255,192,0.25); }
+@keyframes ws-pulse-border {
+  0%, 100% { border-color: rgba(57,255,20,0.3); }
+  50% { border-color: rgba(57,255,20,0.6); }
+}
+.ws-running .ws-goal-input {
+  animation: ws-pulse-border 2s infinite;
+}
+@keyframes ws-pulse-dot {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+`;
 
-        const activeModelId = settings.activeModelId || "meta-llama/llama-3.3-70b-instruct:free";
+function injectStyles() {
+    if (document.getElementById("ws-styles")) return;
+    const el = document.createElement("style");
+    el.id = "ws-styles";
+    el.textContent = WS_STYLES;
+    document.head.appendChild(el);
+}
 
-        const immortalRules = activeWorkspace.rules.length > 0 ?
-            `Immortal Rules (Never break them):\n${activeWorkspace.rules.map(r => `- ${r}`).join('\n')}` : '';
+// ─── Tiny helpers ──────────────────────────────────────────────────────────────
+const fmt = (d) => d ? new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric" }) : null;
+const fmtTime = (d) => d ? new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : null;
+const fmtTimeSec = (d) => d ? new Date(d).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" }) : null;
+const isOverdue = (d) => d && new Date(d) < new Date();
 
-        let activeTasks = activeWorkspace.tasks.filter(t => t.status !== 'completed').map(t => `- [ ] ${t.title}`).join('\n');
-        if (!activeTasks) activeTasks = "None";
+function formatElapsed(ms) {
+    const totalSec = Math.floor(ms / 1000);
+    const m = Math.floor(totalSec / 60);
+    const s = totalSec % 60;
+    return `${m.toString().padStart(2, "0")}:${s.toString().padStart(2, "0")}`;
+}
 
-        let completedTasks = activeWorkspace.tasks.filter(t => t.status === 'completed').map(t => `- [x] ${t.title}`).join('\n');
-        if (!completedTasks) completedTasks = "None";
+function Dot({ color, pulse }) {
+    return (
+        <span style={{ position: "relative", display: "inline-flex", alignItems: "center", justifyContent: "center" }}>
+            {pulse && (
+                <span style={{
+                    position: "absolute", width: 8, height: 8, borderRadius: "50%",
+                    background: color, opacity: 0.3, animation: "ping 1.5s infinite",
+                }} />
+            )}
+            <span style={{ width: 6, height: 6, borderRadius: "50%", background: color, display: "block" }} />
+        </span>
+    );
+}
 
-        // Phase 1: Dynamic Context Injection. Send only file names to save tokens.
-        // The backend will use `workspaceState.rawOutputs` combined with `read_file` to fetch content.
-        let filesOutput;
-        if (activeWorkspace.outputs.length > 0) {
-            filesOutput = activeWorkspace.outputs.map(f => `- ${f.filename}`).join('\n');
-        } else {
-            filesOutput = "No files created yet.";
-        }
+function ProgressBar({ value, color = "#39ff14" }) {
+    return (
+        <div className="ws-progress-bar">
+            <div className="ws-progress-fill" style={{ width: `${value}%`, background: color }} />
+        </div>
+    );
+}
 
-        // Send the raw outputs array so the server can handle `read_file` internally
-        const workspaceState = {
-            name: activeWorkspace.name,
-            type: activeWorkspace.type,
-            description: activeWorkspace.description || 'No description provided.',
-            currentPhase: activeWorkspace.currentPhase,
-            allPhases: activeWorkspace.phases?.join(", ") || "",  // NEW
-            conversationSummary: activeWorkspace.conversationSummary || "", // NEW
-            immortalRules,
-            activeTasks,
-            completedTasks,
-            filesOutput, // Just the names or a summary
-            rawOutputs: activeWorkspace.outputs // The raw files {filename, content} for the backend to use in its multi-turn loop
-        };
+function ProgressRing({ pct, size = 52, stroke = 4 }) {
+    const r = (size - stroke * 2) / 2;
+    const c = 2 * Math.PI * r;
+    return (
+        <svg width={size} height={size} style={{ flexShrink: 0 }}>
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="rgba(255,255,255,0.06)" strokeWidth={stroke} />
+            <circle cx={size / 2} cy={size / 2} r={r} fill="none" stroke="#39ff14" strokeWidth={stroke}
+                strokeDasharray={c} strokeDashoffset={c - (pct / 100) * c}
+                strokeLinecap="round" transform={`rotate(-90 ${size / 2} ${size / 2})`}
+                style={{ transition: "stroke-dashoffset 0.7s ease" }}
+            />
+            <text x={size / 2} y={size / 2 + 4} textAnchor="middle" fontSize="11" fontWeight="700"
+                fill="#39ff14" fontFamily="JetBrains Mono, monospace">
+                {pct}%
+            </text>
+        </svg>
+    );
+}
 
-        // Extract history
-        const historyMessages = activeWorkspace.chats
-            .filter((c) => c.type === "ch" && c.answer)
-            .slice(-10)
-            .flatMap((obj) => [
-                { role: "user", content: obj.question },
-                { role: "assistant", content: obj.answer },
-            ]);
-
-        const messages = [
-            ...historyMessages,
-            { role: "user", content: question },
-        ];
-
-        // ⚠️ MUST be declared before try{} so finally{} can read it
-        let shouldAutoContinue = false;
-
-        try {
-            const response = await api.agentChat(
-                preferences.userId,
-                messages,
-                "", // handled by backend
-                activeModelId,
-                {
-                    temperature: settings.temperature || 0.7,
-                    top_p: settings.topP || 1.0,
-                    max_tokens: settings.maxTokens || 2048,
-                },
-                workspaceState,
-                controllerSignal
-            );
-
-            if (!response.ok) throw new Error("Failed to connect to AI service.");
-
-            const reader = response.body.getReader();
-            const decoder = new TextDecoder();
-            let fullContent = "";
-            let buffer = "";
-
-            while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                buffer += chunk;
-                const lines = buffer.split("\n");
-                buffer = lines.pop();
-
-                for (const line of lines) {
-                    const trimmed = line.trim();
-                    if (!trimmed || !trimmed.startsWith("data: ")) continue;
-                    const dataStr = trimmed.slice(6);
-                    if (dataStr === "[DONE]") continue;
-
-                    try {
-                        const data = JSON.parse(dataStr);
-                        if (data.error) throw new Error(data.error);
-
-                        // Handle web search notification from server
-                        if (data.searching) {
-                            setChats((prev) => {
-                                const last = prev[prev.length - 1];
-                                if (last && last.type === "agent_searching") {
-                                    return prev.map((m, i) => i === prev.length - 1 ? { ...m, query: data.searching } : m);
-                                }
-                                return [...prev, { id: `search_${Date.now()}`, type: "agent_searching", query: data.searching }];
-                            });
-                            continue;
-                        }
-
-                        const content = data.choices?.[0]?.delta?.content || "";
-                        if (content) {
-                            fullContent += content;
-                            // Remove searching card once real content starts flowing
-                            setChats((prev) => {
-                                const filtered = prev.filter(m => m.type !== "agent_searching");
-                                return filtered.map((obj) => (obj.id === id ? { ...obj, answer: fullContent } : obj));
-                            });
-                        }
-                    } catch (e) {
-                        if (e.message) throw e;
-                    }
-                }
-            }
-
-            // Execute intercepted actions
-            if (activeWorkspaceId) {
-                let jsonResp;
-                try {
-                    const match = fullContent.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/);
-                    const jsonStr = match ? match[1] : fullContent;
-                    jsonResp = JSON.parse(jsonStr.trim());
-                } catch (e) {
-                    try {
-                        const lastBrace = fullContent.lastIndexOf('}');
-                        if (lastBrace !== -1) {
-                            const trimmed = fullContent.substring(0, lastBrace + 1);
-                            const match = trimmed.match(/\`\`\`(?:json)?\s*([\s\S]*)/) || [null, trimmed];
-                            jsonResp = JSON.parse(match[1]);
-                        }
-                    } catch (e2) {
-                        console.warn("Failed to parse JSON response:", e);
-                    }
-                }
-
-                if (jsonResp) {
-                    syncAgentAction(jsonResp);
-
-                    // Auto Loop Logic
-                    const requiresApproval = !!jsonResp.requires_approval;
-
-                    let hasPending = false;
-                    const oldPending = new Set(activeWorkspace.tasks.filter(t => t.status !== 'completed').map(t => t.title.trim().toLowerCase()));
-                    (jsonResp.add_tasks || []).forEach(t => oldPending.add(t.title.trim().toLowerCase()));
-                    (jsonResp.complete_tasks || []).forEach(t => oldPending.delete(t.trim().toLowerCase()));
-                    if (oldPending.size > 0) hasPending = true;
-
-                    if (!requiresApproval && hasPending) {
-                        shouldAutoContinue = true;
-                    }
-
-                    // Critique Mode execution
-                    if (critiqueMode && jsonResp.save_outputs && jsonResp.save_outputs.length > 0) {
-                        const codeToCritique = jsonResp.save_outputs.map(f => `File: ${f.fileName}\n${f.content}`).join("\n\n");
-                        const critMsg = { role: "user", content: `Please briefly critique the following code. Point out any security flaws, bugs or optimizations. Return only plain text.\n\n${codeToCritique}` };
-
-                        try {
-                            const critResp = await api.chat(
-                                preferences.userId,
-                                [critMsg],
-                                "You are a strict code reviewer. Be concise. Provide bullet points.",
-                                "groq", // small fast model
-                                null,
-                                null
-                            );
-                            if (critResp.ok) {
-                                const reader = critResp.body.getReader();
-                                const decoder = new TextDecoder();
-                                let critAns = "";
-                                while (true) {
-                                    const { done, value } = await reader.read();
-                                    if (done) break;
-                                    const chunk = decoder.decode(value, { stream: true });
-                                    const lines = chunk.split("\n");
-                                    for (const line of lines) {
-                                        const trimmed = line.trim();
-                                        if (trimmed.startsWith("data: ")) {
-                                            const dataStr = trimmed.slice(6);
-                                            if (dataStr === "[DONE]") continue;
-                                            try {
-                                                const data = JSON.parse(dataStr);
-                                                if (data.choices?.[0]?.delta?.content) {
-                                                    critAns += data.choices[0].delta.content;
-
-                                                    if (data.searching) {
-                                                        // Show a "searching the web" card in the chat
-                                                        setChats(prev => {
-                                                            const updated = [...prev];
-                                                            const last = updated[updated.length - 1];
-                                                            if (last && last.type === "agent_searching") {
-                                                                updated[updated.length - 1] = { ...last, query: data.searching };
-                                                            } else {
-                                                                updated.push({ type: "agent_searching", query: data.searching, id: Date.now() });
-                                                            }
-                                                            return updated;
-                                                        });
-                                                        continue; // don't process as normal text
-                                                    }
-
-                                                }
-                                            } catch (e) { }
-                                        }
-                                    }
-                                }
-                                if (critAns) {
-                                    setChats(prev => [...prev, { type: "ms", content: ["🕵️‍♂️ Critique Mode Analysis:", ...critAns.split("\n")] }]);
-                                }
-                            }
-                        } catch (e) {
-                            console.warn("Critique mode failed", e);
-                        }
-                    }
-                } else {
-                    // Fallback to XML regex parsing for legacy chats during loop
-                    const addTasks = [...fullContent.matchAll(/<add_task title="(.*?)"\s*\/>/g)];
-                    addTasks.forEach(m => addTask(m[1], "coming_soon"));
-
-                    const completeTasks = [...fullContent.matchAll(/<complete_task title="(.*?)"\s*\/>/g)];
-                    completeTasks.forEach(m => completeTaskByTitle(m[1]));
-
-                    const files = [...fullContent.matchAll(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g)];
-                    files.forEach(m => saveOutput(m[1], m[2]));
-                }
-            }
-
-        } catch (error) {
-            if (error.name !== "AbortError") {
-                console.error("AI stream error:", error);
-                setChats((prev) =>
-                    prev.map((obj) => (obj.id === id ? { ...obj, type: "error", answer: error.message || "Connection lost." } : obj))
-                );
-            }
-        } finally {
-            setLoading(false);
-            if (activeWorkspaceId && shouldAutoContinue) {
-                setIsAutoExecuting(true);
-            } else {
-                setIsAutoExecuting(false);
-            }
-        }
-    }
-
-    const handleAutoContinue = () => {
-        // Use ref to avoid stale closure on loading state
-        if (loadingRef.current) return;
-        if (abortControllerRef.current) abortControllerRef.current.abort();
-        abortControllerRef.current = new AbortController();
-
-        const newId = new Date().toISOString();
-        const autoText = "[AUTO] Continuing autonomous execution...";
-
-        setChats((prev) => [...prev, {
-            id: newId,
-            type: "ch",
-            question: autoText,
-            answer: undefined,
-            timestamp: new Date().toISOString(),
-            isAuto: true,
-        }]);
-
-        askAI("Please review the remaining tasks. Pick EXACTLY ONE pending task, complete it fully (write the full file content in save_outputs), mark only that task in complete_tasks, and set requires_approval: false if more tasks remain.", newId, abortControllerRef.current.signal);
-    };
-
-    const handleSend = (e) => {
-        e.preventDefault();
-        const text = query.trim();
-        if (!text || loading) return;
-
-        if (abortControllerRef.current) abortControllerRef.current.abort();
-        abortControllerRef.current = new AbortController();
-
-        const newId = new Date().toISOString();
-        const newMsg = {
-            id: newId,
-            type: "ch",
-            question: text,
-            answer: undefined,
-            timestamp: new Date().toISOString(),
-        };
-
-        setChats((prev) => [...prev, newMsg]);
-        setQuery("");
-        askAI(text, newId, abortControllerRef.current.signal);
-    };
-
-    const copyToClipboard = async (idMes) => {
-        const targetMes = activeWorkspace.chats.find((ch) => ch.type === "ch" && ch.id === idMes);
-        if (!targetMes?.answer) return;
-        try {
-            await navigator.clipboard.writeText(targetMes.answer);
-            setIsCopied({ idMes, state: true });
-            setTimeout(() => setIsCopied({ idMes, state: false }), 2000);
-        } catch (error) { console.error(error); }
-    };
-
-    const sandpackFiles = {};
-    activeWorkspace.outputs.forEach(f => {
-        sandpackFiles[`/${f.filename}`] = f.content;
+// ─── Workspace Create Form ─────────────────────────────────────────────────────
+function WorkspaceForm({ initial, onSave, onCancel }) {
+    const [form, setForm] = useState({
+        name: initial?.name || "",
+        type: initial?.type || "General",
+        emoji: initial?.emoji || "\u{1F310}",
+        description: initial?.description || "",
+        rules: initial?.rules?.join("\n") || "",
+        phases: initial?.phases?.join(", ") || "",
+        tags: initial?.tags?.join(", ") || "",
     });
-    // Fallback file for Sandpack if empty
-    if (Object.keys(sandpackFiles).length === 0) {
-        sandpackFiles["/App.js"] = "export default function App() {\n  return <h1>ChatForge Agent Ready</h1>\n}";
-    }
 
-    // Compute the latest Thought for the new Brain Feed
-    const lastValidChat = activeWorkspace.chats.slice().reverse().find(c => c.type === "ch" && c.answer);
-    let latestThought = "";
-    if (lastValidChat && lastValidChat.answer) {
-        try {
-            const match = lastValidChat.answer.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/);
-            const jsonStr = match ? match[1] : lastValidChat.answer;
-            let bracketStart = jsonStr.indexOf("{");
-            let bracketEnd = jsonStr.lastIndexOf("}");
-            const parsed = JSON.parse(jsonStr.substring(bracketStart, bracketEnd + 1).trim());
-            latestThought = parsed.thought || "";
-        } catch (e) { }
-    }
+    const preset = WORKSPACE_PRESETS[form.type] || WORKSPACE_PRESETS.General;
+    const isValid = form.name.trim().length > 0;
+
+    const handleType = (type) => {
+        const p = WORKSPACE_PRESETS[type];
+        setForm(f => ({
+            ...f, type, emoji: p?.emoji || f.emoji,
+            phases: p?.defaultPhases?.join(", ") || f.phases
+        }));
+    };
 
     return (
-        <div className="flex h-screen w-full bg-[#020617] overflow-hidden text-slate-200 font-sans">
-            {/* LEFT: Project Navigation & Assets */}
-            <div className="w-72 border-r border-slate-800 flex flex-col p-4 space-y-6 bg-black/20 backdrop-blur-xl shrink-0">
+        <div className="space-y-3 p-4">
+            <p className="text-[9px] uppercase tracking-[0.2em]" style={{ color: "var(--neon-cyan, #00f5ff)" }}>
+                {initial ? "// EDIT WORKSPACE" : "// NEW WORKSPACE"}
+            </p>
 
-                {/* Header Back Button */}
-                <div className="flex items-center gap-2">
-                    <button onClick={() => setPreferences(p => ({ ...p, currentPage: "workspaces" }))} className="p-1 hover:bg-white/10 rounded">
-                        <ChevronLeft size={18} />
+            {/* Type */}
+            <div className="flex gap-2 flex-wrap">
+                {Object.entries(WORKSPACE_PRESETS).map(([type, { emoji }]) => (
+                    <button key={type} onClick={() => handleType(type)}
+                        className="ws-phase-pill" style={form.type === type ? {} : {}}
+                    >
+                        <span className={form.type === type ? "ws-phase-pill active" : "ws-phase-pill"}>
+                            {emoji} {type}
+                        </span>
                     </button>
-                    <div className="font-bold truncate text-sm text-cyan-400">{activeWorkspace.name}</div>
+                ))}
+            </div>
+
+            {/* Name */}
+            <div className="flex gap-2">
+                <button className="text-2xl w-10 h-10 flex items-center justify-center rounded border"
+                    style={{ borderColor: "rgba(255,255,255,0.08)", background: "rgba(255,255,255,0.03)" }}
+                    onClick={() => {
+                        const emojis = Object.values(WORKSPACE_PRESETS).map(p => p.emoji);
+                        const i = emojis.indexOf(form.emoji);
+                        setForm(f => ({ ...f, emoji: emojis[(i + 1) % emojis.length] }));
+                    }}>
+                    {form.emoji}
+                </button>
+                <input className="ws-input flex-1" placeholder="workspace name\u2026" maxLength={40}
+                    value={form.name} onChange={e => setForm(f => ({ ...f, name: e.target.value }))} />
+            </div>
+
+            <input className="ws-input w-full" placeholder="description\u2026"
+                value={form.description} onChange={e => setForm(f => ({ ...f, description: e.target.value }))} />
+
+            <input className="ws-input w-full"
+                placeholder={`phases (e.g. ${preset.defaultPhases.join(", ")})`}
+                value={form.phases} onChange={e => setForm(f => ({ ...f, phases: e.target.value }))} />
+
+            <textarea className="ws-input w-full resize-none" rows={3}
+                placeholder="agent rules (one per line)\u2026"
+                value={form.rules} onChange={e => setForm(f => ({ ...f, rules: e.target.value }))} />
+
+            <div className="flex gap-2 pt-1">
+                <button className="ws-btn-primary flex-1" onClick={() => isValid && onSave({
+                    ...form,
+                    phases: form.phases.split(",").map(p => p.trim()).filter(Boolean),
+                    tags: form.tags.split(",").map(t => t.trim()).filter(Boolean),
+                })} style={{ opacity: isValid ? 1 : 0.3, cursor: isValid ? "pointer" : "not-allowed" }}>
+                    {initial ? "save changes" : "create workspace"}
+                </button>
+                <button className="ws-btn-ghost" onClick={onCancel}>cancel</button>
+            </div>
+        </div>
+    );
+}
+
+// ─── Task Row ──────────────────────────────────────────────────────────────────
+function TaskRow({ task, onUpdate, onDelete, onSelect, selected }) {
+    const [editing, setEditing] = useState(false);
+    const [title, setTitle] = useState(task.title);
+    const cycle = { coming_soon: "in_progress", in_progress: "completed", completed: "coming_soon", blocked: "coming_soon" };
+
+    const commit = () => {
+        if (title.trim() && title !== task.title) onUpdate(task.id, { title: title.trim() });
+        setEditing(false);
+    };
+
+    return (
+        <motion.div layout initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0, height: 0 }}
+            className="ws-task-row flex items-center gap-3 px-4 py-2.5 group"
+            style={{ background: selected ? "rgba(57,255,20,0.04)" : undefined }}
+        >
+            {/* Select */}
+            <button onClick={() => onSelect(task.id)} className="opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0"
+                style={{ color: selected ? "#39ff14" : "rgba(200,255,192,0.3)" }}>
+                {selected ? <CheckSquare size={12} /> : <Square size={12} />}
+            </button>
+
+            {/* Status */}
+            <button onClick={() => onUpdate(task.id, { status: cycle[task.status] })} className="flex-shrink-0"
+                style={{ width: 14, height: 14 }}>
+                <div style={{
+                    width: 14, height: 14, borderRadius: "50%",
+                    border: `1.5px solid ${TASK_STATUS_COLORS[task.status]}`,
+                    background: task.status === "completed" ? TASK_STATUS_COLORS[task.status] : "transparent",
+                    display: "flex", alignItems: "center", justifyContent: "center",
+                    transition: "all 0.15s",
+                }}>
+                    {task.status === "completed" && <Check size={8} color="#000" />}
+                    {task.status === "blocked" && <X size={8} style={{ color: TASK_STATUS_COLORS.blocked }} />}
+                </div>
+            </button>
+
+            {/* Title */}
+            <div className="flex-1 min-w-0">
+                {editing ? (
+                    <input className="ws-input w-full text-xs py-0.5 px-1" value={title}
+                        onChange={e => setTitle(e.target.value)}
+                        onBlur={commit} onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") setEditing(false); }}
+                        autoFocus />
+                ) : (
+                    <span onDoubleClick={() => setEditing(true)} className="text-xs cursor-default select-none"
+                        style={{
+                            color: task.status === "completed" ? "rgba(200,255,192,0.25)" : "rgba(200,255,192,0.8)",
+                            textDecoration: task.status === "completed" ? "line-through" : "none",
+                        }}>
+                        {task.title}
+                    </span>
+                )}
+            </div>
+
+            {/* Meta */}
+            <div className="flex items-center gap-2 flex-shrink-0">
+                {task.priority && task.priority !== "normal" && (
+                    <span className="ws-tag" style={{ color: TASK_PRIORITY_COLORS[task.priority], background: `${TASK_PRIORITY_COLORS[task.priority]}18` }}>
+                        {task.priority}
+                    </span>
+                )}
+                {task.phase && (
+                    <span className="text-[9px]" style={{ color: "rgba(200,255,192,0.2)" }}>{task.phase}</span>
+                )}
+                {task.dueDate && (
+                    <span className="text-[9px] flex items-center gap-1"
+                        style={{ color: isOverdue(task.dueDate) ? "#ff2d78" : "rgba(200,255,192,0.3)" }}>
+                        <Clock size={8} /> {fmt(task.dueDate)}
+                    </span>
+                )}
+                <span className="ws-tag opacity-0 group-hover:opacity-100 transition-opacity"
+                    style={{ color: TASK_STATUS_COLORS[task.status], background: `${TASK_STATUS_COLORS[task.status]}18` }}>
+                    {TASK_STATUS_LABELS[task.status]}
+                </span>
+            </div>
+
+            {/* Actions */}
+            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                <button onClick={() => setEditing(true)} style={{ color: "rgba(200,255,192,0.3)", padding: 3 }}><Pencil size={9} /></button>
+                <button onClick={() => onDelete(task.id)} style={{ color: "rgba(255,45,120,0.4)", padding: 3 }}><Trash2 size={9} /></button>
+            </div>
+        </motion.div>
+    );
+}
+
+// ─── Output Card ───────────────────────────────────────────────────────────────
+function OutputCard({ output, onDelete, onRename }) {
+    const [open, setOpen] = useState(false);
+    const [renaming, setRen] = useState(false);
+    const [name, setName] = useState(output.filename);
+
+    const TYPE_ICON = { code: "\u2328", style: "\u{1F3A8}", markup: "\u3008/\u3009", markdown: "Md", data: "\u2211", image: "\u25A1", document: "\u25FB", text: "T" };
+    const commit = () => { if (name.trim() && name !== output.filename) onRename(output.id, name.trim()); setRen(false); };
+
+    return (
+        <div className="ws-panel overflow-hidden mb-2">
+            <div className="flex items-center gap-3 px-4 py-2.5 group cursor-pointer" onClick={() => setOpen(p => !p)}>
+                <span style={{ fontSize: 11, width: 16, textAlign: "center", color: "var(--neon-cyan, #00f5ff)", fontFamily: "monospace" }}>
+                    {TYPE_ICON[output.type] || "T"}
+                </span>
+                {renaming ? (
+                    <input className="ws-input flex-1 py-0.5 text-xs" value={name}
+                        onChange={e => setName(e.target.value)} onBlur={commit}
+                        onKeyDown={e => { if (e.key === "Enter") commit(); if (e.key === "Escape") setRen(false); }}
+                        autoFocus onClick={e => e.stopPropagation()} />
+                ) : (
+                    <span className="flex-1 text-xs font-mono truncate" style={{ color: "rgba(200,255,192,0.75)" }}>
+                        {output.filename}
+                    </span>
+                )}
+                <span className="text-[9px]" style={{ color: "rgba(200,255,192,0.2)" }}>{fmt(output.updatedAt || output.createdAt)}</span>
+                {output.phase && <span className="ws-tag" style={{ color: "rgba(0,245,255,0.6)", background: "rgba(0,245,255,0.08)" }}>{output.phase}</span>}
+                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                    <button onClick={() => navigator.clipboard?.writeText(output.content)} style={{ color: "rgba(200,255,192,0.3)", padding: 3 }}><Copy size={9} /></button>
+                    <button onClick={() => setRen(true)} style={{ color: "rgba(200,255,192,0.3)", padding: 3 }}><Pencil size={9} /></button>
+                    <button onClick={() => onDelete(output.id)} style={{ color: "rgba(255,45,120,0.4)", padding: 3 }}><Trash2 size={9} /></button>
+                </div>
+                <span style={{ color: "rgba(200,255,192,0.2)" }}>{open ? <ChevronDown size={10} /> : <ChevronRight size={10} />}</span>
+            </div>
+            <AnimatePresence>
+                {open && output.content && (
+                    <motion.div initial={{ height: 0 }} animate={{ height: "auto" }} exit={{ height: 0 }} className="overflow-hidden">
+                        <pre className="text-[9px] px-4 pb-3 whitespace-pre-wrap break-words max-h-[140px] overflow-y-auto ws-scrollbar"
+                            style={{ color: "rgba(200,255,192,0.4)", borderTop: "1px solid rgba(255,255,255,0.04)" }}>
+                            {output.content.slice(0, 800)}{output.content.length > 800 ? "\n\u2026" : ""}
+                        </pre>
+                    </motion.div>
+                )}
+            </AnimatePresence>
+        </div>
+    );
+}
+
+// ─── Mission Control Panel ─────────────────────────────────────────────────────
+function MissionControlPanel({ agentRun, goal, setGoal, onRun, onStop, elapsed }) {
+    const consoleEndRef = useRef(null);
+    const consoleContainerRef = useRef(null);
+
+    useEffect(() => {
+        if (consoleEndRef.current && consoleContainerRef.current) {
+            const container = consoleContainerRef.current;
+            const isNearBottom = container.scrollHeight - container.scrollTop - container.clientHeight < 80;
+            if (isNearBottom) {
+                consoleEndRef.current.scrollIntoView({ behavior: "smooth" });
+            }
+        }
+    }, [agentRun.console]);
+
+    const { isRunning, currentAgent, currentTask, iteration, totalIterations, console: consoleLogs, summary } = agentRun;
+    const agentConf = AGENT_CONFIG[currentAgent] || null;
+
+    return (
+        <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 0 }} className={isRunning ? "ws-running" : ""}>
+
+            {/* ── Goal Input Bar ──────────────────────────────────────── */}
+            <div style={{
+                padding: "16px 20px",
+                borderBottom: "1px solid rgba(255,255,255,0.04)",
+                background: "rgba(57,255,20,0.02)",
+            }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <div style={{ flex: 1, position: "relative" }}>
+                        <input
+                            className="ws-goal-input"
+                            placeholder="Describe your goal... e.g., 'Build a landing page for a SaaS product'"
+                            value={goal}
+                            onChange={e => setGoal(e.target.value)}
+                            onKeyDown={e => { if (e.key === "Enter" && !isRunning && goal.trim()) onRun(); }}
+                            disabled={isRunning}
+                            style={{ paddingRight: 12 }}
+                        />
+                    </div>
+                    {isRunning ? (
+                        <button
+                            onClick={onStop}
+                            style={{
+                                background: "rgba(255,45,120,0.12)",
+                                border: "1px solid rgba(255,45,120,0.5)",
+                                color: "#ff2d78",
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                padding: "10px 20px",
+                                borderRadius: 4,
+                                cursor: "pointer",
+                                transition: "all 0.15s",
+                                whiteSpace: "nowrap",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                            }}>
+                            <StopCircle size={12} /> stop
+                        </button>
+                    ) : (
+                        <button
+                            onClick={onRun}
+                            disabled={!goal.trim()}
+                            style={{
+                                background: goal.trim() ? "rgba(57,255,20,0.12)" : "rgba(57,255,20,0.04)",
+                                border: goal.trim() ? "1px solid rgba(57,255,20,0.5)" : "1px solid rgba(57,255,20,0.15)",
+                                color: goal.trim() ? "#39ff14" : "rgba(57,255,20,0.3)",
+                                fontFamily: "'JetBrains Mono', monospace",
+                                fontSize: 10,
+                                fontWeight: 700,
+                                letterSpacing: "0.12em",
+                                textTransform: "uppercase",
+                                padding: "10px 20px",
+                                borderRadius: 4,
+                                cursor: goal.trim() ? "pointer" : "not-allowed",
+                                transition: "all 0.15s",
+                                whiteSpace: "nowrap",
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 8,
+                            }}>
+                            <Play size={12} /> run agent
+                        </button>
+                    )}
+                </div>
+            </div>
+
+            {/* ── Agent Status Bar ────────────────────────────────────── */}
+            {isRunning && (
+                <motion.div
+                    initial={{ opacity: 0, height: 0 }}
+                    animate={{ opacity: 1, height: "auto" }}
+                    exit={{ opacity: 0, height: 0 }}
+                    style={{
+                        padding: "10px 20px",
+                        borderBottom: "1px solid rgba(255,255,255,0.04)",
+                        background: "rgba(0,0,0,0.3)",
+                        display: "flex",
+                        alignItems: "center",
+                        gap: 16,
+                        flexWrap: "wrap",
+                    }}>
+                    {/* Agent badge */}
+                    {agentConf && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span className="ws-agent-badge" style={{
+                                background: agentConf.bg,
+                                color: agentConf.color,
+                                border: `1px solid ${agentConf.color}30`,
+                            }}>
+                                {agentConf.icon} {agentConf.label}
+                            </span>
+                            <Dot color={agentConf.color} pulse />
+                        </div>
+                    )}
+
+                    <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)" }} />
+
+                    {/* Iteration progress */}
+                    {totalIterations > 0 && (
+                        <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                            <span style={{ fontSize: 10, color: "rgba(200,255,192,0.4)", letterSpacing: "0.08em" }}>TASK</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "#00f5ff" }}>{iteration}</span>
+                            <span style={{ fontSize: 10, color: "rgba(200,255,192,0.25)" }}>/</span>
+                            <span style={{ fontSize: 11, fontWeight: 700, color: "rgba(200,255,192,0.5)" }}>{totalIterations}</span>
+                        </div>
+                    )}
+
+                    {/* Current task */}
+                    {currentTask && (
+                        <>
+                            <div style={{ width: 1, height: 16, background: "rgba(255,255,255,0.08)" }} />
+                            <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                                <Target size={9} style={{ color: "rgba(200,255,192,0.3)" }} />
+                                <span style={{ fontSize: 10, color: "rgba(200,255,192,0.6)", maxWidth: 300, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                                    {currentTask}
+                                </span>
+                            </div>
+                        </>
+                    )}
+
+                    <div style={{ flex: 1 }} />
+
+                    {/* Elapsed time */}
+                    <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
+                        <Timer size={9} style={{ color: "rgba(200,255,192,0.3)" }} />
+                        <span style={{
+                            fontSize: 11,
+                            fontWeight: 700,
+                            fontFamily: "'JetBrains Mono', monospace",
+                            color: "rgba(200,255,192,0.6)",
+                            letterSpacing: "0.05em",
+                        }}>
+                            {formatElapsed(elapsed)}
+                        </span>
+                    </div>
+                </motion.div>
+            )}
+
+            {/* ── Summary Panel ───────────────────────────────────────── */}
+            {!isRunning && summary && (
+                <motion.div
+                    initial={{ opacity: 0, y: -8 }}
+                    animate={{ opacity: 1, y: 0 }}
+                    style={{
+                        margin: "16px 20px 0",
+                        padding: "16px 18px",
+                        background: "rgba(57,255,20,0.04)",
+                        border: "1px solid rgba(57,255,20,0.2)",
+                        borderRadius: 4,
+                        position: "relative",
+                    }}>
+                    <div style={{
+                        position: "absolute", top: 0, left: 0, right: 0, height: 1,
+                        background: "linear-gradient(90deg, transparent, rgba(57,255,20,0.5), transparent)",
+                    }} />
+                    <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 10 }}>
+                        <Check size={12} style={{ color: "#39ff14" }} />
+                        <span style={{ fontSize: 9, fontWeight: 700, letterSpacing: "0.2em", textTransform: "uppercase", color: "#39ff14" }}>
+                            mission complete
+                        </span>
+                    </div>
+                    <p style={{
+                        fontSize: 11,
+                        lineHeight: 1.7,
+                        color: "rgba(200,255,192,0.75)",
+                        whiteSpace: "pre-wrap",
+                    }}>
+                        {summary}
+                    </p>
+                </motion.div>
+            )}
+
+            {/* ── Live Console ────────────────────────────────────────── */}
+            <div style={{ flex: 1, padding: "16px 20px 20px", display: "flex", flexDirection: "column", minHeight: 0 }}>
+                {/* Console header */}
+                <div style={{
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    marginBottom: 8,
+                }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <SquareTerminal size={11} style={{ color: "rgba(200,255,192,0.3)" }} />
+                        <span style={{ fontSize: 9, letterSpacing: "0.18em", textTransform: "uppercase", color: "rgba(200,255,192,0.3)" }}>
+                            agent console
+                        </span>
+                    </div>
+                    <span style={{ fontSize: 8, color: "rgba(200,255,192,0.15)" }}>
+                        {consoleLogs.length} entries
+                    </span>
                 </div>
 
-                <section>
-                    <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500 mb-3">Project Phase</h3>
-                    <div className="flex flex-col gap-1">
-                        {activeWorkspace.phases.map((phase, idx) => {
-                            const isCurrent = activeWorkspace.currentPhase === phase;
-                            const isPast = activeWorkspace.phases.indexOf(activeWorkspace.currentPhase) > idx;
+                {/* Console output */}
+                <div
+                    ref={consoleContainerRef}
+                    className="ws-console ws-scrollbar"
+                    style={{ flex: 1, minHeight: 200, maxHeight: "calc(100vh - 340px)" }}>
+                    {consoleLogs.length === 0 ? (
+                        <div style={{
+                            padding: "40px 20px",
+                            textAlign: "center",
+                        }}>
+                            <p style={{ fontSize: 10, color: "rgba(200,255,192,0.15)", letterSpacing: "0.12em" }}>
+                                {isRunning ? "waiting for agent output\u2026" : "enter a goal and press run agent to begin"}
+                            </p>
+                        </div>
+                    ) : (
+                        consoleLogs.map((entry, i) => {
+                            const entryColor = CONSOLE_TYPE_COLORS[entry.type] || "rgba(200,255,192,0.35)";
+                            const agentConfEntry = AGENT_CONFIG[entry.agent];
+                            const isStream = entry.type === "agent_stream";
                             return (
-                                <div key={phase} onClick={() => setWorkspacePhase(phase)} className={`flex items-center gap-2 text-[11px] p-1.5 rounded cursor-pointer transition-all border border-transparent ${isCurrent ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' : isPast ? 'text-slate-400 hover:text-slate-300' : 'text-slate-600'}`}>
-                                    {isCurrent ? <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" /> : isPast ? <CheckCircle size={10} /> : <Circle size={10} />}
-                                    <span>{phase}</span>
+                                <div
+                                    key={i}
+                                    className="ws-console-entry"
+                                    style={{
+                                        display: "flex",
+                                        alignItems: "flex-start",
+                                        gap: 8,
+                                        opacity: isStream ? 0.7 : 1,
+                                    }}>
+                                    {/* Timestamp */}
+                                    <span style={{
+                                        fontSize: 9,
+                                        color: "rgba(200,255,192,0.18)",
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        flexShrink: 0,
+                                        paddingTop: 1,
+                                        minWidth: 68,
+                                    }}>
+                                        {entry.timestamp || fmtTimeSec(Date.now())}
+                                    </span>
+
+                                    {/* Agent badge */}
+                                    {agentConfEntry && (
+                                        <span className="ws-agent-badge" style={{
+                                            background: agentConfEntry.bg,
+                                            color: agentConfEntry.color,
+                                            border: `1px solid ${agentConfEntry.color}20`,
+                                            flexShrink: 0,
+                                        }}>
+                                            {agentConfEntry.icon}
+                                        </span>
+                                    )}
+
+                                    {/* Message */}
+                                    <span style={{
+                                        fontSize: isStream ? 9 : 10,
+                                        color: entryColor,
+                                        fontFamily: "'JetBrains Mono', monospace",
+                                        lineHeight: 1.7,
+                                        wordBreak: "break-word",
+                                        whiteSpace: isStream ? "pre-wrap" : "normal",
+                                    }}>
+                                        {entry.message}
+                                    </span>
                                 </div>
                             );
-                        })}
-                    </div>
-                </section>
-
-                <section className="flex-1 overflow-y-auto custom-scrollbar">
-                    <div className="flex justify-between items-center mb-3">
-                        <h3 className="text-xs font-bold uppercase tracking-widest text-slate-500">Workspace Files</h3>
-                    </div>
-                    {activeWorkspace.outputs.length === 0 ? (
-                        <div className="text-[10px] opacity-40 font-mono">No files saved yet.</div>
-                    ) : (
-                        <ul className="space-y-1">
-                            {activeWorkspace.outputs.map(out => (
-                                <li key={out.id} className="flex flex-col gap-1 text-[11px] p-2 rounded hover:bg-white/5 cursor-pointer text-slate-300 transition-colors border border-transparent hover:border-slate-800">
-                                    <div className="flex items-center gap-2">
-                                        <FileText size={12} className="text-cyan-600" />
-                                        <span className="truncate flex-1 font-mono hover:text-cyan-400">{out.filename}</span>
-                                    </div>
-                                </li>
-                            ))}
-                        </ul>
+                        })
                     )}
-                </section>
-            </div>
-
-            {/* CENTER: The Work (The "Everything" Viewer) */}
-            <div className="flex-1 flex flex-col relative bg-gradient-to-b from-slate-900/60 to-black/80 min-w-0">
-                <header className="h-12 border-b border-slate-800 flex items-center px-4 gap-6 shrink-0 bg-black/20">
-                    <button onClick={() => setCenterTab("editor")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "editor" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Editor</button>
-                    <button onClick={() => setCenterTab("preview")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "preview" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Preview</button>
-                    <button onClick={() => setCenterTab("analysis")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "analysis" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Analysis</button>
-                    <button onClick={() => setCenterTab("timeline")} className={`text-sm font-medium pb-3 mt-3 transition-colors ${centerTab === "timeline" ? "text-cyan-400 border-b-2 border-cyan-400" : "text-slate-400 hover:text-white border-b-2 border-transparent"}`}>Timeline</button>
-                </header>
-
-                <div className="flex-1 p-6 overflow-hidden">
-                    {/* UNIVERSAL CONTENT RENDERER */}
-                    <div className="rounded-xl border border-slate-800 bg-black/50 h-full w-full overflow-hidden shadow-2xl relative flex flex-col">
-                        {/* Timeline Tab */}
-                        {centerTab === "timeline" && (
-                            <div className="absolute inset-0 bg-black/90 backdrop-blur-xl p-6 z-10 overflow-y-auto">
-                                <h4 className="text-cyan-400 font-bold tracking-widest text-sm uppercase mb-6 flex items-center gap-2">
-                                    <Sparkles size={16} /> Agent Activity Timeline
-                                </h4>
-                                {(activeWorkspace.timeline || []).length === 0 ? (
-                                    <p className="text-slate-500 text-xs text-center mt-16 opacity-50">No activity yet. Start chatting with the agent.</p>
-                                ) : (
-                                    <div className="flex flex-col gap-0">
-                                        {(activeWorkspace.timeline || []).map((event, i) => (
-                                            <div key={event.id} className="flex gap-3 items-start relative">
-                                                {/* Vertical line */}
-                                                {i < (activeWorkspace.timeline.length - 1) && (
-                                                    <div className="absolute left-[5px] top-4 bottom-0 w-px bg-slate-800" />
-                                                )}
-                                                <div className="w-3 h-3 rounded-full bg-cyan-500/30 border border-cyan-500/50 shrink-0 mt-1 z-10" />
-                                                <div className="pb-4 flex-1">
-                                                    <div className="text-[10px] text-slate-500 font-mono mb-0.5">
-                                                        {new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", second: "2-digit" })}
-                                                    </div>
-                                                    <div className="text-xs text-slate-300">{event.text}</div>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
-                            </div>
-                        )}
-                        {/* Fake Browser/Terminal Header if in Preview */}
-                        {centerTab === "preview" && (
-                            <div className="h-8 border-b border-slate-800 bg-black/40 flex items-center gap-2 px-3 shrink-0">
-                                <div className="flex gap-1.5">
-                                    <div className="w-2.5 h-2.5 rounded-full bg-red-500/50"></div>
-                                    <div className="w-2.5 h-2.5 rounded-full bg-yellow-500/50"></div>
-                                    <div className="w-2.5 h-2.5 rounded-full bg-green-500/50"></div>
-                                </div>
-                                <span className="ml-2 text-[10px] text-slate-500 font-mono tracking-wider">UNIVERSAL VIEWER</span>
-                            </div>
-                        )}
-                        <div className="flex-1 overflow-auto relative">
-                            {/* Universal Editor / Sandbox */}
-                            <Sandpack
-                                files={sandpackFiles}
-                                theme="dark"
-                                template="react"
-                                options={{
-                                    showNavigator: centerTab === "preview",
-                                    showTabs: true,
-                                    editorHeight: "100%",
-                                    classes: {
-                                        "sp-layout": "h-full min-h-full flex",
-                                        "sp-preview": centerTab === "preview" ? "h-full flex-1" : "hidden",
-                                        "sp-editor": centerTab === "editor" ? "h-full flex-1" : (centerTab === "preview" ? "hidden" : "h-full flex-1")
-                                    }
-                                }}
-                            />
-                            {/* Analysis Layer */}
-                            {centerTab === "analysis" && (
-                                <div className="absolute inset-0 bg-black/90 backdrop-blur-xl p-8 z-10 overflow-y-auto">
-                                    <h4 className="text-cyan-400 font-bold tracking-widest text-sm uppercase mb-6 flex items-center gap-2">
-                                        <Target size={16} /> Task Dependency Graph
-                                    </h4>
-                                    <div className="space-y-3">
-                                        {activeWorkspace.tasks.length === 0 ? <p className="text-slate-500 text-xs">No active tasks to analyze.</p> : activeWorkspace.tasks.map(t => (
-                                            <div key={t.id} className="p-3 border border-slate-800 bg-slate-900/50 rounded flex items-center justify-between text-xs">
-                                                <span>{t.title}</span>
-                                                <span className={`px-2 py-0.5 rounded uppercase tracking-widest text-[9px] ${t.status === "completed" ? "bg-green-500/10 text-green-400" : "bg-yellow-500/10 text-yellow-400"}`}>{t.status}</span>
-                                            </div>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            {/* RIGHT: Agent Intelligence */}
-            <div className="w-[380px] border-l border-slate-800 bg-slate-950/80 flex flex-col shrink-0">
-                <div className="p-4 border-b border-slate-800 flex justify-between items-center bg-black/20">
-                    <span className="text-[11px] uppercase tracking-widest font-bold flex items-center gap-2 text-slate-300">
-                        <div className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                        Agent Online
-                    </span>
-                    <div className="flex items-center gap-2">
-                        <span className="text-[9px] uppercase tracking-widest text-slate-500">Critique</span>
-                        <button onClick={() => setCritiqueMode(!critiqueMode)} className={`w-7 h-3.5 rounded-full transition-colors relative ${critiqueMode ? 'bg-amber-500' : 'bg-slate-700'}`}>
-                            <div className={`w-2.5 h-2.5 rounded-full bg-white absolute top-0.5 transition-all ${critiqueMode ? 'left-3.5' : 'left-0.5'}`}></div>
-                        </button>
-                    </div>
-                </div>
-
-                <div className="flex-1 overflow-y-auto p-4 custom-scrollbar flex flex-col">
-
-                    {/* The Brain Feed (Thought Trace) */}
-                    {latestThought && !loading && (
-                        <div className="mb-6 rounded-lg border border-cyan-900/30 bg-cyan-950/10 p-3 shadow-inner relative overflow-hidden">
-                            <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent animate-pulse"></div>
-                            <div className="flex items-center gap-2 mb-2 text-[10px] uppercase font-bold tracking-widest text-cyan-500/70">
-                                <Sparkles size={10} /> Thought Trace
-                            </div>
-                            <div className="text-[11px] font-mono leading-relaxed text-cyan-200/60 italic">
-                                "{latestThought}"
-                            </div>
-                        </div>
-                    )}
-                    {loading && (
-                        <div className="mb-6 rounded-lg border border-amber-900/30 bg-amber-950/10 p-3 shadow-inner relative">
-                            <div className="flex items-center gap-2 mb-2 text-[10px] uppercase font-bold tracking-widest text-amber-500/70">
-                                <div className="w-2 h-2 rounded-full border-2 border-amber-500 border-t-transparent animate-spin"></div>
-                                AI Reasoning
-                            </div>
-                            <div className="text-[11px] font-mono leading-relaxed text-amber-200/60 transition-all">
-                                {loadingMessage}
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Chat Messages */}
-                    <div className="flex-1 flex flex-col gap-4">
-                        {activeWorkspace.chats.length === 0 && (
-                            <div className="text-center mt-8">
-                                <SquareTerminal size={20} className="mx-auto text-slate-600 mb-3" />
-                                <div className="text-[10px] uppercase font-bold text-slate-500 tracking-widest">Agent Ready</div>
-                            </div>
-                        )}
-
-                        {activeWorkspace.chats.map((obj, index) => {
-                            if (obj.type === "ms") return null;
-
-                            // Searching card
-                            if (obj.type === "agent_searching") {
-                                return (
-                                    <div key={obj.id} className="flex items-center gap-3 px-4 py-3 rounded-lg border text-sm font-mono"
-                                        style={{ background: "rgba(0,245,255,0.04)", borderColor: "rgba(0,245,255,0.2)", color: "#00f5ff" }}>
-                                        <div className="w-4 h-4 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin shrink-0" />
-                                        <span className="text-[11px] uppercase tracking-widest">Searching the web for:</span>
-                                        <span className="text-white font-bold text-xs truncate">{obj.query}</span>
-                                    </div>
-                                );
-                            }
-
-                            return <AgentOutputBlock key={obj.id || index} obj={obj} />;
-                        })}
-                        <div ref={messagesEndRef} className="h-2 shrink-0" />
-                    </div>
-                </div>
-
-                <div className="p-4 bg-black/40 border-t border-slate-800 shrink-0">
-                    <form onSubmit={handleSend} className="relative">
-                        <textarea
-                            ref={inputRef}
-                            value={query}
-                            onChange={e => setQuery(e.target.value)}
-                            onKeyDown={e => {
-                                if (e.key === "Enter" && !e.shiftKey) {
-                                    e.preventDefault();
-                                    handleSend(e);
-                                }
-                            }}
-                            className="w-full bg-slate-900/80 border border-slate-700/50 rounded-lg p-3 pt-3 pr-10 text-xs focus:ring-1 focus:ring-cyan-500 outline-none resize-none placeholder-slate-600 font-mono"
-                            placeholder="Give command (CMD+K)..."
-                            rows={3}
-                            disabled={loading || isAutoExecuting}
-                        />
-                        <button type="submit" disabled={loading || isAutoExecuting || !query.trim()} className="absolute right-3 bottom-3 text-cyan-500 hover:text-cyan-300 disabled:opacity-30 disabled:hover:text-cyan-500 transition-colors bg-cyan-500/10 p-1.5 rounded-md">
-                            <Send size={14} />
-                        </button>
-                    </form>
+                    <div ref={consoleEndRef} />
                 </div>
             </div>
         </div>
     );
 }
 
-// Agent Output Block - The sleek, premium dashboard card for AI actions
-function AgentOutputBlock({ obj }) {
-    if (!obj.question && !obj.answer) return null;
+// ═══════════════════════════════════════════════════════════════════════════════
+// WORKSPACE VIEW
+// ═══════════════════════════════════════════════════════════════════════════════
+export function WorkspaceView({ onBack }) {
+    useEffect(() => { injectStyles(); }, []);
 
-    let cleanAnswer = obj.answer || "";
-    let addTasks = [];
-    let completeTasks = [];
-    let files = [];
-    let phase = null;
-    let requiresApproval = false;
-    let thought = "";
+    const ctx = useContext(WorkspaceContext);
+    const { preferences } = useContext(chatsContext) || {};
 
-    // Parse JSON
-    let parsedJson = null;
-    try {
-        const match = cleanAnswer.match(/\`\`\`(?:json)?\s*([\s\S]*?)\`\`\`/);
-        const jsonStr = match ? match[1] : cleanAnswer;
-        if (jsonStr.trim().startsWith('{')) {
-            parsedJson = JSON.parse(jsonStr.trim());
-        }
-    } catch (e) {
-        // try partial parse
-        try {
-            const lastBrace = cleanAnswer.lastIndexOf('}');
-            if (lastBrace !== -1) {
-                const trimmed = cleanAnswer.substring(0, lastBrace + 1);
-                const match = trimmed.match(/\`\`\`(?:json)?\s*([\s\S]*)/) || [null, trimmed];
-                parsedJson = JSON.parse(match[1]);
+    // Default view is now "mission"
+    const [view, setView] = useState("mission");
+    const [showForm, setShowForm] = useState(false);
+    const [editMode, setEditMode] = useState(false);
+    const [showWsList, setWsList] = useState(false);
+    const [taskFilter, setFilter] = useState("all");
+    const [search, setSearch] = useState("");
+    const [selected, setSelected] = useState(new Set());
+    const [newTask, setNewTask] = useState("");
+    const [newPriority, setNewPri] = useState("normal");
+    const [phaseInput, setPhaseIn] = useState("");
+    const [showPhaseAdd, setPhaseAdd] = useState(false);
+    const [confirmDel, setConfDel] = useState(null);
+    const importRef = useRef(null);
+
+    // ── Agent run state ──────────────────────────────────────────────
+    const [goal, setGoal] = useState("");
+    const abortRef = useRef(null);
+    const [elapsed, setElapsed] = useState(0);
+    const elapsedTimerRef = useRef(null);
+
+    if (!ctx) return null;
+
+    const {
+        workspaces, activeWorkspaceId, activeWorkspace, workspaceStats,
+        setActiveWorkspaceId, createWorkspace, updateWorkspace, duplicateWorkspace,
+        deleteWorkspace, archiveWorkspace, exportWorkspace, importWorkspace,
+        setWorkspacePhase, addPhase, removePhase,
+        addTask, updateTask, deleteTask, bulkUpdateTasks, bulkDeleteTasks,
+        deleteOutput, renameOutput,
+        updateNotes, addTimelineEvent, clearTimeline,
+        // Agent properties
+        agentRun, startAgentRun, stopAgentRun,
+        updateAgentRun, addAgentLog, clearAgentConsole, processAgentEvent,
+    } = ctx;
+
+    const ws = activeWorkspace;
+    const tasks = ws?.tasks || [];
+    const outputs = ws?.outputs || [];
+    const timeline = ws?.timeline || [];
+
+    // Filtered + searched tasks
+    const displayTasks = tasks
+        .filter(t => taskFilter === "all" || t.status === taskFilter)
+        .filter(t => !search || t.title.toLowerCase().includes(search.toLowerCase()));
+
+    const handleAddTask = () => {
+        if (!newTask.trim()) return;
+        addTask(newTask.trim(), "coming_soon", { priority: newPriority });
+        addTimelineEvent(`Task added: "${newTask.trim()}"`, "task");
+        setNewTask("");
+    };
+
+    const toggleSel = (id) => setSelected(p => { const n = new Set(p); n.has(id) ? n.delete(id) : n.add(id); return n; });
+    const clearSel = () => setSelected(new Set());
+
+    const activeList = workspaces.filter(w => !w.isArchived);
+    const stats = workspaceStats;
+
+    const tlColors = { info: "rgba(200,255,192,0.4)", task: "#00f5ff", phase: "#ffd700", output: "#39ff14", agent: "rgba(255,165,0,0.9)", error: "#ff2d78" };
+    const tlIcons = { info: "\u203A", task: "\u2713", phase: "\u25B6", output: "\u25C8", agent: "\u26A1", error: "\u26A0" };
+
+    // ── Elapsed timer ────────────────────────────────────────────────
+    useEffect(() => {
+        if (agentRun?.isRunning && agentRun?.startedAt) {
+            const start = new Date(agentRun.startedAt).getTime();
+            setElapsed(Date.now() - start);
+            elapsedTimerRef.current = setInterval(() => {
+                setElapsed(Date.now() - start);
+            }, 1000);
+        } else {
+            if (elapsedTimerRef.current) {
+                clearInterval(elapsedTimerRef.current);
+                elapsedTimerRef.current = null;
             }
-        } catch (e2) { }
-    }
-
-    if (parsedJson) {
-        // FIX 2: Type-safe answer extraction — prevents [object Object] render crash
-        const rawAnswer = parsedJson.answer;
-        cleanAnswer = typeof rawAnswer === 'string'
-            ? rawAnswer
-            : (rawAnswer != null ? JSON.stringify(rawAnswer) : "") || "Processing...";
-
-        thought = typeof parsedJson.thought === 'string' ? parsedJson.thought : "";
-        phase = parsedJson.phase;
-        requiresApproval = !!parsedJson.requires_approval;
-
-        if (parsedJson.add_tasks) addTasks = parsedJson.add_tasks.map(t => [null, t.title]);
-        if (parsedJson.complete_tasks) {
-            completeTasks = parsedJson.complete_tasks.map(t => [null, typeof t === 'string' ? t : t.title || JSON.stringify(t)]);
         }
-        if (parsedJson.save_outputs) {
-            files = parsedJson.save_outputs.map(o => [null, o.fileName, o.content || ""]);
-        }
-    } else {
-        // Fallback for XML parsing
-        addTasks = [...cleanAnswer.matchAll(/<add_task title="(.*?)"\s*\/>/g)];
-        completeTasks = [...cleanAnswer.matchAll(/<complete_task title="(.*?)"\s*\/>/g)];
-        files = [...cleanAnswer.matchAll(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g)];
+        return () => {
+            if (elapsedTimerRef.current) {
+                clearInterval(elapsedTimerRef.current);
+                elapsedTimerRef.current = null;
+            }
+        };
+    }, [agentRun?.isRunning, agentRun?.startedAt]);
 
-        cleanAnswer = cleanAnswer.replace(/<add_task title="(.*?)"\s*\/>/g, "");
-        cleanAnswer = cleanAnswer.replace(/<complete_task title="(.*?)"\s*\/>/g, "");
-        cleanAnswer = cleanAnswer.replace(/<create_file name="(.*?)">([\s\S]*?)<\/create_file>/g, "");
-    }
+    // ── Run Agent ────────────────────────────────────────────────────
+    const handleRunAgent = useCallback(async () => {
+        if (!goal.trim() || !ws) return;
+
+        // Clear previous console
+        clearAgentConsole();
+
+        // Start the agent run state
+        startAgentRun(goal);
+
+        // Create abort controller
+        abortRef.current = new AbortController();
+
+        addAgentLog("system", null, `Starting mission: "${goal}"`);
+
+        try {
+            // Build workspace state for the server
+            const workspaceState = {
+                name: ws.name,
+                type: ws.type,
+                description: ws.description,
+                currentPhase: ws.currentPhase,
+                allPhases: ws.phases,
+                rules: ws.rules,
+                conversationSummary: ws.conversationSummary,
+                activeTasks: (ws.tasks || []).filter(t => t.status !== "completed").map(t => ({
+                    title: t.title,
+                    status: t.status,
+                    priority: t.priority,
+                    phase: t.phase,
+                })),
+                completedTasks: (ws.tasks || []).filter(t => t.status === "completed").map(t => t.title),
+                filesOutput: (ws.outputs || []).map(o => o.filename),
+                rawOutputs: (ws.outputs || []),
+                notes: ws.notes,
+            };
+
+            const response = await api.agentRun(
+                preferences?.userId,
+                goal,
+                workspaceState,
+                {}, // clientKeys - passed via api internally
+                null, // model - default
+                {}, // parameters
+                abortRef.current.signal,
+            );
+
+            if (!response.ok) {
+                const errText = await response.text().catch(() => "Unknown error");
+                addAgentLog("error", null, `API error (${response.status}): ${errText}`);
+                updateAgentRun({ isRunning: false });
+                return;
+            }
+
+            // Parse SSE events
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let buffer = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+                buffer += decoder.decode(value, { stream: true });
+                const lines = buffer.split("\n");
+                buffer = lines.pop();
+                for (const line of lines) {
+                    if (line.startsWith("data: ")) {
+                        try {
+                            const event = JSON.parse(line.slice(6));
+                            processAgentEvent(event);
+                        } catch (e) {
+                            // Ignore malformed JSON lines
+                        }
+                    }
+                }
+            }
+
+            // Process any remaining buffer
+            if (buffer.startsWith("data: ")) {
+                try {
+                    const event = JSON.parse(buffer.slice(6));
+                    processAgentEvent(event);
+                } catch (e) {
+                    // Ignore
+                }
+            }
+
+            addAgentLog("system", null, "Stream completed");
+            updateAgentRun({ isRunning: false });
+
+        } catch (err) {
+            if (err.name === "AbortError") {
+                addAgentLog("system", null, "Mission stopped by user");
+            } else {
+                addAgentLog("error", null, `Error: ${err.message}`);
+            }
+            updateAgentRun({ isRunning: false });
+        }
+
+        abortRef.current = null;
+    }, [goal, ws, startAgentRun, stopAgentRun, updateAgentRun, addAgentLog, clearAgentConsole, processAgentEvent]);
+
+    // ── Stop Agent ───────────────────────────────────────────────────
+    const handleStopAgent = useCallback(() => {
+        if (abortRef.current) {
+            abortRef.current.abort();
+        }
+        stopAgentRun();
+    }, [stopAgentRun]);
 
     return (
-        <motion.div
-            initial={{ opacity: 0, y: 15 }}
-            animate={{ opacity: 1, y: 0 }}
-            className="flex flex-col mb-8 w-full"
-        >
-            {/* User Command Log */}
-            <div className="flex items-center gap-3 px-4 py-3 bg-[rgba(0,245,255,0.03)] border border-[rgba(0,245,255,0.1)] rounded-t-xl opacity-80">
-                <SquareTerminal size={14} className="text-cyan-400" />
-                <span className="text-[10px] font-mono uppercase tracking-widest text-cyan-500 font-bold shrink-0">Command Executed:</span>
-                <span className="text-sm font-mono truncate">{obj.question}</span>
+        <div className="ws-root flex flex-col" style={{ position: "relative", zIndex: 1 }}>
+            {/* ── TOPBAR ────────────────────────────────────────────────── */}
+            <div style={{
+                borderBottom: "1px solid rgba(57,255,20,0.1)",
+                background: "rgba(5,7,8,0.95)",
+                padding: "0 20px",
+                height: 48,
+                display: "flex",
+                alignItems: "center",
+                gap: 16,
+                flexShrink: 0,
+                position: "relative",
+                zIndex: 10,
+            }}>
+                {onBack && (
+                    <button onClick={onBack} className="ws-btn-ghost flex items-center gap-1.5" style={{ padding: "4px 8px" }}>
+                        <ArrowLeft size={10} /> back
+                    </button>
+                )}
+
+                <div style={{ width: 1, height: 20, background: "rgba(255,255,255,0.06)" }} />
+
+                {/* Workspace selector */}
+                <button onClick={() => setWsList(p => !p)} className="flex items-center gap-2" style={{ background: "none", border: "none", cursor: "pointer" }}>
+                    <span style={{ fontSize: 16 }}>{ws?.emoji || "\u{1F310}"}</span>
+                    <div>
+                        <p style={{ fontSize: 11, fontWeight: 700, color: ws ? "#39ff14" : "rgba(200,255,192,0.3)", letterSpacing: "0.05em" }}>
+                            {ws?.name || "select workspace"}
+                        </p>
+                        {ws && <p style={{ fontSize: 9, color: "rgba(200,255,192,0.3)", letterSpacing: "0.1em" }}>{ws.type} \u00B7 {ws.currentPhase}</p>}
+                    </div>
+                    <ChevronDown size={10} style={{ color: "rgba(200,255,192,0.3)", transform: showWsList ? "rotate(180deg)" : "none", transition: "transform 0.2s" }} />
+                </button>
+
+                {/* Running indicator in topbar */}
+                {agentRun?.isRunning && (
+                    <div style={{
+                        display: "flex", alignItems: "center", gap: 6,
+                        background: "rgba(57,255,20,0.06)",
+                        border: "1px solid rgba(57,255,20,0.2)",
+                        borderRadius: 3, padding: "3px 10px",
+                    }}>
+                        <span style={{
+                            width: 6, height: 6, borderRadius: "50%", background: "#39ff14",
+                            animation: "ws-pulse-dot 1s infinite",
+                        }} />
+                        <span style={{ fontSize: 9, color: "#39ff14", letterSpacing: "0.1em", fontWeight: 700 }}>LIVE</span>
+                    </div>
+                )}
+
+                <div style={{ flex: 1 }} />
+
+                {/* Actions */}
+                {ws && (
+                    <div className="flex items-center gap-2">
+                        <button onClick={() => { setEditMode(true); setShowForm(true); }} className="ws-btn-ghost flex items-center gap-1"><Pencil size={9} /> edit</button>
+                        <button onClick={() => duplicateWorkspace(ws.id)} className="ws-btn-ghost flex items-center gap-1"><Copy size={9} /> clone</button>
+                        <button onClick={() => exportWorkspace(ws.id)} className="ws-btn-ghost flex items-center gap-1"><Download size={9} /> export</button>
+                    </div>
+                )}
+                <button onClick={() => { setEditMode(false); setShowForm(true); }} className="ws-btn-primary flex items-center gap-1.5">
+                    <Plus size={10} /> new workspace
+                </button>
+                <button onClick={() => importRef.current?.click()} className="ws-btn-ghost" style={{ padding: "5px 7px" }} title="Import">
+                    <Upload size={10} />
+                </button>
+                <input ref={importRef} type="file" accept=".json" className="hidden"
+                    onChange={e => {
+                        const f = e.target.files?.[0]; if (!f) return;
+                        const r = new FileReader(); r.onload = ev => importWorkspace(ev.target.result); r.readAsText(f);
+                        e.target.value = "";
+                    }} />
             </div>
 
-            {/* Agent Rendered Output */}
-            <div className="relative glass-panel rounded-b-xl border-x border-b border-white/5 bg-black/40 backdrop-blur-md p-6 sm:p-8 shadow-2xl">
-                <div className="absolute top-0 left-0 w-full h-px bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent"></div>
-
-                {obj.answer ? (
-                    <>
-                        {/* Agent Phase */}
-                        {(phase) && (
-                            <div className="flex flex-col gap-2 mb-4 bg-white/[0.04] p-3 rounded-lg border border-white/[0.06] shadow-inner">
-                                {phase && (
-                                    <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest font-bold" style={{ color: "#39ff14" }}>
-                                        <span>🛠 Phase: {phase}</span>
-                                        {requiresApproval && <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full border" style={{ borderColor: "rgba(255,45,120,0.4)", color: "#ff2d78", background: "rgba(255,45,120,0.08)" }}>⏸ Paused</span>}
-                                        {!requiresApproval && <span className="ml-auto text-[9px] px-2 py-0.5 rounded-full border" style={{ borderColor: "rgba(0,245,255,0.4)", color: "#00f5ff", background: "rgba(0,245,255,0.06)" }}>🔄 Auto-Loop</span>}
-                                    </div>
-                                )}
-                            </div>
+            {/* ── WORKSPACE LIST DROPDOWN ───────────────────────────────── */}
+            <AnimatePresence>
+                {showWsList && (
+                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }}
+                        style={{
+                            position: "absolute", top: 48, left: 0, right: 0, zIndex: 50,
+                            background: "rgba(5,7,8,0.98)", borderBottom: "1px solid rgba(57,255,20,0.1)",
+                            maxHeight: 240, overflowY: "auto",
+                        }}
+                        className="ws-scrollbar">
+                        {activeList.length === 0 && (
+                            <p className="text-center py-6 text-xs" style={{ color: "rgba(200,255,192,0.2)" }}>no workspaces yet</p>
                         )}
-
-                        {/* Agent Action Cards — Glassmorphic */}
-                        {(addTasks.length > 0 || completeTasks.length > 0 || files.length > 0) && (
-                            <div className="flex flex-col gap-3 mb-5">
-
-                                {/* Add Tasks */}
-                                {addTasks.length > 0 && (
-                                    <div
-                                        className="rounded-xl border overflow-hidden"
-                                        style={{
-                                            background: "rgba(57,255,20,0.04)",
-                                            borderColor: "rgba(57,255,20,0.2)",
-                                            boxShadow: "0 0 18px rgba(57,255,20,0.06), inset 0 1px 0 rgba(57,255,20,0.08)",
-                                            backdropFilter: "blur(12px)"
-                                        }}
-                                    >
-                                        <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: "rgba(57,255,20,0.1)" }}>
-                                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: "#39ff14" }}>⚡ Tasks Planned</span>
-                                            <span className="ml-auto text-[10px] font-mono opacity-40">{addTasks.length}</span>
-                                        </div>
-                                        <div className="flex flex-col gap-1 p-3">
-                                            {addTasks.map((t, i) => (
-                                                <div key={'add' + i} className="flex items-center gap-2 text-xs font-mono px-2 py-1 rounded" style={{ color: "rgba(57,255,20,0.85)" }}>
-                                                    <span className="opacity-50">+</span> <span className="text-white">{t[1]}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Complete Tasks */}
-                                {completeTasks.length > 0 && (
-                                    <div
-                                        className="rounded-xl border overflow-hidden"
-                                        style={{
-                                            background: "rgba(0,245,255,0.04)",
-                                            borderColor: "rgba(0,245,255,0.2)",
-                                            boxShadow: "0 0 18px rgba(0,245,255,0.06), inset 0 1px 0 rgba(0,245,255,0.08)",
-                                            backdropFilter: "blur(12px)"
-                                        }}
-                                    >
-                                        <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: "rgba(0,245,255,0.1)" }}>
-                                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: "#00f5ff" }}>✅ Tasks Completed</span>
-                                            <span className="ml-auto text-[10px] font-mono opacity-40">{completeTasks.length}</span>
-                                        </div>
-                                        <div className="flex flex-col gap-1 p-3">
-                                            {completeTasks.map((t, i) => (
-                                                <div key={'comp' + i} className="flex items-center gap-2 text-xs font-mono px-2 py-1 rounded" style={{ color: "rgba(0,245,255,0.85)" }}>
-                                                    <span className="opacity-50">✓</span> <span className="text-white">{t[1]}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
-                                {/* Save Outputs (Files) */}
-                                {files.length > 0 && (
-                                    <div
-                                        className="rounded-xl border overflow-hidden"
-                                        style={{
-                                            background: "rgba(255,45,120,0.04)",
-                                            borderColor: "rgba(255,45,120,0.2)",
-                                            boxShadow: "0 0 18px rgba(255,45,120,0.06), inset 0 1px 0 rgba(255,45,120,0.08)",
-                                            backdropFilter: "blur(12px)"
-                                        }}
-                                    >
-                                        <div className="flex items-center gap-2 px-4 py-2 border-b" style={{ borderColor: "rgba(255,45,120,0.1)" }}>
-                                            <span className="text-[10px] font-mono font-bold uppercase tracking-widest" style={{ color: "#ff2d78" }}>📄 Files Saved</span>
-                                            <span className="ml-auto text-[10px] font-mono opacity-40">{files.length}</span>
-                                        </div>
-                                        <div className="flex flex-col gap-2 p-3">
-                                            {files.map((f, i) => (
-                                                <div key={'file' + i} className="flex flex-col gap-1">
-                                                    <div className="flex items-center gap-2 text-xs font-mono" style={{ color: "rgba(255,45,120,0.9)" }}>
-                                                        <span className="opacity-50">→</span>
-                                                        <span className="text-white font-bold">{f[1]}</span>
-                                                        {f[2] && (
-                                                            <span className="ml-auto opacity-30 text-[9px]">{f[2].length} chars</span>
-                                                        )}
-                                                    </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
+                        {activeList.map(w => (
+                            <div key={w.id} onClick={() => { setActiveWorkspaceId(w.id); setWsList(false); }}
+                                role="button" aria-label={`Open ${w.name}`} tabIndex={0}
+                                className="w-full flex items-center gap-3 px-5 py-3 group cursor-pointer"
+                                onKeyDown={e => { if (e.key === "Enter" || e.key === " ") { setActiveWorkspaceId(w.id); setWsList(false); } }}
+                                style={{
+                                    background: w.id === activeWorkspaceId ? "rgba(57,255,20,0.04)" : "transparent",
+                                    borderBottom: "1px solid rgba(255,255,255,0.03)",
+                                    transition: "background 0.1s",
+                                }}>
+                                <span style={{ fontSize: 15 }}>{w.emoji || "\u{1F310}"}</span>
+                                <div className="flex-1 text-left min-w-0">
+                                    <p style={{ fontSize: 11, color: w.id === activeWorkspaceId ? "#39ff14" : "rgba(200,255,192,0.75)", fontWeight: 700 }}>{w.name}</p>
+                                    <p style={{ fontSize: 9, color: "rgba(200,255,192,0.3)" }}>{w.type} \u00B7 {w.tasks?.filter(t => t.status !== "completed").length || 0} open tasks</p>
+                                </div>
+                                {w.id === activeWorkspaceId && <Check size={10} style={{ color: "#39ff14" }} />}
+                                <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity" onClick={e => e.stopPropagation()}>
+                                    <button onClick={() => archiveWorkspace(w.id)} style={{ color: "rgba(200,255,192,0.3)", padding: 4 }} title="Archive"><Archive size={9} /></button>
+                                    <button onClick={() => {
+                                        if (confirmDel === w.id) { deleteWorkspace(w.id); setConfDel(null); }
+                                        else { setConfDel(w.id); setTimeout(() => setConfDel(null), 2500); }
+                                    }} style={{ color: confirmDel === w.id ? "#ff2d78" : "rgba(200,255,192,0.3)", padding: 4 }}>
+                                        <Trash2 size={9} />
+                                    </button>
+                                </div>
                             </div>
-                        )}
+                        ))}
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-                        {cleanAnswer.trim() ? (
-                            <div className={`agent-content text-sm relative z-10 ${(addTasks.length > 0 || completeTasks.length > 0 || files.length > 0) ? 'pt-5 border-t border-white/10 mt-2' : ''}`}>
-                                {obj.type === "error" ? (
-                                    <div className="text-red-400 flex gap-2 items-center p-4 bg-red-500/10 rounded border border-red-500/20">
-                                        <span>❌</span> <span>{cleanAnswer}</span>
-                                    </div>
-                                ) : (
-                                    <Response>{cleanAnswer}</Response>
-                                )}
-                            </div>
-                        ) : null}
+            {/* ── FORM MODAL ────────────────────────────────────────────── */}
+            <AnimatePresence>
+                {showForm && (
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                        style={{ position: "fixed", inset: 0, zIndex: 100, background: "rgba(0,0,0,0.7)", display: "flex", alignItems: "center", justifyContent: "center" }}
+                        onClick={() => { setShowForm(false); setEditMode(false); }}>
+                        <motion.div initial={{ scale: 0.95, y: 10 }} animate={{ scale: 1, y: 0 }} exit={{ scale: 0.95 }}
+                            className="ws-panel" style={{ width: 460, maxHeight: "85vh", overflowY: "auto" }}
+                            onClick={e => e.stopPropagation()}>
+                            <WorkspaceForm
+                                initial={editMode ? ws : null}
+                                onSave={data => {
+                                    if (editMode && ws) updateWorkspace(ws.id, data);
+                                    else createWorkspace(data);
+                                    setShowForm(false); setEditMode(false); setWsList(false);
+                                }}
+                                onCancel={() => { setShowForm(false); setEditMode(false); }}
+                            />
+                        </motion.div>
+                    </motion.div>
+                )}
+            </AnimatePresence>
 
-                        {/* Human Verification Checkpoint */}
-                        {requiresApproval && (
-                            <div className="mt-6 pt-5 border-t border-green-500/30 flex items-center justify-between">
-                                <div className="text-sm font-bold text-green-400 flex items-center gap-2">
-                                    <span>🛑</span> Agent Paused: Pending your approval or new instructions.
+            {/* ── NO WORKSPACE ──────────────────────────────────────────── */}
+            {!ws && !showForm && (
+                <div className="flex flex-col items-center justify-center flex-1 gap-6" style={{ paddingTop: 80 }}>
+                    <div style={{ border: "1px solid rgba(57,255,20,0.08)", borderRadius: 4, padding: "32px 40px", textAlign: "center", background: "rgba(57,255,20,0.02)" }}>
+                        {/* <p style={{ fontSize: 32, marginBottom: 12 }}>\u{1F5C2}</p> */}
+                        <p style={{ fontSize: 11, color: "rgba(200,255,192,0.3)", letterSpacing: "0.15em", marginBottom: 20 }}>NO WORKSPACE ACTIVE</p>
+                        <button className="ws-btn-primary" onClick={() => setShowForm(true)}>+ create workspace</button>
+                    </div>
+                </div>
+            )}
+
+            {/* ═══════════════════════════════════════════════════════════
+          MAIN CONTENT
+       ═══════════════════════════════════════════════════════════ */}
+            {ws && (
+                <div style={{ display: "flex", flex: 1, minHeight: 0, overflow: "hidden", position: "relative", zIndex: 1 }}>
+
+                    {/* ── LEFT SIDEBAR ─────────────────────────────────────── */}
+                    <div style={{
+                        width: 220, flexShrink: 0, borderRight: "1px solid rgba(57,255,20,0.08)",
+                        background: "rgba(5,7,8,0.6)", display: "flex", flexDirection: "column",
+                        overflowY: "auto", padding: "16px 0",
+                    }} className="ws-scrollbar">
+
+                        {/* Stats */}
+                        {stats && (
+                            <div style={{ padding: "0 16px 16px", borderBottom: "1px solid rgba(255,255,255,0.04)" }}>
+                                <div className="flex items-center justify-between mb-3">
+                                    <span style={{ fontSize: 9, letterSpacing: "0.2em", color: "rgba(200,255,192,0.3)", textTransform: "uppercase" }}>progress</span>
+                                    <ProgressRing pct={stats.progress} size={44} />
+                                </div>
+                                <ProgressBar value={stats.progress} />
+                                <div className="grid grid-cols-2 gap-2 mt-3">
+                                    {[
+                                        { l: "to do", v: stats.toDo, c: TASK_STATUS_COLORS.coming_soon },
+                                        { l: "doing", v: stats.inProgress, c: TASK_STATUS_COLORS.in_progress },
+                                        { l: "done", v: stats.done, c: "#39ff14" },
+                                        { l: "blocked", v: stats.blocked, c: "#ff2d78" },
+                                    ].map(s => (
+                                        <div key={s.l} style={{ background: "rgba(255,255,255,0.02)", borderRadius: 3, padding: "6px 8px" }}>
+                                            <p style={{ fontSize: 14, fontWeight: 700, color: s.c, lineHeight: 1 }}>{s.v}</p>
+                                            <p style={{ fontSize: 8, color: "rgba(200,255,192,0.3)", letterSpacing: "0.12em", textTransform: "uppercase", marginTop: 2 }}>{s.l}</p>
+                                        </div>
+                                    ))}
                                 </div>
                             </div>
                         )}
-                    </>
-                ) : (
-                    <div className="flex items-center gap-3 text-cyan-400 py-6 px-4 animate-pulse">
-                        <div className="w-5 h-5 border-2 border-cyan-400 border-t-transparent rounded-full animate-spin"></div>
-                        <span className="font-mono text-xs uppercase tracking-widest font-bold">Agent processing request...</span>
+
+                        {/* Phases */}
+                        <div style={{ padding: "12px 16px 0", borderBottom: "1px solid rgba(255,255,255,0.04)", paddingBottom: 12 }}>
+                            <p style={{ fontSize: 8, letterSpacing: "0.2em", color: "rgba(200,255,192,0.2)", textTransform: "uppercase", marginBottom: 8 }}>phases</p>
+                            <div className="flex flex-col gap-1.5">
+                                {(ws.phases || []).map(phase => (
+                                    <div key={phase} onClick={() => setWorkspacePhase(phase)}
+                                        role="button" aria-label={`Select phase ${phase}`} tabIndex={0}
+                                        className="flex items-center gap-2 text-left group cursor-pointer"
+                                        onKeyDown={e => { if (e.key === "Enter" || e.key === " ") setWorkspacePhase(phase); }}
+                                        style={{
+                                            background: ws.currentPhase === phase ? "rgba(57,255,20,0.08)" : "transparent",
+                                            border: `1px solid ${ws.currentPhase === phase ? "rgba(57,255,20,0.25)" : "transparent"}`,
+                                            borderRadius: 3, padding: "5px 8px", transition: "all 0.15s",
+                                        }}>
+                                        {ws.currentPhase === phase
+                                            ? <Dot color="#39ff14" pulse />
+                                            : <span style={{ width: 6, height: 6, borderRadius: "50%", border: "1px solid rgba(200,255,192,0.15)", display: "block", flexShrink: 0 }} />
+                                        }
+                                        <span style={{ fontSize: 10, color: ws.currentPhase === phase ? "#39ff14" : "rgba(200,255,192,0.45)", flex: 1 }}>{phase}</span>
+                                        <button onClick={e => { e.stopPropagation(); removePhase(phase); }}
+                                            className="opacity-0 group-hover:opacity-100 transition-opacity"
+                                            style={{ color: "rgba(255,45,120,0.5)" }}><X size={8} /></button>
+                                    </div>
+                                ))}
+                                {showPhaseAdd ? (
+                                    <input autoFocus className="ws-input text-xs" style={{ padding: "4px 8px" }}
+                                        placeholder="phase name\u2026" value={phaseInput} onChange={e => setPhaseIn(e.target.value)}
+                                        onKeyDown={e => {
+                                            if (e.key === "Enter" && phaseInput.trim()) { addPhase(phaseInput.trim()); setPhaseIn(""); setPhaseAdd(false); }
+                                            if (e.key === "Escape") { setPhaseAdd(false); setPhaseIn(""); }
+                                        }} onBlur={() => { setPhaseAdd(false); setPhaseIn(""); }} />
+                                ) : (
+                                    <button onClick={() => setPhaseAdd(true)} style={{ fontSize: 9, color: "rgba(200,255,192,0.2)", padding: "3px 8px", textAlign: "left" }}>+ add phase</button>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Nav */}
+                        <div style={{ padding: "12px 0" }}>
+                            {[
+                                { id: "mission", icon: Cpu, label: "Mission" },
+                                { id: "tasks", icon: ListTodo, label: "Tasks", count: tasks.filter(t => t.status !== "completed").length },
+                                { id: "outputs", icon: FileText, label: "Outputs", count: outputs.length },
+                                { id: "timeline", icon: Activity, label: "Activity" },
+                                { id: "notes", icon: StickyNote, label: "Notes" },
+                            ].map((item) => {
+                                const { id, icon: Icon, label, count } = item;
+                                const isActive = view === id;
+                                return (
+                                    <button key={id} onClick={() => setView(id)}
+                                        className="w-full flex items-center gap-2.5 px-4 py-2.5 transition-all"
+                                        style={{
+                                            background: isActive ? "rgba(57,255,20,0.06)" : "transparent",
+                                            borderLeft: `2px solid ${isActive ? "#39ff14" : "transparent"}`,
+                                            color: isActive ? "#39ff14" : "rgba(200,255,192,0.4)",
+                                        }}>
+                                        <Icon size={12} />
+                                        <span style={{ fontSize: 11, fontWeight: isActive ? 700 : 400, flex: 1, textAlign: "left" }}>{label}</span>
+                                        {count !== undefined && count > 0 && (
+                                            <span style={{ fontSize: 8, background: "rgba(255,255,255,0.08)", borderRadius: 10, padding: "1px 6px", color: "rgba(200,255,192,0.4)" }}>{count}</span>
+                                        )}
+                                        {/* Mission running indicator */}
+                                        {id === "mission" && agentRun?.isRunning && (
+                                            <span style={{
+                                                width: 6, height: 6, borderRadius: "50%", background: "#39ff14",
+                                                animation: "ws-pulse-dot 1s infinite",
+                                            }} />
+                                        )}
+                                    </button>
+                                );
+                            })}
+                        </div>
+
+                        {/* Rules */}
+                        {ws.rules?.length > 0 && (
+                            <div style={{ padding: "12px 16px", borderTop: "1px solid rgba(255,255,255,0.04)", marginTop: "auto" }}>
+                                <p style={{ fontSize: 8, letterSpacing: "0.2em", color: "rgba(200,255,192,0.2)", textTransform: "uppercase", marginBottom: 6 }}>agent rules</p>
+                                {ws.rules.map((r, i) => (
+                                    <p key={i} style={{ fontSize: 9, color: "rgba(200,255,192,0.35)", lineHeight: 1.6, paddingLeft: 8 }}>
+                                        <span style={{ color: "rgba(200,255,192,0.2)", marginRight: 4 }}>{i + 1}.</span>{r}
+                                    </p>
+                                ))}
+                            </div>
+                        )}
                     </div>
-                )}
-            </div>
-        </motion.div>
+
+                    {/* ── MAIN AREA ─────────────────────────────────────────── */}
+                    <div style={{ flex: 1, minWidth: 0, overflowY: "auto", display: "flex", flexDirection: "column" }} className="ws-scrollbar">
+
+                        {/* ═══ MISSION CONTROL VIEW ═════════════════════════ */}
+                        {view === "mission" && (
+                            <MissionControlPanel
+                                agentRun={agentRun || { isRunning: false, goal: "", currentAgent: null, currentTask: null, iteration: 0, totalIterations: 0, console: [], summary: null, startedAt: null }}
+                                goal={goal}
+                                setGoal={setGoal}
+                                onRun={handleRunAgent}
+                                onStop={handleStopAgent}
+                                elapsed={elapsed}
+                            />
+                        )}
+
+                        {/* ═══ TASKS VIEW ══════════════════════════════════════ */}
+                        {view === "tasks" && (
+                            <div style={{ flex: 1 }}>
+                                {/* Toolbar */}
+                                <div style={{
+                                    padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                                    display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap",
+                                    background: "rgba(0,0,0,0.2)",
+                                }}>
+                                    {/* Search */}
+                                    <div style={{ position: "relative", flex: 1, minWidth: 160 }}>
+                                        <Search size={10} style={{ position: "absolute", left: 9, top: "50%", transform: "translateY(-50%)", color: "rgba(200,255,192,0.2)" }} />
+                                        <input className="ws-input w-full" style={{ paddingLeft: 26, fontSize: 10 }}
+                                            placeholder="search tasks\u2026" value={search} onChange={e => setSearch(e.target.value)} />
+                                    </div>
+
+                                    {/* Status filters */}
+                                    <div className="flex items-center gap-1.5 flex-wrap">
+                                        {["all", "coming_soon", "in_progress", "completed", "blocked"].map(f => (
+                                            <button key={f} onClick={() => setFilter(f)} className="ws-phase-pill"
+                                                style={{
+                                                    background: taskFilter === f ? "rgba(57,255,20,0.1)" : "rgba(255,255,255,0.03)",
+                                                    borderColor: taskFilter === f ? "rgba(57,255,20,0.35)" : "transparent",
+                                                    color: taskFilter === f ? "#39ff14" : "rgba(200,255,192,0.35)",
+                                                    padding: "3px 10px",
+                                                }}>
+                                                {f === "all" ? `all (${tasks.length})` : `${TASK_STATUS_LABELS[f]} (${tasks.filter(t => t.status === f).length})`}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                {/* Quick add */}
+                                <div style={{
+                                    padding: "10px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)",
+                                    display: "flex", alignItems: "center", gap: 10, background: "rgba(57,255,20,0.02)",
+                                }}>
+                                    <span style={{ color: "#39ff14", fontSize: 14, fontWeight: 700, lineHeight: 1 }}>\u203A</span>
+                                    <input className="ws-input flex-1" style={{ border: "none", background: "transparent", padding: "4px 0", fontSize: 11 }}
+                                        placeholder="add task and press enter\u2026" value={newTask}
+                                        onChange={e => setNewTask(e.target.value)}
+                                        onKeyDown={e => e.key === "Enter" && handleAddTask()} />
+                                    <div className="flex items-center gap-1">
+                                        {["low", "normal", "high", "urgent"].map(p => (
+                                            <button key={p} title={p} onClick={() => setNewPri(p)}
+                                                style={{
+                                                    width: 10, height: 10, borderRadius: "50%",
+                                                    background: newPriority === p ? TASK_PRIORITY_COLORS[p] : "transparent",
+                                                    border: `1.5px solid ${TASK_PRIORITY_COLORS[p]}`,
+                                                    transition: "all 0.15s", cursor: "pointer",
+                                                }} />
+                                        ))}
+                                    </div>
+                                    <button className="ws-btn-primary" style={{ padding: "4px 12px" }} onClick={handleAddTask}>add</button>
+                                </div>
+
+                                {/* Bulk bar */}
+                                <AnimatePresence>
+                                    {selected.size > 0 && (
+                                        <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: "auto", opacity: 1 }} exit={{ height: 0, opacity: 0 }}
+                                            style={{ padding: "8px 20px", borderBottom: "1px solid rgba(57,255,20,0.1)", background: "rgba(57,255,20,0.04)", display: "flex", alignItems: "center", gap: 10 }}>
+                                            <span style={{ fontSize: 10, color: "#39ff14", fontWeight: 700 }}>{selected.size} selected</span>
+                                            <button className="ws-btn-ghost flex items-center gap-1.5" onClick={() => { bulkUpdateTasks([...selected], { status: "completed", completedAt: new Date().toISOString() }); clearSel(); }}>
+                                                <CheckSquare size={9} /> complete all
+                                            </button>
+                                            <button className="ws-btn-ghost flex items-center gap-1.5" style={{ color: "#ff2d78", borderColor: "rgba(255,45,120,0.25)" }}
+                                                onClick={() => { bulkDeleteTasks([...selected]); clearSel(); }}>
+                                                <Trash2 size={9} /> delete all
+                                            </button>
+                                            <button onClick={clearSel} style={{ marginLeft: "auto", color: "rgba(200,255,192,0.3)", background: "none", border: "none", cursor: "pointer" }}>
+                                                <X size={10} />
+                                            </button>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+
+                                {/* Task list */}
+                                <div>
+                                    <AnimatePresence>
+                                        {displayTasks.length === 0 ? (
+                                            <div style={{ padding: "60px 20px", textAlign: "center" }}>
+                                                <p style={{ fontSize: 10, color: "rgba(200,255,192,0.2)", letterSpacing: "0.15em" }}>
+                                                    {search ? "no tasks match your search" : "no tasks yet \u2014 add one above"}
+                                                </p>
+                                            </div>
+                                        ) : displayTasks.map(task => (
+                                            <TaskRow key={task.id} task={task}
+                                                onUpdate={updateTask} onDelete={deleteTask}
+                                                onSelect={toggleSel} selected={selected.has(task.id)} />
+                                        ))}
+                                    </AnimatePresence>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ═══ OUTPUTS VIEW ════════════════════════════════════ */}
+                        {view === "outputs" && (
+                            <div style={{ padding: 20 }}>
+                                {outputs.length === 0 ? (
+                                    <div style={{ padding: "60px 0", textAlign: "center" }}>
+                                        <p style={{ fontSize: 10, color: "rgba(200,255,192,0.2)", letterSpacing: "0.15em" }}>no outputs yet \u2014 the agent will save files here</p>
+                                    </div>
+                                ) : (
+                                    <AnimatePresence>
+                                        {outputs.map(o => (
+                                            <OutputCard key={o.id} output={o} onDelete={deleteOutput} onRename={renameOutput} />
+                                        ))}
+                                    </AnimatePresence>
+                                )}
+                            </div>
+                        )}
+
+                        {/* ═══ TIMELINE VIEW ═══════════════════════════════════ */}
+                        {view === "timeline" && (
+                            <div style={{ flex: 1 }}>
+                                <div style={{ padding: "12px 20px", borderBottom: "1px solid rgba(255,255,255,0.04)", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                                    <span style={{ fontSize: 9, color: "rgba(200,255,192,0.3)", letterSpacing: "0.15em", textTransform: "uppercase" }}>{timeline.length} events</span>
+                                    {timeline.length > 0 && (
+                                        <button className="ws-btn-ghost flex items-center gap-1.5" style={{ color: "rgba(255,45,120,0.6)", borderColor: "rgba(255,45,120,0.15)" }}
+                                            onClick={clearTimeline}>
+                                            <RotateCcw size={9} /> clear log
+                                        </button>
+                                    )}
+                                </div>
+                                <div style={{ padding: "8px 20px" }}>
+                                    {timeline.length === 0 ? (
+                                        <p style={{ fontSize: 10, color: "rgba(200,255,192,0.2)", textAlign: "center", padding: "60px 0", letterSpacing: "0.15em" }}>no activity yet</p>
+                                    ) : timeline.map((ev, i) => (
+                                        <div key={ev.id} style={{ display: "flex", gap: 14, paddingBottom: 14, position: "relative" }}>
+                                            {i < timeline.length - 1 && (
+                                                <div style={{ position: "absolute", left: 6, top: 18, bottom: 0, width: 1, background: "rgba(255,255,255,0.04)" }} />
+                                            )}
+                                            <span style={{ fontSize: 12, color: tlColors[ev.type] || "rgba(200,255,192,0.3)", flexShrink: 0, lineHeight: 1, marginTop: 2 }}>
+                                                {tlIcons[ev.type] || "\u203A"}
+                                            </span>
+                                            <div>
+                                                <p style={{ fontSize: 11, color: "rgba(200,255,192,0.65)", lineHeight: 1.5 }}>{ev.text}</p>
+                                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.2)", marginTop: 2 }}>
+                                                    {fmt(ev.timestamp)} \u00B7 {fmtTime(ev.timestamp)}
+                                                </p>
+                                            </div>
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
+
+                        {/* ═══ NOTES VIEW ══════════════════════════════════════ */}
+                        {view === "notes" && (
+                            <div style={{ padding: 20, flex: 1, display: "flex", flexDirection: "column" }}>
+                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.25)", letterSpacing: "0.18em", textTransform: "uppercase", marginBottom: 10 }}>// WORKSPACE NOTES</p>
+                                <textarea className="ws-input ws-scrollbar" style={{
+                                    flex: 1, minHeight: 300, resize: "none", lineHeight: 1.75,
+                                    fontSize: 11, padding: 14, fontFamily: "JetBrains Mono, monospace",
+                                }}
+                                    placeholder="free-form notes, ideas, context\u2026"
+                                    value={ws.notes || ""}
+                                    onChange={e => updateNotes(e.target.value)} />
+                                <p style={{ fontSize: 9, color: "rgba(200,255,192,0.15)", marginTop: 6 }}>auto-saved \u00B7 {ws.notes?.length || 0} chars</p>
+                            </div>
+                        )}
+
+                    </div>
+                </div>
+            )}
+        </div>
     );
 }

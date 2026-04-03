@@ -47,6 +47,8 @@ import { api } from "../../services/api";
 import { StorageService } from "../../services/db";
 import { useEffect as useAppEffect } from "react";
 
+import { WorkspacePanel } from "./WorkspacePanel"; // adjust path as needed
+
 // ── Inline Toggle ────────────────────────────────────────────
 function Toggle({ value, onToggle }) {
   return (
@@ -546,6 +548,12 @@ export function SettingsPanel({ onClose, setCenterTab }) {
               exit={{ opacity: 0, y: -4 }}
               transition={{ duration: 0.14 }}
             >
+              
+
+
+              {activeTab === "workspace" && (
+                  <WorkspacePanel />
+                )}
 
               {/* ══════════════════════════════════════════════
                   TAB: APPEARANCE

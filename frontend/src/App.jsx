@@ -22,6 +22,7 @@ function App() {
     loading,
     setLoading,
     preferences,
+    setPreferences,
     settings,
     setSettings,
     customSkills,
@@ -29,10 +30,13 @@ function App() {
     updateSessionSummary,
     updateSessionRoute,
     activeSessionId,
+    setActiveSessionId,
+    createNewSession,
+    renameSession,
     providerStatus,
-  } = useContext(chatsContext);
+  } = useContext(chatsContext) || {};
 
-  const { activeWorkspace } = useContext(WorkspaceContext);
+  const { activeWorkspace, updateWorkspace } = useContext(WorkspaceContext);
 
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -112,6 +116,44 @@ function App() {
     return () => window.removeEventListener("chatforge:stats", handleStats);
   }, [setChats]);
 
+  // ── Session Isolation: Sync General Session ID ──────────────────
+  useEffect(() => {
+    if (preferences.currentPage === "chat" && activeSessionId && activeSessionId !== preferences.lastGeneralSessionId) {
+      setPreferences(prev => ({ ...prev, lastGeneralSessionId: activeSessionId }));
+    }
+  }, [preferences.currentPage, activeSessionId, preferences.lastGeneralSessionId, setPreferences]);
+
+  // ── Session Isolation: Switcher ────────────────────────────────
+  useEffect(() => {
+    if (preferences.currentPage === "workspace_view" && activeWorkspace) {
+      if (!activeWorkspace.sessionId) {
+        // Create a dedicated session for this workspace
+        const newSid = createNewSession();
+        renameSession(newSid, `[Workspace] ${activeWorkspace.name}`);
+        updateWorkspace(activeWorkspace.id, { sessionId: newSid });
+      } else if (activeSessionId !== activeWorkspace.sessionId) {
+        // Switch to the workspace's session
+        setActiveSessionId(activeWorkspace.sessionId);
+      }
+    } else if (preferences.currentPage === "chat") {
+      const targetId = preferences.lastGeneralSessionId;
+      if (targetId && activeSessionId !== targetId) {
+        // Restore the general session
+        setActiveSessionId(targetId);
+      }
+    }
+  }, [
+    preferences.currentPage,
+    activeWorkspace?.id,
+    activeWorkspace?.sessionId,
+    activeSessionId,
+    createNewSession,
+    renameSession,
+    updateWorkspace,
+    setActiveSessionId,
+    preferences.lastGeneralSessionId
+  ]);
+
   // ── Core AI call ────────────────────────────────────────────
   async function startStream(question, id, skillId, draftIndex, signal) {
     streamCountRef.current += 1;
@@ -126,7 +168,11 @@ function App() {
       (question.length < 30 && ["continue", "keep going", "استمر", "كمل"].some(kw => question.toLowerCase().includes(kw)));
 
     const session = sessions.find(s => s.id === activeSessionId) || { messages: chats, summary: "" };
-    const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } = await ContextBuilder.build(chats, activeWorkspace, session.summary, question);
+
+    // Only inject workspace context if the user is actually IN the workspace view
+    const projectContext = preferences.currentPage === "workspace_view" ? activeWorkspace : null;
+
+    const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } = await ContextBuilder.build(chats, projectContext, session.summary, question);
 
     // Model Consistency & Locking
     let finalRoutingMode = settings.routingMode || "smart";
@@ -254,7 +300,7 @@ function App() {
                 prev.map((obj) => (obj.id === id ? { ...obj, isTruncated: true } : obj))
               );
             }
-          } catch (e) {
+          } catch {
             // Ignore parse errors from non-JSON or partial lines
           }
         }
@@ -475,7 +521,7 @@ No preamble, no extra text.`,
       const transformed = transformCommand(text);
       if (transformed) {
         if (transformed.action === "clear") {
-          clearCurrentChat();
+          setChats([]);
           return;
         }
         const displayQuestion = text; // Show the command as typed
@@ -581,30 +627,40 @@ No preamble, no extra text.`,
       />
 
       {/* Main app */}
-      <div className="relative z-10 w-screen h-screen flex justify-center items-center">
+      <div className="relative z-10 w-screen h-screen">
         {preferences.currentPage === "docs" ? (
-          <DocsPage />
+          <div className="w-full h-full"><DocsPage /></div>
         ) : preferences.currentPage === "workspaces" ? (
-          <WorkspaceDashboard />
+          <div className="w-full h-full">
+            <WorkspaceDashboard
+              onOpenWorkspace={(id) => setPreferences({ ...preferences, currentPage: "workspace_view", activeWorkspaceId: id })}
+            />
+          </div>
         ) : preferences.currentPage === "workspace_view" ? (
-          <WorkspaceView />
+          <div className="w-full h-full">
+            <WorkspaceView
+              onBack={() => setPreferences({ ...preferences, currentPage: "workspaces" })}
+            />
+          </div>
         ) : (
-          <Terminal
-            copyToClipboard={copyToClipboard}
-            isCopied={isCopied}
-            chats={chats}
-            handleSend={handleSend}
-            loading={loading}
-            query={query}
-            setQuery={setQuery}
-            messagesEndRef={messagesEndRef}
-            onRetry={handleRetry}
-            onStopAI={handleStopAI}
-            onMergeDrafts={handleMergeDrafts}
-            onSummarizeDrafts={handleSummarizeDrafts}
-            onKeepDraft={handleKeepDraft}
-            onContinue={handleContinue}
-          />
+          <div className="w-full h-full flex justify-center items-center">
+            <Terminal
+              copyToClipboard={copyToClipboard}
+              isCopied={isCopied}
+              chats={chats}
+              handleSend={handleSend}
+              loading={loading}
+              query={query}
+              setQuery={setQuery}
+              messagesEndRef={messagesEndRef}
+              onRetry={handleRetry}
+              onStopAI={handleStopAI}
+              onMergeDrafts={handleMergeDrafts}
+              onSummarizeDrafts={handleSummarizeDrafts}
+              onKeepDraft={handleKeepDraft}
+              onContinue={handleContinue}
+            />
+          </div>
         )}
       </div>
     </>
