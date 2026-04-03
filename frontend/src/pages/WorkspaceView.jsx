@@ -116,6 +116,21 @@ export function WorkspaceView() {
     // Keep loadingRef in sync so handleAutoContinue avoids stale closure
     useEffect(() => { loadingRef.current = loading; }, [loading]);
 
+    // Prevent 'Empty Workspace' Context Blindness loop
+    useEffect(() => {
+        if (isAutoExecuting && !loading && activeWorkspace) {
+            const timer = setTimeout(() => {
+                const pendingTasks = activeWorkspace.tasks?.filter(t => t.status !== "completed");
+                if (pendingTasks?.length > 0) {
+                    handleAutoContinue(); // Trigger next auto-step
+                } else {
+                    setIsAutoExecuting(false);
+                }
+            }, 1000); // Give the state 1 second to "settle"
+            return () => clearTimeout(timer);
+        }
+    }, [isAutoExecuting, loading, activeWorkspace?.outputs?.length]); // Watch outputs specifically
+
     // Chat Submission Logic
     async function askAI(question, id, controllerSignal) {
         setLoading(true);
@@ -326,12 +341,10 @@ export function WorkspaceView() {
             }
         } finally {
             setLoading(false);
-            setIsAutoExecuting(false);
             if (activeWorkspaceId && shouldAutoContinue) {
                 setIsAutoExecuting(true);
-                setTimeout(() => {
-                    handleAutoContinue();
-                }, 2000);
+            } else {
+                setIsAutoExecuting(false);
             }
         }
     }

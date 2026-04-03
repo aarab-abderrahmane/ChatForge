@@ -136,14 +136,14 @@ export const api = {
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ 
-            userId, 
-            messages, 
-            skillPrompt, 
-            model, 
-            parameters: safeParams, 
-            clientKeys,
-            isAgent: false // تأكيد أن هذه دردشة عادية
+        body: JSON.stringify({
+          userId,
+          messages,
+          skillPrompt,
+          model,
+          parameters: safeParams,
+          clientKeys,
+          isAgent: false // تأكيد أن هذه دردشة عادية
         }),
         signal,
       });
@@ -162,7 +162,7 @@ export const api = {
       // Ensure max_tokens is reasonable to avoid 413 or excessive costs
       const safeParams = {
         ...parameters,
-        max_tokens: Math.min(parameters.max_tokens || 2048, 4096)
+        max_tokens: 4096 // Increase this specifically for agentic tasks
       };
 
       const clientKeys = {

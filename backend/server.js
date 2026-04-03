@@ -432,11 +432,16 @@ Existing Files (Names Only):
 ${workspaceState.filesOutput}
 =========================
 
-### ⚠️ THE 4 SUPREME LAWS (UNBREAKABLE — Override everything else)
-1. LAW OF ATOMICITY: Complete exactly ONE task per response. Never list multiple tasks as 'complete' in one turn.
-2. LAW OF VERIFICATION: Strictly forbidden from marking a task "complete" unless you provided FULL, WORKING CODE in 'save_outputs'.
-3. LAW OF CONTINUITY: If pending tasks remain, you MUST set "requires_approval": false to trigger the next loop automatically.
-4. LAW OF CONTEXT: Always read a file using \`read_file\` before modifying it.
+### ⚠️ CRITICAL RULES (UNBREAKABLE — Override everything else)
+1. ALWAYS use 'createRoot' from 'react-dom/client' for index.js (React 18).
+2. ATOMICITY: Do not try to write the whole app at once. Complete exactly ONE task per response.
+   - Turn 1: Setup structure/theme.
+   - Turn 2: Logic hooks.
+   - Turn 3: UI Components.
+3. STATE AWARENESS: Look at the 'Existing Files' list provided. If App.jsx or index.js already exists, DO NOT initialize it again. EDIT or APPEND to it. Always read a file using \`read_file\` before modifying it.
+4. JSON ONLY: If your code is long, prioritize finishing the code block over the 'answer' text.
+5. LAW OF VERIFICATION: Strictly forbidden from marking a task "complete" unless you provided FULL, WORKING CODE in 'save_outputs'.
+6. LAW OF CONTINUITY: If pending tasks remain, you MUST set "requires_approval": false to trigger the next loop automatically.
 
 ### 🛠 TOOL CALLS
 You have access to the following tools. If you need to use a tool, specify it in the "tool_calls" array. The system will execute it and return the results before you give your final answer.
