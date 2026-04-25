@@ -7,7 +7,6 @@ import { api } from './api';
 const MAX_MESSAGE_CONTENT = 1000;
 const MAX_SUMMARY_CONTENT = 1000;
 const MAX_HISTORY_FOR_SUMMARY = 10;
-const MAX_SYSTEM_PROMPT_PROJECT_PART = 1500;
 const MAX_TOTAL_PAYLOAD_SIZE = 150000; // ~150KB threshold for warning
 
 const truncate = (text, max = MAX_MESSAGE_CONTENT, isCode = false) => {
@@ -60,12 +59,11 @@ export const ContextBuilder = {
     /**
      * Builds the context for the AI call.
      * @param {Array} chats - Current chat history.
-     * @param {Object} project - Active project metadata.
      * @param {String} currentSummary - Existing summary from IndexedDB.
      * @param {String} currentQuestion - The fresh question being sent (to avoid stale state).
      * @returns {Object} { messages, systemPrompt, summaryUpdateNeeded }
      */
-    build: async (chats, project, currentSummary = "", currentQuestion = "") => {
+    build: async (chats, currentSummary = "", currentQuestion = "") => {
         // 1. FILTER: Exclude the default FAQ/Welcome messages from AI context to prevent pollution
         // These have fixed IDs 1, 2, 3 in chatsContext.jsx
         const chatHistory = chats.filter(c =>
@@ -109,26 +107,8 @@ export const ContextBuilder = {
             messages.push({ role: "user", content: currentQuestion });
         }
 
-        // 2. TOPIC SHIFT: If the user is asking something very short and the history is long,
-        // or if keywords suggest a new task, we might want to warn or isolate.
-        // For now, we'll just sharpen the System Prompt to focus on the CURRENT question.
-
-        // Build System Prompt with Project Context
+        // Build System Prompt
         let systemPrompt = "";
-        if (project) {
-            const rulesText = (project.rules || [])
-                .map((r, i) => `- Rule ${i + 1}: ${r}`)
-                .join('\n');
-
-            systemPrompt = `CONTEXT: You are assisting with Project [${project.name}] (Type: ${project.type}).\n` +
-                `Current Phase: [${project.currentPhase}]\n` +
-                (rulesText ? `Rules:\n${rulesText}\n\n` : "\n");
-
-            // Truncate project part if it's too huge
-            if (systemPrompt.length > MAX_SYSTEM_PROMPT_PROJECT_PART) {
-                systemPrompt = systemPrompt.slice(0, MAX_SYSTEM_PROMPT_PROJECT_PART) + "\n...[Rules Truncated]\n\n";
-            }
-        }
 
         if (summary) {
             systemPrompt += `Below is a brief summary of the conversation so far for context. HOWEVER, prioritize the LATEST user request above all else.\nSummary: [${summary}]\n\n`;

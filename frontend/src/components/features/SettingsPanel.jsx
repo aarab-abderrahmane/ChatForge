@@ -39,15 +39,11 @@ import {
   Loader,
   Eye,
   EyeOff,
-  Briefcase,
 } from "lucide-react";
 import { chatsContext, SKILLS, MODELS, THEMES } from "../../context/chatsContext";
-import { WorkspaceContext } from "../../context/workspaceContext";
 import { api } from "../../services/api";
 import { StorageService } from "../../services/db";
 import { useEffect as useAppEffect } from "react";
-
-import { WorkspacePanel } from "./WorkspacePanel"; // adjust path as needed
 
 // ── Inline Toggle ────────────────────────────────────────────
 function Toggle({ value, onToggle }) {
@@ -360,8 +356,6 @@ export function SettingsPanel({ onClose, setCenterTab }) {
     setProviderStatus,
   } = useContext(chatsContext);
 
-  const { activeWorkspace } = useContext(WorkspaceContext);
-
   const [activeTab, setActiveTab] = useState("appearance");
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [showToolForm, setShowToolForm] = useState(false);
@@ -565,10 +559,6 @@ export function SettingsPanel({ onClose, setCenterTab }) {
             >
               
 
-              {activeTab === "workspace" && (
-                  <WorkspacePanel />
-                )}
-
               {/* ══════════════════════════════════════════════
                   TAB: APPEARANCE
               ══════════════════════════════════════════════ */}
@@ -704,71 +694,7 @@ export function SettingsPanel({ onClose, setCenterTab }) {
                 </>
               )}
 
-              {/* Workspace Insights — only if active */}
-              {activeWorkspace && (
-                <div className="workspace-insights-section px-5 pb-5 border-b mb-4" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                  <div className="text-[9px] uppercase tracking-widest mb-3 flex items-center gap-2" style={{ color: "rgba(57,255,20,0.7)" }}>
-                    <Briefcase size={10} /> Workspace: {activeWorkspace.name}
-                  </div>
 
-                  {/* Active Tasks Summary */}
-                  {activeWorkspace.tasks.filter(t => t.status !== "completed").length > 0 && (
-                    <div className="mb-4">
-                      <h4 className="text-[10px] uppercase tracking-widest font-semibold mb-2 flex items-center gap-1" style={{ color: "rgba(200,255,192,0.55)" }}>
-                        <Play size={9} /> Active Tasks ({activeWorkspace.tasks.filter(t => t.status !== "completed").length})
-                      </h4>
-                      <div className="space-y-1.5">
-                        {activeWorkspace.tasks.filter(t => t.status !== "completed").slice(0, 5).map(t => (
-                          <div key={t.id} className="flex items-center gap-2 text-[11px] p-2 rounded-lg bg-white/[0.015] border" style={{ borderColor: "rgba(255,255,255,0.08)" }}>
-                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${t.status === "in_progress" ? "bg-yellow-400 animate-pulse" : "bg-slate-600"}`} />
-                            <span className="truncate" style={{ color: "rgba(200,255,192,0.6)" }}>{t.title}</span>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Memory Summary Badge */}
-                  {activeWorkspace.conversationSummary && (
-                    <div className="mb-4 rounded-lg border p-3" style={{ borderColor: "rgba(168,85,247,0.25)", background: "rgba(168,85,247,0.06)" }}>
-                      <div className="text-[10px] uppercase font-semibold tracking-widest mb-1.5 flex items-center gap-1" style={{ color: "rgba(168,85,247,0.5)" }}>
-                        <Sparkles size={9} /> Long-term Memory
-                      </div>
-                      <div className="text-[11px] leading-relaxed line-clamp-3" style={{ color: "rgba(200,255,192,0.5)" }}>
-                        {activeWorkspace.conversationSummary}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Recent Timeline (last 5 events) */}
-                  {(activeWorkspace.timeline || []).length > 0 && (
-                    <div className="mb-2">
-                      <h4 className="text-[10px] uppercase tracking-widest font-semibold mb-2" style={{ color: "rgba(200,255,192,0.5)" }}>Recent Activity</h4>
-                      <div className="space-y-2">
-                        {(activeWorkspace.timeline || []).slice(0, 5).map(event => (
-                          <div key={event.id} className="flex gap-2 text-[10px]">
-                            <span className="font-mono shrink-0" style={{ color: "rgba(200,255,192,0.4)" }}>
-                              {new Date(event.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
-                            </span>
-                            <span style={{ color: "rgba(200,255,192,0.6)" }}>{event.text}</span>
-                          </div>
-                        ))}
-                      </div>
-                      {setCenterTab && (
-                        <button
-                          onClick={() => { setCenterTab("timeline"); onClose(); }}
-                          className="mt-2 text-[10px] transition-colors duration-200"
-                          style={{ color: "rgba(0,245,255,0.5)" }}
-                          onMouseEnter={(e) => e.currentTarget.style.color = "rgba(0,245,255,0.7)"}
-                          onMouseLeave={(e) => e.currentTarget.style.color = "rgba(0,245,255,0.5)"}
-                        >
-                          View full timeline →
-                        </button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              )}
 
               {/* ══════════════════════════════════════════════
                   TAB: TOOLS

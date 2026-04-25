@@ -2,6 +2,8 @@ import { useState, useContext, useRef, useEffect } from "react";
 import { AnimatePresence } from "motion/react";
 import { chatsContext } from "../context/chatsContext";
 import { api } from "../services/api";
+import { motion } from "motion/react" ; 
+
 import {
   ClipboardIcon,
   ArrowRightCircleIcon,

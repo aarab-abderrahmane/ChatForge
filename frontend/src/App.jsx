@@ -3,10 +3,7 @@ import './index.css';
 
 import { Terminal } from './components/features/Terminal';
 import { DocsPage } from './pages/DocsPage';
-import { WorkspaceDashboard } from './pages/WorkspaceDashboard';
-import { WorkspaceView } from './pages/WorkspaceView';
 import { chatsContext, SKILLS, MODELS, THEMES } from './context/chatsContext';
-import { WorkspaceContext } from './context/workspaceContext';
 import { api } from './services/api';
 import { ContextBuilder } from './services/contextBuilder';
 
@@ -23,7 +20,7 @@ const COMMANDS = {
     skillId: 'translator',
   },
   help: {
-    question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: //>clear, //>new, //>summarize, //>translate, //>retry, //>stats, //>export, //>help, //>skill, //>model, //>quiz [topic], //>flashcards [topic], and //>mindmap [topic]. Also mention: Enter to send, Shift+Enter for newline.`,
+    question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: ///>clear, ///>new, ///>summarize, ///>translate, ///>retry, ///>stats, ///>export, ///>help, ///>skill, ///>model, ///>quiz [topic], ///>flashcards [topic], and ///>mindmap [topic]. Also mention: Enter to send, Shift+Enter for newline.`,
     skillId: 'general',
   },
 };
@@ -49,8 +46,6 @@ function App() {
     renameSession,
     providerStatus,
   } = useContext(chatsContext) || {};
-
-  const { activeWorkspace, updateWorkspace } = useContext(WorkspaceContext);
 
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -129,41 +124,6 @@ function App() {
     return () => window.removeEventListener('chatforge:stats', handleStats);
   }, [setChats]);
 
-  // ── Session Isolation: Track general session ID ──
-  useEffect(() => {
-    if (preferences.currentPage === 'chat' && activeSessionId && activeSessionId !== preferences.lastGeneralSessionId) {
-      setPreferences((prev) => ({ ...prev, lastGeneralSessionId: activeSessionId }));
-    }
-  }, [preferences.currentPage, activeSessionId, preferences.lastGeneralSessionId, setPreferences]);
-
-  // ── Session Isolation: Switch between general and workspace sessions ──
-  useEffect(() => {
-    if (preferences.currentPage === 'workspace_view' && activeWorkspace) {
-      if (!activeWorkspace.sessionId) {
-        const newSid = createNewSession();
-        renameSession(newSid, `[Workspace] ${activeWorkspace.name}`);
-        updateWorkspace(activeWorkspace.id, { sessionId: newSid });
-      } else if (activeSessionId !== activeWorkspace.sessionId) {
-        setActiveSessionId(activeWorkspace.sessionId);
-      }
-    } else if (preferences.currentPage === 'chat') {
-      const targetId = preferences.lastGeneralSessionId;
-      if (targetId && activeSessionId !== targetId) {
-        setActiveSessionId(targetId);
-      }
-    }
-  }, [
-    preferences.currentPage,
-    activeWorkspace?.id,
-    activeWorkspace?.sessionId,
-    activeSessionId,
-    createNewSession,
-    renameSession,
-    updateWorkspace,
-    setActiveSessionId,
-    preferences.lastGeneralSessionId,
-  ]);
-
   // ════════════════════════════════════════════
   //  CORE AI STREAM
   // ════════════════════════════════════════════
@@ -185,10 +145,9 @@ function App() {
         ));
 
     const session = sessions.find((s) => s.id === activeSessionId) || { messages: chats, summary: '' };
-    const projectContext = preferences.currentPage === 'workspace_view' ? activeWorkspace : null;
 
     const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } =
-      await ContextBuilder.build(chats, projectContext, session.summary, question);
+      await ContextBuilder.build(chats, null, session.summary, question);
 
     // ── Model routing & locking ──
     let finalRoutingMode = settings.routingMode || 'smart';
@@ -461,20 +420,7 @@ function App() {
       if (cmd.startsWith('//> quiz ') || cmd.startsWith('//>quiz ')) {
         const topic = text.substring(text.indexOf('quiz') + 4).trim();
         return {
-          question: `Generate a multiple choice quiz about: ${topic}. Format your response exactly as JSON using THIS STRICT STRUCTURE:
-\`\`\`quiz
-{
-  "topic": "${topic}",
-  "questions": [
-    {
-      "q": "Question text?",
-      "options": ["Option A", "Option B", "Option C", "Option D"],
-      "answer": 0
-    }
-  ]
-}
-\`\`\`
-Provide ONLY this JSON block. Do not include any other text.`,
+          question: `Generate a multiple choice quiz about: ${topic}. Format your response exactly as JSON using THIS STRICT STRUCTURE:\n\`\`\`quiz\n{\n  "topic": "${topic}",\n  "questions": [\n    {\n      "q": "Question text?",\n      "options": ["Option A", "Option B", "Option C", "Option D"],\n      "answer": 0\n    }\n  ]\n}\n\`\`\`\nProvide ONLY this JSON block. Do not include any other text.`,
           skillId: 'general',
         };
       }
@@ -483,19 +429,7 @@ Provide ONLY this JSON block. Do not include any other text.`,
       if (cmd.startsWith('//> flashcards ') || cmd.startsWith('//>flashcards ')) {
         const topic = text.substring(text.indexOf('flashcards') + 10).trim();
         return {
-          question: `Generate a set of 5 interactive flashcards about: ${topic}. Format your response exactly as JSON using THIS STRICT STRUCTURE:
-\`\`\`flashcards
-{
-  "topic": "${topic}",
-  "cards": [
-    {
-      "front": "Term or Question",
-      "back": "Definition or Answer"
-    }
-  ]
-}
-\`\`\`
-Provide ONLY this JSON block. Do not include any other text.`,
+          question: `Generate a set of 5 interactive flashcards about: ${topic}. Format your response exactly as JSON using THIS STRICT STRUCTURE:\n\`\`\`flashcards\n{\n  "topic": "${topic}",\n  "cards": [\n    {\n      "front": "Term or Question",\n      "back": "Definition or Answer"\n    }\n  ]\n}\n\`\`\`\nProvide ONLY this JSON block. Do not include any other text.`,
           skillId: 'general',
         };
       }
@@ -504,17 +438,7 @@ Provide ONLY this JSON block. Do not include any other text.`,
       if (cmd.startsWith('//> mindmap ') || cmd.startsWith('//>mindmap ')) {
         const topic = text.substring(text.indexOf('mindmap') + 7).trim();
         return {
-          question: `Create a structured mindmap for the topic "${topic}".
-Output ONLY a valid JSON object wrapped in \`\`\`mindmap code blocks.
-Structure:
-{
-  "label": "Topic Name",
-  "children": [
-    { "label": "Subtopic 1", "children": [...] },
-    { "label": "Subtopic 2", "children": [] }
-  ]
-}
-No preamble, no extra text.`,
+          question: `Create a structured mindmap for the topic "${topic}".\nOutput ONLY a valid JSON object wrapped in \`\`\`mindmap code blocks.\nStructure:\n{\n  "label": "Topic Name",\n  "children": [\n    { "label": "Subtopic 1", "children": [...] },\n    { "label": "Subtopic 2", "children": [] }\n  ]\n}\nNo preamble, no extra text.`,
           skillId: 'general',
         };
       }
@@ -648,26 +572,10 @@ No preamble, no extra text.`,
       />
 
       {/* Main app */}
-      <div
-        className={`relative z-10 w-screen h-screen ${
-          preferences.currentPage === 'workspaces' ? 'overflow-scroll' : ''
-        }`}
-      >
+      <div className="relative z-10 w-screen h-screen">
         {preferences.currentPage === 'docs' ? (
           <div className="w-full h-full">
             <DocsPage />
-          </div>
-        ) : preferences.currentPage === 'workspaces' ? (
-          <div className="w-full h-full">
-            <WorkspaceDashboard
-              onOpenWorkspace={(id) =>
-                setPreferences({ ...preferences, currentPage: 'workspace_view', activeWorkspaceId: id })
-              }
-            />
-          </div>
-        ) : preferences.currentPage === 'workspace_view' ? (
-          <div className="w-full h-full">
-            <WorkspaceView onBack={() => setPreferences({ ...preferences, currentPage: 'workspaces' })} />
           </div>
         ) : (
           <div className="w-full h-full flex justify-center items-center">

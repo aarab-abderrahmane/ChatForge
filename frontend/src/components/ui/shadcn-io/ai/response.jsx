@@ -21,14 +21,11 @@ import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
-import { CodeBlock, CodeBlockCopyButton, CodeBlockContext } from './code-block';
+import { CodeBlock, CodeBlockCopyButton } from './code-block';
 import { MermaidBlock } from './mermaid-block';
 import { QuizBlock } from './quiz-block';
 import { FlashcardBlock } from './flashcard-block';
 import { MindmapBlock } from './mindmap-block';
-import { WorkspaceContext } from '../../../../context/workspaceContext';
-import { Save, Plus } from 'lucide-react';
-import { useContext } from 'react';
 import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
 
@@ -482,7 +479,6 @@ const components = {
 
     return (
       <CodeBlock code={code} language={language}>
-        <CodeBlockWorkspaceActions />
         <CodeBlockCopyButton
           onCopy={() => { }}
           onError={() => { }}
@@ -491,26 +487,6 @@ const components = {
     );
   },
 };
-
-function CodeBlockWorkspaceActions() {
-  const ws = useContext(WorkspaceContext);
-  const { code } = useContext(CodeBlockContext);
-  if (!ws || !ws.activeWorkspaceId) return null;
-
-  return (
-    <button
-      onClick={() => {
-        const title = prompt("Save as filename:", "snippet.js");
-        if (title) ws.saveOutput(title, code);
-      }}
-      className="shrink-0 flex items-center justify-center p-2 rounded-md hover:bg-white/10 text-cyan-400 hover:text-cyan-300 transition-colors"
-      title="Save to Workspace Outputs"
-    >
-      <Save size={14} />
-      <span className="text-[10px] uppercase font-bold tracking-widest ml-1 md:inline hidden">Save</span>
-    </button>
-  );
-}
 
 export const Response = memo(({
   className,
@@ -528,21 +504,6 @@ export const Response = memo(({
       ? parseIncompleteMarkdown(children)
       : children;
 
-  const ws = useContext(WorkspaceContext);
-  const hasTasks = typeof parsedChildren === 'string' && /\- \[[ x]\]/i.test(parsedChildren);
-
-  const handleExtractTasks = () => {
-    if (!ws || !ws.activeWorkspaceId) return;
-    const lines = parsedChildren.split('\n');
-    lines.forEach(line => {
-      const match = line.match(/^\s*\- \[[ x]\] (.*)/i);
-      if (match) {
-        ws.addTask(match[1].trim(), "coming_soon");
-      }
-    });
-    alert("Tasks extracted and added to Workspace!");
-  };
-
   return (
     <div
       className={cn('text-wrap', className)}
@@ -557,17 +518,6 @@ export const Response = memo(({
         {...options}>
         {parsedChildren}
       </HardenedMarkdown>
-
-      {hasTasks && ws?.activeWorkspaceId && (
-        <div className="mt-4 pt-4 border-t border-green-500/20">
-          <button
-            onClick={handleExtractTasks}
-            className="flex items-center gap-2 px-3 py-1.5 rounded bg-green-500/10 hover:bg-green-500/20 border border-green-500/30 text-green-400 text-xs font-bold uppercase tracking-widest transition-colors shadow-[0_0_10px_rgba(57,255,20,0.1)]"
-          >
-            <Plus size={14} /> Add Suggested Tasks to Workspace
-          </button>
-        </div>
-      )}
     </div>
   );
 }, (prevProps, nextProps) => prevProps.children === nextProps.children);
