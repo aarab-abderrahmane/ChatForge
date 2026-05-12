@@ -189,64 +189,14 @@ export const DEFAULT_AI_TOOLS = [
   { id: "stats", label: "Session Stats", icon: "📈", cmd: "//>stats" },
 ];
 
-// ── Themes ──────────────────────────────────────────────────────
-export const THEMES = [
-  {
-    id: "green",
-    name: "Matrix Green",
-    icon: "🟢",
-    primary: "#39ff14",
-    secondary: "#00f5ff",
-    accent: "#ff2d78",
-  },
-  {
-    id: "cyan",
-    name: "Cyber Cyan",
-    icon: "🔵",
-    primary: "#00f5ff",
-    secondary: "#7b2fff",
-    accent: "#ff6b35",
-  },
-  {
-    id: "amber",
-    name: "Solar Amber",
-    icon: "🟡",
-    primary: "#ffd700",
-    secondary: "#ff8c00",
-    accent: "#ff2d78",
-  },
-  {
-    id: "purple",
-    name: "Void Purple",
-    icon: "🟣",
-    primary: "#b44fff",
-    secondary: "#00f5ff",
-    accent: "#ff2d78",
-  },
-  {
-    id: "red",
-    name: "Crimson Edge",
-    icon: "🔴",
-    primary: "#ff3b5c",
-    secondary: "#ff8c00",
-    accent: "#00f5ff",
-  },
-  {
-    id: "custom",
-    name: "Custom",
-    icon: "🎨",
-    primary: "#39ff14",
-    secondary: "#00f5ff",
-    accent: "#ff2d78",
-  },
-];
+// ── Single Light Theme (Newsprint) ─────────────────────────────
+// Permanent light mode — no dark mode, no theme switching.
 
 const DEFAULT_MODEL_ID = "meta-llama/llama-3.3-70b-instruct:free";
 
 const defaultSettings = {
-  scanlines: true,
-  font: "fira",              // 'fira' | 'jetbrains' | 'cascadia'
-  fontSize: 14,              // 12–18
+  font: "jetbrains",
+  fontSize: 14,
   sounds: false,
   compactMode: false,
   showTimestamps: false,
@@ -254,19 +204,16 @@ const defaultSettings = {
   streamingIndicator: true,
   animations: true,
   showToolbar: true,
-  showAvatars: false,
   showHintBar: true,
-  theme: "green",            // theme id from THEMES
-  customTheme: { primary: "#39ff14", secondary: "#00f5ff", accent: "#ff2d78" },
   activeSkillId: "general",
   activeModelId: DEFAULT_MODEL_ID,
-  responseLength: "balanced", // 'short' | 'balanced' | 'detailed'
-  temperature: 0.7,           // 0.0–1.5
+  responseLength: "balanced",
+  temperature: 0.7,
   topP: 1.0,
   frequencyPenalty: 0.0,
   presencePenalty: 0.0,
-  systemPromptPrefix: "",     // appended to every skill system prompt
-  routingMode: "smart",       // 'smart' | 'groq' | 'gemini' | 'openrouter'
+  systemPromptPrefix: "",
+  routingMode: "smart",
 };
 
 export function ChatsProvider({ children }) {

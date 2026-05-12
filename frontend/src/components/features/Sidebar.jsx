@@ -1,5 +1,4 @@
 import { useContext, useState, useRef, useEffect } from "react";
-import { motion, AnimatePresence } from "motion/react";
 import {
   MessageSquare,
   Plus,
@@ -50,7 +49,6 @@ export function Sidebar({ isOpen, onToggle }) {
   const [editValue, setEditValue] = useState("");
   const editInputRef = useRef(null);
 
-  // Focus rename input when it appears
   useEffect(() => {
     if (editingId && editInputRef.current) {
       editInputRef.current.focus();
@@ -96,7 +94,6 @@ export function Sidebar({ isOpen, onToggle }) {
   const messageCount = (session) =>
     session.messages.filter((m) => m.type === "ch").length;
 
-  // Filter by search, then sort pinned to top
   const filtered = sessions
     .filter((s) =>
       searchQuery.trim()
@@ -111,456 +108,178 @@ export function Sidebar({ isOpen, onToggle }) {
 
   return (
     <div
-      className={`sidebar flex flex-col h-full flex-shrink-0 relative ${isOpen ? "sidebar-open" : "sidebar-closed"}`}
-      style={{ width: isOpen ? 290 : 0 }}
+      className={`flex flex-col h-full flex-shrink-0 relative border-r border-ink bg-paper transition-all duration-200 ease-out ${isOpen ? "w-[280px]" : "w-0 overflow-hidden border-r-0"}`}
     >
-      <AnimatePresence>
-        {isOpen && (
-          <motion.div
-            initial={{ opacity: 0, x: -20 }}
-            animate={{ opacity: 1, x: 0 }}
-            exit={{ opacity: 0, x: -20 }}
-            transition={{ duration: 0.25, ease: [0.4, 0, 0.2, 1] }}
-            className="flex flex-col h-full w-[290px] absolute inset-0"
-            style={{ background: "#0c1520" }}
-          >
-            {/* Header */}
-            <div
-              className="flex items-center justify-between px-5 py-4"
-              style={{
-                borderBottom: "1px solid rgba(255,255,255,0.1)",
-              }}
+      {/* ── Header ── */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-ink">
+        <span className="font-mono text-[10px] font-bold text-ink uppercase tracking-[0.15em]">
+          Sessions
+        </span>
+        <button
+          onClick={createNewSession}
+          className="flex items-center justify-center w-7 h-7 transition-colors duration-150 hover:bg-muted-100 text-ink"
+          title="New Chat"
+        >
+          <Plus size={14} strokeWidth={1.5} />
+        </button>
+      </div>
+
+      {/* ── Search ── */}
+      <div className="px-4 py-2.5 border-b border-divider">
+        <div className="flex items-center gap-2 border-b border-ink pb-1.5">
+          <Search size={13} className="text-muted-400 flex-shrink-0" strokeWidth={1.5} />
+          <input
+            type="text"
+            className="flex-1 bg-transparent text-xs font-body text-ink outline-none placeholder:text-muted-400"
+            placeholder="Search sessions..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+          />
+          {searchQuery && (
+            <button
+              onClick={() => setSearchQuery("")}
+              className="flex items-center justify-center w-4 h-4 text-muted-400 hover:text-ink transition-colors duration-150"
+              title="Clear"
             >
-              <span
-                className="text-[11px] font-semibold tracking-[0.12em] uppercase"
-                style={{
-                  color: "rgba(200,255,192,0.75)",
-                  letterSpacing: "0.12em",
-                }}
-              >
-                Sessions
-              </span>
-              <button
-                onClick={createNewSession}
-                className="flex items-center justify-center w-7 h-7 rounded-lg transition-all duration-200"
-                style={{
-                  background: "rgba(255,255,255,0.05)",
-                  color: "var(--neon-green)",
-                  cursor: "pointer",
-                  border: "1px solid transparent",
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.1)";
-                  e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = "rgba(255,255,255,0.05)";
-                  e.currentTarget.style.borderColor = "transparent";
-                }}
-                title="New Chat"
-              >
-                <Plus size={14} />
-              </button>
-            </div>
+              <X size={9} strokeWidth={1.5} />
+            </button>
+          )}
+        </div>
+      </div>
 
-            {/* Search bar */}
-            <div className="px-3 py-2.5">
-              <div
-                className="flex items-center gap-2.5 rounded-lg transition-all duration-200"
-                style={{
-                  padding: "7px 10px",
-                  background: "rgba(255,255,255,0.05)",
-                  border: "1px solid rgba(255,255,255,0.1)",
-                }}
-              >
-                <Search
-                  size={13}
-                  className="flex-shrink-0"
-                  style={{ color: "rgba(200,255,192,0.4)" }}
-                />
-                <input
-                  type="text"
-                  className="flex-1 bg-transparent text-xs outline-none"
-                  placeholder="Search sessions…"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  style={{
-                    color: "rgba(200,255,192,0.9)",
-                    caretColor: "var(--neon-green)",
-                  }}
-                />
-                {searchQuery && (
-                  <button
-                    onClick={() => setSearchQuery("")}
-                    className="flex items-center justify-center w-4 h-4 rounded-md flex-shrink-0 transition-colors duration-150"
-                    style={{
-                      color: "rgba(200,255,192,0.5)",
-                      background: "transparent",
-                      cursor: "pointer",
-                      border: "none",
-                    }}
-                    onMouseEnter={(e) => {
-                      e.currentTarget.style.color = "rgba(200,255,192,0.8)";
-                      e.currentTarget.style.background = "rgba(255,255,255,0.08)";
-                    }}
-                    onMouseLeave={(e) => {
-                      e.currentTarget.style.color = "rgba(200,255,192,0.5)";
-                      e.currentTarget.style.background = "transparent";
-                    }}
-                    title="Clear"
-                  >
-                    <X size={9} />
-                  </button>
-                )}
-              </div>
-            </div>
-
-            {/* Session list */}
-            <div className="flex-1 overflow-y-auto px-2.5 pb-2">
-              <div className="flex flex-col gap-1">
-                <AnimatePresence>
-                  {filtered.length === 0 && (
-                    <motion.p
-                      initial={{ opacity: 0 }}
-                      animate={{ opacity: 1 }}
-                      exit={{ opacity: 0 }}
-                      className="text-[11px] text-center py-8 font-light"
-                      style={{
-                        color: "rgba(200,255,192,0.35)",
-                        letterSpacing: "0.02em",
-                      }}
-                    >
-                      No sessions found
-                    </motion.p>
-                  )}
-                  {filtered.map((session) => {
-                    const isActive = session.id === activeSessionId;
-                    const isHovered = hoveredId === session.id;
-                    const willDelete = confirmDelete === session.id;
-                    const isPinned = pinnedSessions.has(session.id);
-                    const isEditing = editingId === session.id;
-                    const count = messageCount(session);
-
-                    // Determine background
-                    let sessionBg = "transparent";
-                    let sessionBorder = "1px solid transparent";
-                    let sessionBorderLeft = "2px solid transparent";
-
-                    if (isActive) {
-                      sessionBg = "rgba(255,255,255,0.06)";
-                      sessionBorder = "1px solid rgba(255,255,255,0.1)";
-                      sessionBorderLeft = "2px solid var(--neon-green)";
-                    } else if (isHovered) {
-                      sessionBg = "rgba(255,255,255,0.05)";
-                    }
-
-                    return (
-                      <motion.div
-                        key={session.id}
-                        layout
-                        initial={{ opacity: 0, y: -6 }}
-                        animate={{ opacity: 1, y: 0 }}
-                        exit={{ opacity: 0, x: -16, height: 0 }}
-                        transition={{
-                          duration: 0.2,
-                          ease: [0.4, 0, 0.2, 1],
-                        }}
-                        className="rounded-lg cursor-pointer transition-all duration-200"
-                        style={{
-                          padding: "9px 10px",
-                          background: sessionBg,
-                          border: sessionBorder,
-                          borderLeft: sessionBorderLeft,
-                        }}
-                        onClick={() => !isEditing && setActiveSessionId(session.id)}
-                        onMouseEnter={() => setHoveredId(session.id)}
-                        onMouseLeave={() => setHoveredId(null)}
-                      >
-                        <div className="flex items-start gap-2.5">
-                          {/* Icon — refined pin indicator or message */}
-                          <span
-                            className="flex-shrink-0 flex items-center justify-center w-5 h-5 rounded-md mt-0.5 transition-colors duration-200"
-                            style={{
-                              background: isPinned
-                                ? "rgba(0,255,180,0.12)"
-                                : "transparent",
-                              color: isActive
-                                ? "var(--neon-green)"
-                                : isPinned
-                                  ? "rgba(0,255,180,0.7)"
-                                  : "rgba(200,255,192,0.45)",
-                            }}
-                          >
-                            {isPinned ? (
-                              <Pin size={11} />
-                            ) : (
-                              <MessageSquare size={12} />
-                            )}
-                          </span>
-
-                          <div className="flex-1 min-w-0">
-                            {/* Title — editable or static */}
-                            {isEditing ? (
-                              <div className="flex items-center gap-1.5">
-                                <input
-                                  ref={editInputRef}
-                                  className="rounded-md px-2 py-0.5 text-xs outline-none flex-1 min-w-0"
-                                  value={editValue}
-                                  onChange={(e) => setEditValue(e.target.value)}
-                                  onBlur={commitRename}
-                                  onKeyDown={handleRenameKey}
-                                  maxLength={50}
-                                  onClick={(e) => e.stopPropagation()}
-                                  style={{
-                                    background: "rgba(255,255,255,0.1)",
-                                    color: "rgba(200,255,192,0.95)",
-                                    border: "1px solid rgba(255,255,255,0.15)",
-                                    caretColor: "var(--neon-green)",
-                                  }}
-                                />
-                                <button
-                                  onClick={(e) => {
-                                    e.stopPropagation();
-                                    commitRename();
-                                  }}
-                                  className="flex items-center justify-center w-5 h-5 rounded-md flex-shrink-0 transition-colors duration-150"
-                                  style={{
-                                    color: "var(--neon-green)",
-                                    background: "rgba(0,255,180,0.12)",
-                                    cursor: "pointer",
-                                    border: "none",
-                                  }}
-                                  onMouseEnter={(e) => {
-                                    e.currentTarget.style.background = "rgba(0,255,180,0.2)";
-                                  }}
-                                  onMouseLeave={(e) => {
-                                    e.currentTarget.style.background = "rgba(0,255,180,0.12)";
-                                  }}
-                                >
-                                  <Check size={10} />
-                                </button>
-                              </div>
-                            ) : (
-                              <p
-                                className="text-xs font-medium truncate leading-snug"
-                                style={{
-                                  color: isActive
-                                    ? "rgba(200,255,192,1)"
-                                    : "rgba(200,255,192,0.8)",
-                                }}
-                              >
-                                {session.title}
-                              </p>
-                            )}
-
-                            <div
-                              className="flex items-center gap-1.5 mt-1.5"
-                              style={{ opacity: isActive ? 0.85 : 0.65 }}
-                            >
-                              <Clock
-                                size={9}
-                                style={{ color: "rgba(200,255,192,0.55)" }}
-                              />
-                              <span
-                                className="text-[10px]"
-                                style={{
-                                  color: "rgba(200,255,192,0.5)",
-                                  fontWeight: 400,
-                                }}
-                              >
-                                {formatRelativeTime(session.createdAt)}
-                              </span>
-                              <span
-                                className="text-[10px]"
-                                style={{
-                                  color: "rgba(200,255,192,0.4)",
-                                  fontWeight: 400,
-                                }}
-                              >
-                                · {count} msg
-                              </span>
-                            </div>
-                          </div>
-
-                          {/* Action buttons — show on hover/active */}
-                          {(isHovered || isActive) && !isEditing && (
-                            <motion.div
-                              initial={{ opacity: 0, scale: 0.95 }}
-                              animate={{ opacity: 1, scale: 1 }}
-                              transition={{ duration: 0.15 }}
-                              className="flex items-center gap-0.5 flex-shrink-0"
-                            >
-                              {/* Rename */}
-                              <button
-                                onClick={(e) => startRename(e, session)}
-                                className="flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150"
-                                style={{
-                                  color: "rgba(200,255,192,0.55)",
-                                  background: "transparent",
-                                  cursor: "pointer",
-                                  border: "none",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.color = "rgba(200,255,192,0.9)";
-                                  e.currentTarget.style.background = "rgba(255,255,255,0.1)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.color = "rgba(200,255,192,0.55)";
-                                  e.currentTarget.style.background = "transparent";
-                                }}
-                                title="Rename"
-                              >
-                                <Pencil size={11} />
-                              </button>
-                              {/* Pin */}
-                              <button
-                                onClick={(e) => handlePin(e, session.id)}
-                                className="flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150"
-                                style={{
-                                  color: isPinned
-                                    ? "rgba(0,255,180,0.75)"
-                                    : "rgba(200,255,192,0.55)",
-                                  background: isPinned
-                                    ? "rgba(0,255,180,0.1)"
-                                    : "transparent",
-                                  cursor: "pointer",
-                                  border: "none",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.color = isPinned
-                                    ? "rgba(0,255,180,1)"
-                                    : "rgba(200,255,192,0.9)";
-                                  e.currentTarget.style.background = "rgba(255,255,255,0.06)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.color = isPinned
-                                    ? "rgba(0,255,180,0.75)"
-                                    : "rgba(200,255,192,0.55)";
-                                  e.currentTarget.style.background = isPinned
-                                    ? "rgba(0,255,180,0.1)"
-                                    : "transparent";
-                                }}
-                                title={isPinned ? "Unpin" : "Pin to top"}
-                              >
-                                {isPinned ? (
-                                  <PinOff size={11} />
-                                ) : (
-                                  <Pin size={11} />
-                                )}
-                              </button>
-                              {/* Delete */}
-                              <button
-                                onClick={(e) => handleDelete(e, session.id)}
-                                className="flex items-center justify-center w-6 h-6 rounded-md transition-all duration-150"
-                                style={{
-                                  color: willDelete
-                                    ? "rgba(255,0,128,0.9)"
-                                    : "rgba(200,255,192,0.55)",
-                                  background: willDelete
-                                    ? "rgba(255,0,128,0.12)"
-                                    : "transparent",
-                                  cursor: "pointer",
-                                  border: "none",
-                                }}
-                                onMouseEnter={(e) => {
-                                  e.currentTarget.style.color = willDelete
-                                    ? "rgba(255,0,128,1)"
-                                    : "rgba(255,0,128,0.75)";
-                                  e.currentTarget.style.background = "rgba(255,0,128,0.12)";
-                                }}
-                                onMouseLeave={(e) => {
-                                  e.currentTarget.style.color = willDelete
-                                    ? "rgba(255,0,128,0.9)"
-                                    : "rgba(200,255,192,0.55)";
-                                  e.currentTarget.style.background = willDelete
-                                    ? "rgba(255,0,128,0.12)"
-                                    : "transparent";
-                                }}
-                                title={
-                                  willDelete
-                                    ? "Click again to confirm"
-                                    : "Delete"
-                                }
-                              >
-                                <Trash2 size={11} />
-                              </button>
-                            </motion.div>
-                          )}
-                        </div>
-
-                        {willDelete && (
-                          <motion.p
-                            initial={{ opacity: 0, y: -2 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            className="text-[10px] mt-1.5 pl-[30px] font-normal"
-                            style={{
-                              color: "rgba(255,0,128,0.85)",
-                              letterSpacing: "0.01em",
-                            }}
-                          >
-                            Click again to confirm
-                          </motion.p>
-                        )}
-                      </motion.div>
-                    );
-                  })}
-                </AnimatePresence>
-              </div>
-            </div>
-
-            {/* Footer */}
-            <div
-              className="px-5 py-3"
-              style={{
-                borderTop: "1px solid rgba(255,255,255,0.1)",
-              }}
-            >
-              <p
-                className="text-[10px] tracking-wide font-normal"
-                style={{
-                  color: "rgba(200,255,192,0.35)",
-                  letterSpacing: "0.04em",
-                }}
-              >
-                {sessions.length} session{sessions.length !== 1 ? "s" : ""}
-                {pinnedSessions.size > 0 && (
-                  <span style={{ color: "rgba(0,255,180,0.5)" }}>
-                    {" "}
-                    · {pinnedSessions.size} pinned
-                  </span>
-                )}
-              </p>
-            </div>
-          </motion.div>
+      {/* ── Session List ── */}
+      <div className="flex-1 overflow-y-auto">
+        {filtered.length === 0 && (
+          <p className="font-mono text-[10px] text-center py-8 text-muted-400 tracking-wider uppercase">
+            No sessions found
+          </p>
         )}
-      </AnimatePresence>
+        {filtered.map((session) => {
+          const isActive = session.id === activeSessionId;
+          const isHovered = hoveredId === session.id;
+          const willDelete = confirmDelete === session.id;
+          const isPinned = pinnedSessions.has(session.id);
+          const isEditing = editingId === session.id;
+          const count = messageCount(session);
 
-      {/* Toggle tab */}
+          return (
+            <div
+              key={session.id}
+              className={`border-b border-divider transition-all duration-150 cursor-pointer ${
+                isActive
+                  ? "border-l-4 border-red bg-muted-100"
+                  : "border-l-4 border-transparent hover:bg-muted-100"
+              }`}
+              onClick={() => !isEditing && setActiveSessionId(session.id)}
+              onMouseEnter={() => setHoveredId(session.id)}
+              onMouseLeave={() => setHoveredId(null)}
+            >
+              <div className="px-4 py-3">
+                <div className="flex items-start gap-3">
+                  <span className="flex-shrink-0 flex items-center justify-center w-5 h-5 mt-0.5">
+                    {isPinned ? (
+                      <Pin size={12} className="text-red" strokeWidth={1.5} />
+                    ) : (
+                      <MessageSquare size={12} className="text-muted-400" strokeWidth={1.5} />
+                    )}
+                  </span>
+
+                  <div className="flex-1 min-w-0">
+                    {isEditing ? (
+                      <div className="flex items-center gap-1.5">
+                        <input
+                          ref={editInputRef}
+                          className="flex-1 min-w-0 bg-transparent text-sm font-body text-ink border-b border-ink pb-0.5 outline-none"
+                          value={editValue}
+                          onChange={(e) => setEditValue(e.target.value)}
+                          onBlur={commitRename}
+                          onKeyDown={handleRenameKey}
+                          maxLength={50}
+                          onClick={(e) => e.stopPropagation()}
+                        />
+                        <button
+                          onClick={(e) => { e.stopPropagation(); commitRename(); }}
+                          className="flex items-center justify-center w-5 h-5 flex-shrink-0 text-ink hover:text-red transition-colors duration-150"
+                        >
+                          <Check size={10} strokeWidth={1.5} />
+                        </button>
+                      </div>
+                    ) : (
+                      <p className={`text-sm font-body truncate leading-snug ${isActive ? "text-ink font-semibold" : "text-ink"}`}>
+                        {session.title}
+                      </p>
+                    )}
+
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <Clock size={9} className="text-muted-400" strokeWidth={1.5} />
+                      <span className="font-mono text-[10px] text-muted-400">
+                        {formatRelativeTime(session.createdAt)}
+                      </span>
+                      <span className="font-mono text-[10px] text-muted-400">
+                        · {count} msg
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* ── Actions ── */}
+                  {(isHovered || isActive) && !isEditing && (
+                    <div className="flex items-center gap-0.5 flex-shrink-0 transition-opacity duration-150">
+                      <button
+                        onClick={(e) => startRename(e, session)}
+                        className="flex items-center justify-center w-6 h-6 text-muted-400 hover:text-ink hover:bg-muted-100 transition-colors duration-150"
+                        title="Rename"
+                      >
+                        <Pencil size={11} strokeWidth={1.5} />
+                      </button>
+                      <button
+                        onClick={(e) => handlePin(e, session.id)}
+                        className={`flex items-center justify-center w-6 h-6 transition-colors duration-150 ${
+                          isPinned ? "text-red hover:bg-muted-100" : "text-muted-400 hover:text-ink hover:bg-muted-100"
+                        }`}
+                        title={isPinned ? "Unpin" : "Pin to top"}
+                      >
+                        {isPinned ? <PinOff size={11} strokeWidth={1.5} /> : <Pin size={11} strokeWidth={1.5} />}
+                      </button>
+                      <button
+                        onClick={(e) => handleDelete(e, session.id)}
+                        className={`flex items-center justify-center w-6 h-6 transition-colors duration-150 ${
+                          willDelete ? "text-red" : "text-muted-400 hover:text-red hover:bg-muted-100"
+                        }`}
+                        title={willDelete ? "Click again to confirm" : "Delete"}
+                      >
+                        <Trash2 size={11} strokeWidth={1.5} />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {willDelete && (
+                  <p className="font-mono text-[10px] mt-1.5 ml-8 text-red">
+                    Click again to confirm
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* ── Footer ── */}
+      <div className="border-t border-ink px-4 py-3">
+        <p className="font-mono text-[10px] text-muted-400 tracking-wider uppercase">
+          {sessions.length} session{sessions.length !== 1 ? "s" : ""}
+          {pinnedSessions.size > 0 && (
+            <span className="text-red"> · {pinnedSessions.size} pinned</span>
+          )}
+        </p>
+      </div>
+
+      {/* ── Toggle Button ── */}
       <button
         onClick={onToggle}
-        className="absolute -right-3 top-1/2 -translate-y-1/2 z-50
-          flex items-center justify-center rounded-lg transition-all duration-200"
-        style={{
-          width: 22,
-          height: 40,
-          background: "#0c1520",
-          border: "1px solid rgba(255,255,255,0.12)",
-          borderLeft: "none",
-          color: "rgba(200,255,192,0.6)",
-          cursor: "pointer",
-        }}
-        onMouseEnter={(e) => {
-          e.currentTarget.style.color = "rgba(200,255,192,0.9)";
-          e.currentTarget.style.borderColor = "rgba(255,255,255,0.18)";
-          e.currentTarget.style.background = "#101d2a";
-        }}
-        onMouseLeave={(e) => {
-          e.currentTarget.style.color = "rgba(200,255,192,0.6)";
-          e.currentTarget.style.borderColor = "rgba(255,255,255,0.12)";
-          e.currentTarget.style.background = "#0c1520";
-        }}
+        className="absolute -right-[21px] top-1/2 -translate-y-1/2 z-50 flex items-center justify-center w-[21px] h-10 bg-paper border border-ink border-l-0 text-ink hover:text-red transition-colors duration-150"
       >
-        {isOpen ? <ChevronLeft size={11} /> : <ChevronRight size={11} />}
+        {isOpen ? <ChevronLeft size={12} strokeWidth={1.5} /> : <ChevronRight size={12} strokeWidth={1.5} />}
       </button>
     </div>
   );

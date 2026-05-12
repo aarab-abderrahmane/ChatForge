@@ -1,8 +1,6 @@
 import { useState, useContext, useRef, useEffect } from "react";
-import { AnimatePresence } from "motion/react";
 import { chatsContext } from "../context/chatsContext";
 import { api } from "../services/api";
-import { motion } from "motion/react" ; 
 
 import {
   ClipboardIcon,
@@ -71,199 +69,6 @@ export async function KeyTest(
 }
 
 // ──────────────────────────────────────────────────────────────
-// Inject guide styles
-// ──────────────────────────────────────────────────────────────
-const GUIDE_STYLES = `
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap');
-
-/* ── Root ────────────────────────────────────────────────────── */
-.guide-root {
-  font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-  background: #0a0c0f;
-  position: relative;
-  overflow: hidden;
-}
-
-.guide-root::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background:
-    radial-gradient(ellipse 70% 50% at 30% 0%, rgba(57,255,20,0.015) 0%, transparent 60%),
-    radial-gradient(ellipse 50% 40% at 80% 100%, rgba(0,200,255,0.012) 0%, transparent 60%);
-  pointer-events: none;
-  z-index: 0;
-}
-
-/* ── ASCII Logo ──────────────────────────────────────────────── */
-.guide-ascii-logo {
-  color: rgba(57,255,20,0.35);
-  filter: drop-shadow(0 0 20px rgba(57,255,20,0.04));
-  transition: filter 0.6s ease;
-}
-
-/* ── Scrollbar ───────────────────────────────────────────────── */
-.guide-scrollbar::-webkit-scrollbar { width: 5px; }
-.guide-scrollbar::-webkit-scrollbar-track { background: transparent; }
-.guide-scrollbar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.06); border-radius: 4px; }
-.guide-scrollbar::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.1); }
-
-/* ── Boot message ────────────────────────────────────────────── */
-.guide-msg {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 12.5px;
-  line-height: 1.7;
-  letter-spacing: 0.01em;
-}
-
-/* ── Input field ─────────────────────────────────────────────── */
-.guide-input {
-  font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
-  padding: 10px 16px;
-  background: rgba(14,17,22,0.8);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 8px;
-  color: rgba(220,230,240,0.9);
-  outline: none;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-.guide-input::placeholder {
-  color: rgba(180,195,210,0.2);
-  font-size: 12px;
-}
-.guide-input:focus {
-  border-color: rgba(57,255,20,0.25);
-  box-shadow: 0 0 0 3px rgba(57,255,20,0.06);
-  background: rgba(14,17,22,0.95);
-}
-.guide-input:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-/* ── Paste button ────────────────────────────────────────────── */
-.guide-paste-btn {
-  font-family: 'Inter', sans-serif;
-  font-size: 11px;
-  font-weight: 500;
-  padding: 10px 14px;
-  background: rgba(255,255,255,0.03);
-  border: 1px solid rgba(255,255,255,0.07);
-  border-radius: 8px;
-  color: rgba(180,195,210,0.45);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  transition: all 0.2s ease;
-  white-space: nowrap;
-}
-.guide-paste-btn:hover:not(:disabled) {
-  background: rgba(255,255,255,0.06);
-  border-color: rgba(255,255,255,0.12);
-  color: rgba(200,215,230,0.7);
-}
-.guide-paste-btn:disabled {
-  opacity: 0.3;
-  cursor: not-allowed;
-}
-
-/* ── Launch button ───────────────────────────────────────────── */
-.guide-launch-btn {
-  font-family: 'Inter', sans-serif;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 11px 24px;
-  background: rgba(57,255,20,0.08);
-  border: 1px solid rgba(57,255,20,0.22);
-  border-radius: 8px;
-  color: rgba(57,255,20,0.85);
-  cursor: pointer;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-  letter-spacing: 0.01em;
-}
-.guide-launch-btn:hover {
-  background: rgba(57,255,20,0.14);
-  border-color: rgba(57,255,20,0.4);
-  color: rgba(57,255,20,1);
-  box-shadow: 0 4px 20px rgba(57,255,20,0.08);
-  transform: translateY(-1px);
-}
-
-/* ── Loading spinner ─────────────────────────────────────────── */
-.guide-loading-spin {
-  animation: guide-spin 1s linear infinite;
-}
-@keyframes guide-spin {
-  from { transform: rotate(0deg); }
-  to { transform: rotate(360deg); }
-}
-
-/* ── Loading dots ────────────────────────────────────────────── */
-.guide-loading-dots span {
-  animation: guide-dot 1.4s infinite;
-  opacity: 0;
-  display: inline-block;
-}
-.guide-loading-dots span:nth-child(2) { animation-delay: 0.2s; }
-.guide-loading-dots span:nth-child(3) { animation-delay: 0.4s; }
-@keyframes guide-dot {
-  0%, 60%, 100% { opacity: 0; }
-  30% { opacity: 0.6; }
-}
-
-/* ── Version tag ─────────────────────────────────────────────── */
-.guide-version {
-  font-family: 'Inter', sans-serif;
-  font-size: 10px;
-  font-weight: 500;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  color: rgba(0,200,255,0.3);
-  transition: color 0.4s ease;
-}
-
-/* ── Kbd hint ────────────────────────────────────────────────── */
-.guide-kbd {
-  font-family: 'Inter', sans-serif;
-  font-size: 10px;
-  font-weight: 600;
-  padding: 1px 6px;
-  background: rgba(255,255,255,0.05);
-  border: 1px solid rgba(255,255,255,0.08);
-  border-radius: 4px;
-  color: rgba(0,200,255,0.6);
-}
-
-/* ── Confirm card ────────────────────────────────────────────── */
-.guide-confirm-card {
-  background: rgba(57,255,20,0.03);
-  border: 1px solid rgba(57,255,20,0.12);
-  border-radius: 10px;
-  padding: 20px 24px;
-}
-
-/* ── Divider ─────────────────────────────────────────────────── */
-.guide-divider {
-  height: 1px;
-  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.05), transparent);
-}
-`;
-
-function injectGuideStyles() {
-  if (typeof document === 'undefined') return;
-  if (document.getElementById("guide-styles")) return;
-  const el = document.createElement("style");
-  el.id = "guide-styles";
-  el.textContent = GUIDE_STYLES;
-  document.head.appendChild(el);
-}
-
-// ──────────────────────────────────────────────────────────────
 // GuidePage
 // ──────────────────────────────────────────────────────────────
 export const GuidePage = () => {
@@ -276,11 +81,6 @@ export const GuidePage = () => {
   const inputRef = useRef(null);
   const bottomRef = useRef(null);
   const { setPreferences, preferences } = useContext(chatsContext);
-
-  // Inject styles on mount
-  useEffect(() => {
-    injectGuideStyles();
-  }, []);
 
   // Show logo then boot messages
   useEffect(() => {
@@ -331,74 +131,47 @@ export const GuidePage = () => {
 
   const msgColor = (type) => {
     switch (type) {
-      case "ok": return "rgba(57,255,20,0.65)";
-      case "warn": return "rgba(255,200,60,0.7)";
-      case "error": return "rgba(255,80,120,0.8)";
-      case "success": return "rgba(100,255,120,0.8)";
-      case "info": return "rgba(0,200,255,0.55)";
-      case "key": return "transparent";
-      default: return "rgba(200,255,192,0.5)";
+      case "ok": return "text-ink";
+      case "warn": return "text-muted-500";
+      case "error": return "text-red";
+      case "success": return "text-ink";
+      case "info": return "text-muted-400";
+      default: return "text-muted-400";
     }
   };
 
   return (
-    <div
-      className="flex flex-col flex-1 min-h-0 overflow-hidden guide-root guide-scrollbar"
-    >
-      <div className="flex-1 overflow-y-auto px-6 py-8" style={{ position: "relative", zIndex: 1, maxWidth: 780, width: "100%", margin: "0 auto" }}>
+    <div className="flex flex-col flex-1 min-h-0 overflow-hidden dot-grid-bg">
+      <div className="flex-1 overflow-y-auto px-6 py-8 max-w-2xl mx-auto w-full">
 
         {/* ASCII Logo */}
-        <AnimatePresence>
-          {logoVisible && (
-            <motion.div
-              initial={{ opacity: 0, y: -10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="mb-8 overflow-x-auto"
-              style={{ paddingTop: 8, paddingBottom: 4 }}
-            >
-              <pre
-                className="text-[5px] sm:text-[7px] md:text-[8px] leading-tight ascii-logo select-none guide-ascii-logo"
-                style={{ whiteSpace: "pre", letterSpacing: "-0.02em" }}
-              >
-                {ASCII_LOGO}
-              </pre>
-              <p className="guide-version mt-3">
-                v2.0 — AI Terminal Interface
-              </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+        {logoVisible && (
+          <div className="mb-8 overflow-x-auto pt-2 pb-1">
+            <pre className="font-mono text-muted-400 text-[5px] leading-tight select-none whitespace-pre">
+              {ASCII_LOGO}
+            </pre>
+            <p className="font-mono text-[10px] text-muted-400 uppercase tracking-widest mt-3">
+              v2.0 — AI Terminal Interface
+            </p>
+          </div>
+        )}
 
         {/* Subtle divider */}
         {logoVisible && (
-          <motion.div
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            transition={{ delay: 0.4, duration: 0.5 }}
-            className="guide-divider mb-6"
-          />
+          <div className="border-t border-divider mb-6" />
         )}
 
         {/* Boot messages */}
         <div className="space-y-2 mb-6">
           {messages.map((msg, i) => (
-            <motion.div
-              key={i}
-              initial={{ opacity: 0, x: -6 }}
-              animate={{ opacity: 1, x: 0 }}
-              transition={{ duration: 0.25, ease: "easeOut" }}
-            >
+            <div key={i}>
               {msg.type === "key" ? (
-                <pre
-                  className="text-sm blur-sm select-none"
-                  style={{ color: "rgba(200,255,192,0.3)" }}
-                >
+                <pre className="font-mono text-sm blur-sm select-none text-muted-400/30">
                   [KEY] {msg.content}
                 </pre>
               ) : msg.type === "info" ? (
                 <div className="flex items-center gap-2">
-                  <span className="guide-msg" style={{ color: msgColor(msg.type) }}>
+                  <span className={`font-mono text-xs leading-relaxed ${msgColor(msg.type)}`}>
                     {msg.content.startsWith("→  Visit") ? (
                       <>
                         →{" "}
@@ -406,22 +179,7 @@ export const GuidePage = () => {
                           href="https://openrouter.ai"
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1"
-                          style={{
-                            color: "rgba(0,200,255,0.65)",
-                            textDecoration: "none",
-                            borderBottom: "1px dashed rgba(0,200,255,0.3)",
-                            paddingBottom: 1,
-                            transition: "all 0.2s ease",
-                          }}
-                          onMouseEnter={(e) => {
-                            e.currentTarget.style.color = "rgba(0,200,255,0.9)";
-                            e.currentTarget.style.borderColor = "rgba(0,200,255,0.5)";
-                          }}
-                          onMouseLeave={(e) => {
-                            e.currentTarget.style.color = "rgba(0,200,255,0.65)";
-                            e.currentTarget.style.borderColor = "rgba(0,200,255,0.3)";
-                          }}
+                          className="inline-flex items-center gap-1 underline decoration-dashed underline-offset-4 text-muted-500 hover:text-red"
                         >
                           openrouter.ai
                           <ExternalLinkIcon size={11} />
@@ -434,142 +192,81 @@ export const GuidePage = () => {
                   </span>
                 </div>
               ) : (
-                <pre
-                  className="guide-msg text-wrap"
-                  style={{ color: msgColor(msg.type) }}
-                >
+                <pre className={`font-mono text-xs leading-relaxed text-wrap ${msgColor(msg.type)}`}>
                   {msg.content}
                 </pre>
               )}
-            </motion.div>
+            </div>
           ))}
         </div>
 
         {/* Input area or success */}
-        <AnimatePresence mode="wait">
-          {showConfirm ? (
-            <motion.div
-              key="confirm"
-              initial={{ opacity: 0, y: 8 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
-              className="mt-2"
-            >
-              <div className="guide-confirm-card flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-3 mb-5">
-                <CheckCircle2Icon
-                  size={18}
-                  style={{ color: "rgba(57,255,20,0.7)", flexShrink: 0 }}
-                />
-                <p
-                  style={{
-                    fontSize: 13,
-                    color: "rgba(57,255,20,0.7)",
-                    fontFamily: "'Inter', sans-serif",
-                    fontWeight: 500,
-                    lineHeight: 1.6,
-                  }}
-                >
-                  System ready with full AI access. Launch the terminal to begin.
-                </p>
-              </div>
-              <button
-                onClick={() =>
-                  setPreferences((prev) => ({
-                    ...prev,
-                    currentPage: "chat",
-                  }))
-                }
-                className="guide-launch-btn"
-              >
-                <ArrowRightCircleIcon size={16} />
-                Launch Chat Terminal
-              </button>
-            </motion.div>
-          ) : (
-            <motion.div
-              key="input"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              className="mt-2"
-            >
-              {/* Loading indicator while validating */}
-              {loading && (
-                <motion.div
-                  initial={{ opacity: 0 }}
-                  animate={{ opacity: 1 }}
-                  className="flex items-center gap-2 mb-3"
-                >
-                  <Loader2Icon
-                    size={14}
-                    className="guide-loading-spin"
-                    style={{ color: "rgba(57,255,20,0.6)" }}
-                  />
-                  <span
-                    style={{
-                      fontSize: 12,
-                      color: "rgba(180,195,210,0.4)",
-                      fontFamily: "'Inter', sans-serif",
-                    }}
-                  >
-                    Validating key
-                    <span className="guide-loading-dots">
-                      <span>.</span>
-                      <span>.</span>
-                      <span>.</span>
-                    </span>
-                  </span>
-                </motion.div>
-              )}
-
-              {/* Key input row */}
-              <div className="flex items-center gap-3 max-w-2xl">
-                <span
-                  className="flex-shrink-0"
-                  style={{
-                    fontFamily: "'JetBrains Mono', monospace",
-                    fontSize: 13,
-                    color: "rgba(0,200,255,0.55)",
-                  }}
-                >
-                  key&gt;
-                </span>
-                <input
-                  ref={inputRef}
-                  type="text"
-                  value={keyValue}
-                  onChange={(e) => setKeyValue(e.target.value)}
-                  onKeyDown={handleKeyDown}
-                  placeholder="sk-or-v1-... OR gsk_... OR AIza..."
-                  disabled={loading || showConfirm}
-                  className="guide-input flex-1"
-                />
-                <button
-                  onClick={handlePaste}
-                  disabled={loading}
-                  className="guide-paste-btn flex-shrink-0"
-                  title="Paste from clipboard"
-                >
-                  <ClipboardIcon size={13} />
-                  paste
-                </button>
-              </div>
-
-              <p
-                style={{
-                  fontSize: 10.5,
-                  marginTop: 12,
-                  marginLeft: 50,
-                  fontFamily: "'Inter', sans-serif",
-                  color: "rgba(180,195,210,0.2)",
-                  lineHeight: 1.5,
-                }}
-              >
-                Press <kbd className="guide-kbd">Enter</kbd> to
-                authenticate · Your key is encrypted and stored securely
+        {showConfirm ? (
+          <div className="mt-2">
+            <div className="border border-ink bg-muted-100 p-4 flex flex-col sm:flex-row sm:items-center gap-4 sm:gap-3 mb-5">
+              <CheckCircle2Icon size={18} className="text-ink flex-shrink-0" />
+              <p className="text-sm font-sans font-medium text-ink leading-relaxed">
+                System ready with full AI access. Launch the terminal to begin.
               </p>
-            </motion.div>
-          )}
-        </AnimatePresence>
+            </div>
+            <button
+              onClick={() =>
+                setPreferences((prev) => ({
+                  ...prev,
+                  currentPage: "chat",
+                }))
+              }
+              className="border border-ink bg-ink text-paper hover:bg-ink/90 font-mono text-xs uppercase tracking-widest px-6 py-3 inline-flex items-center gap-2 cursor-pointer"
+            >
+              <ArrowRightCircleIcon size={16} />
+              Launch Chat Terminal
+            </button>
+          </div>
+        ) : (
+          <div className="mt-2">
+            {/* Loading indicator while validating */}
+            {loading && (
+              <div className="flex items-center gap-2 mb-3">
+                <Loader2Icon size={14} className="animate-spin text-muted-400" />
+                <span className="text-xs font-sans text-muted-400">
+                  Validating key
+                  <span>.</span><span>.</span><span>.</span>
+                </span>
+              </div>
+            )}
+
+            {/* Key input row */}
+            <div className="flex items-center gap-3 max-w-2xl">
+              <span className="flex-shrink-0 font-mono text-sm text-muted-400">
+                key&gt;
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={keyValue}
+                onChange={(e) => setKeyValue(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="sk-or-v1-... OR gsk_... OR AIza..."
+                disabled={loading || showConfirm}
+                className="border-b border-ink bg-transparent font-mono text-sm text-ink flex-1 placeholder:text-muted-400/40 disabled:opacity-50 disabled:cursor-not-allowed outline-none"
+              />
+              <button
+                onClick={handlePaste}
+                disabled={loading}
+                className="border border-ink text-ink hover:bg-muted-100 font-mono text-[10px] flex-shrink-0 px-3 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Paste from clipboard"
+              >
+                <ClipboardIcon size={13} className="inline mr-1.5" />
+                paste
+              </button>
+            </div>
+
+            <p className="text-muted-400/50 text-[10px] font-sans mt-3 ml-[50px] leading-relaxed">
+              Press <kbd className="border border-ink/10 text-muted-500 font-mono text-[10px] px-1.5 py-0.5">Enter</kbd> to
+              authenticate · Your key is encrypted and stored securely
+            </p>
+          </div>
+        )}
 
         <div ref={bottomRef} />
       </div>

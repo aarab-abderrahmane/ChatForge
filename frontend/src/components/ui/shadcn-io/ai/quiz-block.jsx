@@ -1,5 +1,4 @@
 import { useState, useMemo, useCallback } from 'react';
-import { motion, AnimatePresence } from 'motion/react';
 import { CheckCircle2, XCircle, Trophy, HelpCircle } from 'lucide-react';
 
 function safeParseJSON(code) {
@@ -39,10 +38,10 @@ export function QuizBlock({ code }) {
   // ── Loading state ──
   if (!quizData?.questions) {
     return (
-      <div className="quiz-loading my-4 border rounded-xl overflow-hidden" style={{ borderColor: 'rgba(0, 245, 255, 0.2)' }}>
-        <div className="flex items-center gap-3 px-4 py-3" style={{ background: 'rgba(0, 245, 255, 0.04)' }}>
-          <HelpCircle size={14} style={{ color: 'var(--neon-cyan)' }} />
-          <span className="text-xs font-mono tracking-wider" style={{ color: 'rgba(0, 245, 255, 0.7)' }}>
+      <div className="quiz-loading my-4 border border-divider bg-paper">
+        <div className="flex items-center gap-3 px-4 py-3 bg-muted-100">
+          <HelpCircle size={14} className="text-muted-400" />
+          <span className="text-xs font-mono tracking-wider text-muted-400">
             Generating quiz questions...
           </span>
         </div>
@@ -60,52 +59,26 @@ export function QuizBlock({ code }) {
   const perfectScore = score === total;
 
   return (
-    <motion.div
-      initial={{ opacity: 0, y: 12 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.3, ease: 'easeOut' }}
-      className="my-4 quiz-container rounded-xl overflow-hidden"
-      style={{
-        border: '1px solid var(--border-green)',
-        background: 'var(--bg-glass)',
-        backdropFilter: 'blur(16px)',
-        boxShadow: 'var(--glow-panel)',
-      }}
-    >
+    <div className="my-4 border border-divider bg-paper">
       {/* ── Header ── */}
-      <div
-        className="quiz-header flex items-center justify-between px-4 py-3"
-        style={{
-          borderBottom: '1px solid rgba(57, 255, 20, 0.15)',
-          background: 'rgba(57, 255, 20, 0.03)',
-        }}
-      >
+      <div className="quiz-header flex items-center justify-between px-4 py-3 border-b border-divider bg-muted-100">
         <div className="flex items-center gap-2">
-          <Trophy size={14} style={{ color: 'var(--neon-green)' }} />
-          <h3
-            className="text-xs font-bold tracking-[0.15em] uppercase"
-            style={{ color: 'var(--neon-green)' }}
-          >
+          <Trophy size={14} className="text-red" />
+          <h3 className="font-serif text-xs font-bold tracking-[0.15em] uppercase text-ink">
             {quizData.topic}
           </h3>
         </div>
-        <span
-          className="text-[10px] tracking-[0.12em] uppercase font-semibold"
-          style={{ color: 'rgba(0, 245, 255, 0.6)' }}
-        >
+        <span className="text-[10px] tracking-[0.12em] uppercase font-mono text-muted-500">
           {total} Questions
         </span>
       </div>
 
       {/* ── Progress bar ── */}
       {!isSubmitted && (
-        <div className="h-[2px]" style={{ background: 'rgba(255,255,255,0.04)' }}>
-          <motion.div
-            className="h-full"
-            style={{ background: 'var(--neon-green)' }}
-            initial={{ width: 0 }}
-            animate={{ width: `${(Object.keys(selectedAnswers).length / total) * 100}%` }}
-            transition={{ duration: 0.3, ease: 'easeOut' }}
+        <div className="h-[2px] bg-muted-100">
+          <div
+            className="h-full bg-ink transition-all duration-150"
+            style={{ width: `${(Object.keys(selectedAnswers).length / total) * 100}%` }}
           />
         </div>
       )}
@@ -113,23 +86,10 @@ export function QuizBlock({ code }) {
       {/* ── Questions ── */}
       <div className="p-4 flex flex-col gap-6">
         {quizData.questions.map((q, qIdx) => (
-          <motion.div
-            key={qIdx}
-            initial={{ opacity: 0, y: 8 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ delay: qIdx * 0.05, duration: 0.25 }}
-            className="quiz-question flex flex-col gap-2.5"
-          >
+          <div key={qIdx} className="quiz-question flex flex-col gap-2.5 transition-all duration-150">
             {/* Question text */}
-            <p className="text-sm font-semibold leading-relaxed flex items-start gap-2" style={{ color: 'rgba(220, 255, 210, 0.92)' }}>
-              <span
-                className="quiz-q-number flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold mt-0.5"
-                style={{
-                  background: 'rgba(57, 255, 20, 0.1)',
-                  color: 'var(--neon-green)',
-                  border: '1px solid rgba(57, 255, 20, 0.2)',
-                }}
-              >
+            <p className="font-body text-sm leading-relaxed flex items-start gap-2 text-ink">
+              <span className="quiz-q-number flex-shrink-0 w-5 h-5 flex items-center justify-center text-[10px] font-bold mt-0.5 border border-ink bg-muted-100 text-ink">
                 {qIdx + 1}
               </span>
               {q.q}
@@ -141,136 +101,79 @@ export function QuizBlock({ code }) {
                 const isSelected = selectedAnswers[qIdx] === oIdx;
                 const isCorrect = q.answer === oIdx;
 
-                let optionClasses = 'quiz-option';
-                let optionStyle = {};
+                let optionClasses = 'quiz-option text-left px-3 py-2.5 text-xs border transition-all duration-150 flex items-center gap-2';
+                let labelClasses = 'flex-shrink-0 w-5 h-5 flex items-center justify-center text-[9px] font-bold border';
+                let iconEl = null;
 
                 if (isSubmitted) {
                   if (isCorrect) {
-                    optionClasses += ' quiz-option-correct';
-                    optionStyle = {
-                      background: 'rgba(57, 255, 20, 0.12)',
-                      borderColor: 'rgba(57, 255, 20, 0.6)',
-                      color: '#39ff14',
-                    };
-                  } else if (isSelected && !isCorrect) {
-                    optionClasses += ' quiz-option-wrong';
-                    optionStyle = {
-                      background: 'rgba(255, 45, 120, 0.1)',
-                      borderColor: 'rgba(255, 45, 120, 0.5)',
-                      color: '#ff2d78',
-                      textDecoration: 'line-through',
-                    };
+                    optionClasses += ' bg-red/10 border-red text-red';
+                    labelClasses += ' bg-red/10 border-red text-red';
+                    iconEl = <CheckCircle2 size={14} className="ml-auto flex-shrink-0 text-red" />;
+                  } else if (isSelected) {
+                    optionClasses += ' line-through text-muted-400 border-divider';
+                    labelClasses += ' bg-muted-100 border-divider text-muted-400';
+                    iconEl = <XCircle size={14} className="ml-auto flex-shrink-0 text-muted-400" />;
                   } else {
-                    optionStyle.opacity = 0.4;
+                    optionClasses += ' text-muted-400 border-divider opacity-40';
+                    labelClasses += ' bg-muted-100 border-divider text-muted-400';
                   }
                 } else if (isSelected) {
-                  optionClasses += ' quiz-option-selected';
-                  optionStyle = {
-                    background: 'rgba(57, 255, 20, 0.08)',
-                    borderColor: 'rgba(57, 255, 20, 0.4)',
-                    color: '#39ff14',
-                  };
+                  optionClasses += ' bg-muted-100 border-ink text-ink';
+                  labelClasses += ' bg-muted-100 border-ink text-ink';
                 } else if (hoveredOption === `${qIdx}-${oIdx}`) {
-                  optionStyle = {
-                    background: 'rgba(255, 255, 255, 0.03)',
-                    borderColor: 'rgba(255, 255, 255, 0.15)',
-                    color: 'rgba(220, 255, 210, 0.85)',
-                  };
+                  optionClasses += ' bg-muted-100 border-divider text-ink';
+                  labelClasses += ' bg-muted-100 border-divider text-muted-400';
                 } else {
-                  optionStyle = {
-                    background: 'transparent',
-                    borderColor: 'rgba(255, 255, 255, 0.07)',
-                    color: 'rgba(200, 255, 192, 0.65)',
-                  };
+                  optionClasses += ' bg-transparent border-divider text-ink';
+                  labelClasses += ' bg-muted-100 border-divider text-muted-400';
                 }
 
                 return (
-                  <motion.button
+                  <button
                     key={oIdx}
                     disabled={isSubmitted}
                     onClick={() => handleSelect(qIdx, oIdx)}
                     onMouseEnter={() => setHoveredOption(`${qIdx}-${oIdx}`)}
                     onMouseLeave={() => setHoveredOption(null)}
-                    whileTap={!isSubmitted ? { scale: 0.98 } : {}}
-                    className={`quiz-option text-left px-3 py-2.5 text-xs rounded-lg border transition-all duration-200 ${optionClasses}`}
-                    style={optionStyle}
+                    className={optionClasses}
                   >
-                    <span className="flex items-center gap-2">
-                      <span
-                        className="quiz-option-label flex-shrink-0 w-5 h-5 rounded flex items-center justify-center text-[9px] font-bold"
-                        style={{
-                          background: isSelected
-                            ? 'rgba(57, 255, 20, 0.15)'
-                            : 'rgba(255, 255, 255, 0.05)',
-                          color: isSelected ? '#39ff14' : 'rgba(200, 255, 192, 0.5)',
-                          border: `1px solid ${isSelected ? 'rgba(57,255,20,0.3)' : 'rgba(255,255,255,0.08)'}`,
-                        }}
-                      >
-                        {LETTER_LABELS[oIdx] || oIdx}
-                      </span>
-                      {opt}
-                      {isSubmitted && isCorrect && (
-                        <CheckCircle2 size={14} className="ml-auto flex-shrink-0" />
-                      )}
-                      {isSubmitted && isSelected && !isCorrect && (
-                        <XCircle size={14} className="ml-auto flex-shrink-0" />
-                      )}
+                    <span className={labelClasses}>
+                      {LETTER_LABELS[oIdx] || oIdx}
                     </span>
-                  </motion.button>
+                    {opt}
+                    {iconEl}
+                  </button>
                 );
               })}
             </div>
-          </motion.div>
+          </div>
         ))}
       </div>
 
       {/* ── Footer ── */}
-      <div
-        className="quiz-footer flex justify-between items-center px-4 py-3"
-        style={{
-          borderTop: '1px solid rgba(57, 255, 20, 0.12)',
-          background: 'rgba(0, 0, 0, 0.25)',
-        }}
-      >
-        <AnimatePresence mode="wait">
-          {isSubmitted ? (
-            <motion.div
-              key="score"
-              initial={{ opacity: 0, x: -10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              className="flex items-center gap-2"
-            >
-              <span className="text-xs font-bold tracking-[0.1em]" style={{ color: perfectScore ? '#39ff14' : 'var(--neon-cyan)' }}>
-                {perfectScore ? 'PERFECT!' : 'SCORE:'}
-              </span>
-              <span
-                className="text-sm font-bold tabular-nums"
-                style={{ color: perfectScore ? '#39ff14' : '#ff2d78' }}
-              >
-                {score}
-                <span className="text-[10px] font-normal opacity-60">/{total}</span>
-              </span>
-            </motion.div>
-          ) : (
-            <motion.span
-              key="progress"
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              className="text-[10px] uppercase tracking-[0.12em] font-semibold"
-              style={{ color: 'rgba(200, 255, 192, 0.35)' }}
-            >
-              {Object.keys(selectedAnswers).length} / {total} answered
-            </motion.span>
-          )}
-        </AnimatePresence>
+      <div className="quiz-footer flex justify-between items-center px-4 py-3 border-t border-divider bg-muted-100">
+        {isSubmitted ? (
+          <div className="flex items-center gap-2 transition-all duration-150">
+            <span className="font-mono text-xs font-bold tracking-[0.1em] text-ink">
+              {perfectScore ? 'PERFECT!' : 'SCORE:'}
+            </span>
+            <span className={`font-mono text-sm font-bold tabular-nums ${perfectScore ? 'text-red' : 'text-ink'}`}>
+              {score}
+              <span className="text-[10px] font-normal text-muted-400">/{total}</span>
+            </span>
+          </div>
+        ) : (
+          <span className="font-mono text-[10px] uppercase tracking-[0.12em] text-muted-400 transition-all duration-150">
+            {Object.keys(selectedAnswers).length} / {total} answered
+          </span>
+        )}
 
         <div className="flex items-center gap-2">
           {isSubmitted && (
             <button
               onClick={handleReset}
-              className="text-[10px] px-3 py-1.5 rounded-lg font-semibold uppercase tracking-[0.08em] transition-all duration-200 cursor-pointer border border-white/10 text-white/50 hover:text-white/80 hover:border-white/20 hover:bg-white/5"
+              className="font-mono text-[10px] px-3 py-1.5 font-semibold uppercase tracking-[0.08em] transition-all duration-150 cursor-pointer border border-ink text-ink hover:bg-muted-100"
             >
               Retry
             </button>
@@ -278,12 +181,12 @@ export function QuizBlock({ code }) {
           <button
             disabled={isSubmitted || !allAnswered}
             onClick={handleSubmit}
-            className="btn-neon text-[10px] px-4 py-1.5 rounded-lg font-bold uppercase tracking-[0.1em] disabled:opacity-30 disabled:cursor-not-allowed"
+            className="font-mono text-[10px] px-4 py-1.5 font-bold uppercase tracking-[0.1em] transition-all duration-150 border border-ink text-ink hover:bg-muted-100 disabled:opacity-30 disabled:cursor-not-allowed"
           >
             {isSubmitted ? 'Completed' : 'Submit'}
           </button>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }

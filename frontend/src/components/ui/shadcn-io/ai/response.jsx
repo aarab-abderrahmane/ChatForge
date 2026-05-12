@@ -181,8 +181,7 @@ const components = {
   // Lists
   ol: ({ node, children, className, ...props }) => (
     <ol
-      className={cn('ml-5 list-outside list-decimal space-y-1 my-2', className)}
-      style={{ color: 'rgba(200,255,192,0.85)' }}
+      className={cn('ml-5 list-outside list-decimal space-y-1 my-2 text-ink', className)}
       {...props}
     >
       {children}
@@ -195,8 +194,7 @@ const components = {
   ),
   ul: ({ node, children, className, ...props }) => (
     <ul
-      className={cn('ml-5 list-outside list-disc space-y-1 my-2', className)}
-      style={{ color: 'rgba(200,255,192,0.85)' }}
+      className={cn('ml-5 list-outside list-disc space-y-1 my-2 text-ink', className)}
       {...props}
     >
       {children}
@@ -206,8 +204,7 @@ const components = {
   // Horizontal rule
   hr: ({ node, className, ...props }) => (
     <hr
-      className={cn('my-5', className)}
-      style={{ borderColor: 'rgba(57,255,20,0.2)' }}
+      className={cn('my-5 border-divider', className)}
       {...props}
     />
   ),
@@ -215,8 +212,7 @@ const components = {
   // Bold
   strong: ({ node, children, className, ...props }) => (
     <span
-      className={cn('font-bold', className)}
-      style={{ color: '#39ff14', textShadow: '0 0 8px rgba(57,255,20,0.4)' }}
+      className={cn('font-bold text-ink', className)}
       {...props}
     >
       {children}
@@ -227,7 +223,6 @@ const components = {
   em: ({ node, children, className, ...props }) => (
     <em
       className={cn('italic', className)}
-      style={{ color: 'rgba(0,245,255,0.85)' }}
       {...props}
     >
       {children}
@@ -237,8 +232,7 @@ const components = {
   // Strikethrough
   del: ({ node, children, className, ...props }) => (
     <del
-      className={cn('line-through', className)}
-      style={{ color: 'rgba(255,45,120,0.7)' }}
+      className={cn('line-through text-muted-500', className)}
       {...props}
     >
       {children}
@@ -248,10 +242,7 @@ const components = {
   // Links
   a: ({ node, children, className, ...props }) => (
     <a
-      className={cn('underline decoration-dashed underline-offset-2 transition-all', className)}
-      style={{ color: '#00f5ff' }}
-      onMouseEnter={e => (e.target.style.textShadow = '0 0 8px rgba(0,245,255,0.8)')}
-      onMouseLeave={e => (e.target.style.textShadow = 'none')}
+      className={cn('underline text-ink hover:text-red underline-offset-2', className)}
       rel="noreferrer"
       target="_blank"
       {...props}
@@ -263,8 +254,7 @@ const components = {
   // Headings
   h1: ({ node, children, className, ...props }) => (
     <h1
-      className={cn('mt-6 mb-3 font-bold text-2xl', className)}
-      style={{ color: '#39ff14', textShadow: '0 0 12px rgba(57,255,20,0.5)', borderBottom: '1px solid rgba(57,255,20,0.2)', paddingBottom: '0.4rem' }}
+      className={cn('mt-6 mb-3 font-serif text-2xl font-black', className)}
       {...props}
     >
       {children}
@@ -272,8 +262,7 @@ const components = {
   ),
   h2: ({ node, children, className, ...props }) => (
     <h2
-      className={cn('mt-5 mb-2 font-bold text-xl', className)}
-      style={{ color: '#39ff14', textShadow: '0 0 10px rgba(57,255,20,0.4)' }}
+      className={cn('mt-5 mb-2 font-serif text-xl font-bold', className)}
       {...props}
     >
       # {children}
@@ -281,8 +270,7 @@ const components = {
   ),
   h3: ({ node, children, className, ...props }) => (
     <h3
-      className={cn('mt-4 mb-2 font-semibold text-lg', className)}
-      style={{ color: '#00f5ff', textShadow: '0 0 8px rgba(0,245,255,0.4)' }}
+      className={cn('mt-4 mb-2 font-serif text-lg font-semibold', className)}
       {...props}
     >
       ## {children}
@@ -290,8 +278,7 @@ const components = {
   ),
   h4: ({ node, children, className, ...props }) => (
     <h4
-      className={cn('mt-4 mb-1 font-semibold text-base', className)}
-      style={{ color: '#00f5ff' }}
+      className={cn('mt-4 mb-1 font-serif text-base font-semibold', className)}
       {...props}
     >
       ### {children}
@@ -299,8 +286,7 @@ const components = {
   ),
   h5: ({ node, children, className, ...props }) => (
     <h5
-      className={cn('mt-3 mb-1 font-semibold', className)}
-      style={{ color: 'rgba(200,255,192,0.8)' }}
+      className={cn('mt-3 mb-1 font-serif font-semibold', className)}
       {...props}
     >
       {children}
@@ -308,8 +294,7 @@ const components = {
   ),
   h6: ({ node, children, className, ...props }) => (
     <h6
-      className={cn('mt-3 mb-1 font-semibold text-sm', className)}
-      style={{ color: 'rgba(200,255,192,0.6)' }}
+      className={cn('mt-3 mb-1 font-serif text-sm font-semibold', className)}
       {...props}
     >
       {children}
@@ -318,7 +303,7 @@ const components = {
 
   // Tables
   table: ({ node, children, className, ...props }) => (
-    <div className="my-4 overflow-x-auto rounded-lg" style={{ border: '1px solid rgba(57,255,20,0.2)' }}>
+    <div className="my-4 overflow-x-auto rounded-lg border border-ink">
       <table
         className={cn('w-full border-collapse', className)}
         {...props}
@@ -329,8 +314,7 @@ const components = {
   ),
   thead: ({ node, children, className, ...props }) => (
     <thead
-      className={cn('', className)}
-      style={{ background: 'rgba(57,255,20,0.08)', borderBottom: '1px solid rgba(57,255,20,0.25)' }}
+      className={cn('bg-muted-100', className)}
       {...props}
     >
       {children}
@@ -344,7 +328,6 @@ const components = {
   tr: ({ node, children, className, ...props }) => (
     <tr
       className={cn('', className)}
-      style={{ borderBottom: '1px solid rgba(57,255,20,0.1)' }}
       {...props}
     >
       {children}
@@ -352,8 +335,7 @@ const components = {
   ),
   th: ({ node, children, className, ...props }) => (
     <th
-      className={cn('px-4 py-2 text-left font-bold text-xs tracking-widest uppercase', className)}
-      style={{ color: '#00f5ff' }}
+      className={cn('px-4 py-2 text-left font-mono text-xs tracking-widest uppercase text-ink', className)}
       {...props}
     >
       {children}
@@ -361,8 +343,7 @@ const components = {
   ),
   td: ({ node, children, className, ...props }) => (
     <td
-      className={cn('px-4 py-2 text-sm', className)}
-      style={{ color: 'rgba(200,255,192,0.85)' }}
+      className={cn('px-4 py-2 text-sm font-body', className)}
       {...props}
     >
       {children}
@@ -372,14 +353,7 @@ const components = {
   // Blockquote
   blockquote: ({ node, children, className, ...props }) => (
     <blockquote
-      className={cn('my-4 pl-4 italic', className)}
-      style={{
-        borderLeft: '3px solid rgba(0,245,255,0.5)',
-        color: 'rgba(0,245,255,0.7)',
-        background: 'rgba(0,245,255,0.04)',
-        borderRadius: '0 6px 6px 0',
-        padding: '8px 16px',
-      }}
+      className={cn('my-4 pl-4 italic border-l-2 border-ink bg-paper', className)}
       {...props}
     >
       {children}
@@ -393,24 +367,20 @@ const components = {
     }
     return (
       <span
-        className="inline-flex items-center justify-center mr-2 flex-shrink-0"
+        className={cn(
+          'inline-flex items-center justify-center mr-2 flex-shrink-0 w-3.5 h-3.5 align-middle rounded-sm border',
+          checked ? 'border-ink' : 'border-divider',
+          className
+        )}
         style={{
-          width: 14,
-          height: 14,
-          border: `1px solid ${checked ? '#39ff14' : 'rgba(57,255,20,0.35)'}`,
-          borderRadius: 3,
-          background: checked ? 'rgba(57,255,20,0.18)' : 'transparent',
-          boxShadow: checked ? '0 0 6px rgba(57,255,20,0.4)' : 'none',
-          verticalAlign: 'middle',
           cursor: 'default',
-          display: 'inline-flex',
           position: 'relative',
           top: '-1px',
         }}
       >
         {checked && (
           <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
-            <path d="M1 3L3.5 5.5L8 1" stroke="#39ff14" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+            <path d="M1 3L3.5 5.5L8 1" stroke="#111111" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
           </svg>
         )}
       </span>
@@ -425,12 +395,7 @@ const components = {
     }
     return (
       <code
-        className={cn('rounded px-1.5 py-0.5 font-mono text-sm', className)}
-        style={{
-          background: 'rgba(57,255,20,0.1)',
-          color: '#39ff14',
-          border: '1px solid rgba(57,255,20,0.2)',
-        }}
+        className={cn('rounded px-1.5 py-0.5 font-mono text-sm bg-muted-100 text-ink border border-divider', className)}
         {...props}
       />
     );

@@ -3,7 +3,8 @@ import './index.css';
 
 import { Terminal } from './components/features/Terminal';
 import { DocsPage } from './pages/DocsPage';
-import { chatsContext, SKILLS, MODELS, THEMES } from './context/chatsContext';
+import { SettingsPage } from './pages/SettingsPage';
+import { chatsContext, SKILLS, MODELS } from './context/chatsContext';
 import { api } from './services/api';
 import { ContextBuilder } from './services/contextBuilder';
 
@@ -58,63 +59,13 @@ function App() {
     }
   }, [chats, settings.autoScroll]);
 
-  // ── Apply font + font-size settings ──
+  // ── Apply font-size setting ──
   useEffect(() => {
-    const fontMap = {
-      jetbrains: "'JetBrains Mono', monospace",
-      cascadia: "'Cascadia Code', 'Fira Code', monospace",
-      fira: "'Fira Code', monospace",
-    };
-    document.body.style.fontFamily = fontMap[settings.font] || fontMap.fira;
     document.documentElement.style.setProperty(
       '--terminal-font-size',
       `${settings.fontSize || 14}px`
     );
-  }, [settings.font, settings.fontSize]);
-
-  // ── Sync theme colors to CSS variables ──
-  useEffect(() => {
-    const root = document.documentElement;
-    let theme = THEMES.find((t) => t.id === settings.theme) || THEMES[0];
-
-    if (settings.theme === 'custom' && settings.customTheme) {
-      theme = { ...theme, ...settings.customTheme };
-    }
-
-    root.style.setProperty('--theme-primary', theme.primary);
-    root.style.setProperty('--theme-secondary', theme.secondary);
-    root.style.setProperty('--theme-accent', theme.accent);
-  }, [settings.theme, settings.customTheme]);
-
-  // ── Keyboard sounds (reuses AudioContext) ──
-  useEffect(() => {
-    if (!settings.sounds) return;
-
-    let ctx = null;
-
-    const handleKey = (e) => {
-      if (e.key.length !== 1 && e.key !== 'Backspace') return;
-
-      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.frequency.value = 800 + Math.random() * 200;
-      osc.type = 'square';
-      gain.gain.setValueAtTime(0.03, ctx.currentTime);
-      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.04);
-      osc.start(ctx.currentTime);
-      osc.stop(ctx.currentTime + 0.04);
-    };
-
-    window.addEventListener('keydown', handleKey);
-    return () => {
-      window.removeEventListener('keydown', handleKey);
-      if (ctx) ctx.close();
-    };
-  }, [settings.sounds]);
+  }, [settings.fontSize]);
 
   // ── Listen for stats events ──
   useEffect(() => {
@@ -566,46 +517,33 @@ function App() {
 
   // ── Render ──
   return (
-    <>
-      {/* Background grid layer */}
-      <div className="bg-grid" />
-
-      {/* Scanlines overlay */}
-      <div
-        className={`scan-lines fixed inset-0 pointer-events-none z-[9999] ${
-          settings.scanlines ? '' : 'scanlines-off'
-        }`}
-      />
-
-      {/* Main app */}
-      <div className="relative z-10 w-screen h-screen">
-        {preferences.currentPage === 'docs' ? (
-          <div className="w-full h-full">
-            <DocsPage />
-          </div>
-        ) : (
-          <div className="w-full h-full flex justify-center items-center">
-            <Terminal
-              copyToClipboard={copyToClipboard}
-              isCopied={isCopied}
-              chats={chats}
-              handleSend={handleSend}
-              loading={loading}
-              query={query}
-              setQuery={setQuery}
-              messagesEndRef={messagesEndRef}
-              onRetry={handleRetry}
-              onEditSubmit={handleEditSubmit}
-              onStopAI={handleStopAI}
-              onMergeDrafts={handleMergeDrafts}
-              onSummarizeDrafts={handleSummarizeDrafts}
-              onKeepDraft={handleKeepDraft}
-              onContinue={handleContinue}
-            />
-          </div>
-        )}
-      </div>
-    </>
+    <div className="w-screen h-screen flex flex-col">
+      {preferences.currentPage === 'settings' ? (
+        <SettingsPage />
+      ) : preferences.currentPage === 'docs' ? (
+        <div className="w-full h-full">
+          <DocsPage />
+        </div>
+      ) : (
+        <Terminal
+          copyToClipboard={copyToClipboard}
+          isCopied={isCopied}
+          chats={chats}
+          handleSend={handleSend}
+          loading={loading}
+          query={query}
+          setQuery={setQuery}
+          messagesEndRef={messagesEndRef}
+          onRetry={handleRetry}
+          onEditSubmit={handleEditSubmit}
+          onStopAI={handleStopAI}
+          onMergeDrafts={handleMergeDrafts}
+          onSummarizeDrafts={handleSummarizeDrafts}
+          onKeepDraft={handleKeepDraft}
+          onContinue={handleContinue}
+        />
+      )}
+    </div>
   );
 }
 

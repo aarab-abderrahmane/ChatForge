@@ -1,24 +1,9 @@
-// Trigger Vite HMR Reload
-import { motion, AnimatePresence } from "motion/react";
-import {
-  CheckIcon,
-  CopyIcon,
-  ThumbsUpIcon,
-  ThumbsDownIcon,
-  RefreshCcwIcon,
-  AlertTriangleIcon,
-  Pencil,
-  Star,
-  Eye,
-  EyeOff,
-  X,
-  Check,
-  Wand2,
-  AlignLeft,
-  Layers,
-  ChevronDown,
-} from "lucide-react";
 import { useState, useContext, useRef } from "react";
+import {
+  CopyIcon, ThumbsUpIcon, ThumbsDownIcon, RefreshCcwIcon,
+  AlertTriangleIcon, Pencil, Star, Eye, EyeOff, X, Check,
+  Wand2, AlignLeft, Layers, ChevronDown,
+} from "lucide-react";
 import { Response } from "../ui/shadcn-io/ai/response";
 import { QuizBlock } from "../ui/shadcn-io/ai/quiz-block";
 import { FlashcardBlock } from "../ui/shadcn-io/ai/flashcard-block";
@@ -27,70 +12,40 @@ import { chatsContext } from "../../context/chatsContext";
 
 function formatTime(isoString) {
   if (!isoString) return "";
-  try {
-    return new Date(isoString).toLocaleTimeString([], {
-      hour: "2-digit",
-      minute: "2-digit",
-    });
-  } catch {
-    return "";
-  }
+  try { return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return ""; }
 }
 
-/* ─── Shared action button base styles ─── */
-const btnBase = "inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-lg border border-transparent transition-all duration-200 select-none";
-
-const btnDefault = `${btnBase} text-white/55 hover:text-white/80 hover:bg-white/[0.08] hover:border-white/[0.10]`;
-
-const btnActiveUp = `${btnBase} text-emerald-400/90 bg-emerald-400/[0.08] border-emerald-400/[0.12]`;
-
-const btnActiveDown = `${btnBase} text-rose-400/90 bg-rose-400/[0.08] border-rose-400/[0.12]`;
-
-const btnActiveStar = `${btnBase} text-amber-400/90 bg-amber-400/[0.08] border-amber-400/[0.12]`;
+const btnGhost = "inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-500 hover:text-red transition-colors";
+const btnActiveUp = `${btnGhost} text-ink`;
+const btnActiveDown = `${btnGhost} text-red`;
+const btnActiveStar = `${btnGhost} text-ink`;
 
 export function MessageBlock({
-  obj,
-  index,
-  isLast,
-  isCopied,
-  copyToClipboard,
-  onRetry,
-  onEditSubmit,
-  onMergeDrafts,
-  onSummarizeDrafts,
-  onKeepDraft,
-  onContinue,
+  obj, index, isLast, isCopied, copyToClipboard, onRetry,
+  onEditSubmit, onMergeDrafts, onSummarizeDrafts, onKeepDraft, onContinue,
 }) {
-  const [reaction, setReaction] = useState(null); // 'up' | 'down' | null
+  const [reaction, setReaction] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [showRaw, setShowRaw] = useState(false);
   const [selectedDrafts, setSelectedDrafts] = useState([]);
   const editRef = useRef(null);
 
-  const {
-    settings,
-    starredMessages,
-    toggleStarMessage,
-    editMessage,
-  } = useContext(chatsContext);
+  const { settings, starredMessages, toggleStarMessage, editMessage } = useContext(chatsContext);
 
   const isError = obj.type === "error";
   const hasAnswer = !!obj.answer;
-  const compact = settings?.compactMode;
   const isStarred = starredMessages?.has(obj.id);
   const qLower = obj.question?.trim().toLowerCase() || "";
   const isQuiz = qLower.startsWith("//> quiz") || qLower.startsWith("//>quiz");
   const isFlashcards = qLower.startsWith("//> flashcards") || qLower.startsWith("//>flashcards");
   const isMindmap = qLower.startsWith("//> mindmap") || qLower.startsWith("//>mindmap");
+  const isFirst = index === 0;
 
   const startEdit = () => {
     setEditValue(obj.question);
     setIsEditing(true);
-    setTimeout(() => {
-      editRef.current?.focus();
-      editRef.current?.select();
-    }, 50);
+    setTimeout(() => { editRef.current?.focus(); editRef.current?.select(); }, 50);
   };
 
   const commitEdit = () => {
@@ -101,166 +56,83 @@ export function MessageBlock({
     setIsEditing(false);
   };
 
-  const cancelEdit = () => {
-    setIsEditing(false);
-    setEditValue("");
-  };
-
-  const handleEditKey = (e) => {
-    if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit(); }
-    if (e.key === "Escape") cancelEdit();
-  };
+  const cancelEdit = () => { setIsEditing(false); setEditValue(""); };
 
   return (
-    <motion.div
-      className={` ${compact ? "py-2.5 px-3" : "py-4 px-5"} ${isStarred ? "bg-amber-400/[0.03]" : "bg-[#0d1520]/80"}`}
-      style={isStarred ? { boxShadow: "inset 0 0 0 1px rgba(251,191,36,0.08), 0 0 24px -8px rgba(251,191,36,0.10)" } : {}}
-      initial={{ opacity: 0, y: 10 }}
-      animate={{ opacity: 1, y: 0 }}
-      transition={{ duration: 0.35, ease: [0.25, 0.1, 0.25, 1], delay: index * 0.02 }}
-    >
-      {/* Question line */}
-      <div className="flex items-start gap-3 mb-4">
-        <span
-          className="text-xs mt-px flex-shrink-0 font-bold"
-          style={{ color: "rgba(0,245,255,0.7)" }}
-        >
-          ›
-        </span>
-
+    <article className={`border-b border-divider py-5 ${isStarred ? "bg-muted-100" : ""} ${isFirst ? "first-message" : ""}`}>
+      {/* Question — as a serif subheading */}
+      <header className="flex items-start gap-4 mb-3">
         <div className="flex-1 min-w-0">
           {isEditing ? (
-            /* ── Inline edit mode ── */
             <div className="flex flex-col gap-3">
               <textarea
                 ref={editRef}
-                className="w-full bg-white/[0.06] border border-white/[0.15] rounded-lg px-3.5 py-2.5 text-sm text-white/90 placeholder-white/20 resize-none outline-none transition-all duration-200 focus:border-cyan-400/30 focus:bg-white/[0.08]"
+                className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink outline-none resize-none min-h-[80px]"
                 value={editValue}
-                onChange={(e) => setEditValue(e.target.value)}
-                onKeyDown={handleEditKey}
+                onChange={e => setEditValue(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit(); } if (e.key === "Escape") cancelEdit(); }}
                 rows={3}
               />
               <div className="flex gap-2">
-                <button
-                  onClick={commitEdit}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-semibold rounded-lg bg-emerald-400/[0.15] text-emerald-400 border border-emerald-400/[0.25] hover:bg-emerald-400/[0.18] transition-all duration-200"
-                  title="Save & Re-send (Enter)"
-                >
-                  <Check size={11} /> Save & Re-send
+                <button onClick={commitEdit} className="min-h-[44px] px-4 border border-ink bg-ink text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-paper hover:text-ink transition-colors">
+                  <Check size={12} strokeWidth={1.5} className="inline mr-1" /> Save & Re-send
                 </button>
-                <button
-                  onClick={cancelEdit}
-                  className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-[11px] font-medium rounded-lg bg-white/[0.03] text-white/40 border border-white/[0.06] hover:bg-white/[0.06] hover:text-white/60 transition-all duration-200"
-                  title="Cancel (Esc)"
-                >
-                  <X size={11} /> Cancel
+                <button onClick={cancelEdit} className="min-h-[44px] px-4 border border-ink text-ink font-mono text-[10px] uppercase tracking-widest hover:bg-muted-100 transition-colors">
+                  <X size={12} strokeWidth={1.5} className="inline mr-1" /> Cancel
                 </button>
               </div>
             </div>
           ) : (
-            <p className="text-[14px] text-wrap break-words text-white/95 leading-relaxed font-normal">
+            <div className={`font-serif font-bold text-ink ${isFirst ? "drop-cap" : "text-lg"}`}>
               {obj.question}
-            </p>
+            </div>
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0 pt-px">
-          {/* Router Badge */}
+        <div className="flex items-center gap-2 shrink-0">
           {obj.provider && (
-            <span
-              className="text-[10px] font-medium px-2 py-0.5 rounded-md tracking-wide"
-              style={{
-                background: obj.provider === "groq"
-                  ? "rgba(249,115,22,0.12)"
-                  : obj.provider === "gemini"
-                    ? "rgba(99,102,241,0.12)"
-                    : obj.provider === "huggingface"
-                      ? "rgba(234,179,8,0.12)"
-                      : "rgba(0,245,255,0.12)",
-                color: obj.provider === "groq"
-                  ? "rgba(249,115,22,0.9)"
-                  : obj.provider === "gemini"
-                    ? "rgba(99,102,241,0.9)"
-                    : obj.provider === "huggingface"
-                      ? "rgba(234,179,8,0.9)"
-                      : "rgba(0,245,255,0.9)",
-                border: obj.provider === "groq"
-                  ? "1px solid rgba(249,115,22,0.2)"
-                  : obj.provider === "gemini"
-                    ? "1px solid rgba(99,102,241,0.2)"
-                    : obj.provider === "huggingface"
-                      ? "1px solid rgba(234,179,8,0.2)"
-                      : "1px solid rgba(0,245,255,0.2)",
-              }}
-              title={`Served by ${obj.provider}`}
-            >
-              {obj.provider === "groq" ? "⚡ Groq" : obj.provider === "gemini" ? "🧠 Gemini" : obj.provider === "huggingface" ? "🤗 HuggingFace" : "🌐 OpenRouter"}
+            <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border border-ink px-1.5 py-0.5">
+              {obj.provider === "groq" ? "GROQ" : obj.provider === "gemini" ? "GEMINI" : obj.provider === "huggingface" ? "HUGGINGFACE" : "OPENROUTER"}
             </span>
           )}
-
-          {/* Star indicator */}
-          {isStarred && (
-            <span style={{ fontSize: 11, color: "rgba(251,191,36,0.7)" }} title="Starred">⭐</span>
-          )}
-          {/* Timestamp */}
+          {isStarred && <span className="text-ink" title="Starred">&#9733;</span>}
           {obj.timestamp && settings?.showTimestamps && (
-            <span className="text-[10px] text-white/40 font-normal tabular-nums">
-              {formatTime(obj.timestamp)}
-            </span>
+            <time className="font-mono text-[9px] text-muted-500 tabular-nums">{formatTime(obj.timestamp)}</time>
           )}
         </div>
-      </div>
+      </header>
 
-      {/* Answer */}
+      {/* Answer content */}
       {(hasAnswer || obj.isMulti) && (
-        <div className={`pl-5 border-l-[1.5px] ${obj.isMulti ? "border-l-cyan-400/25" : "border-l-emerald-400/25"}`}>
+        <div className="ml-0">
           {isError ? (
-            <div className="flex items-start gap-2.5">
-              <AlertTriangleIcon
-                size={14}
-                style={{ color: "rgba(244,63,94,0.7)", marginTop: 3, flexShrink: 0 }}
-              />
-              <p
-                className="text-[13px] text-wrap break-words leading-relaxed"
-                style={{ color: "rgba(248,80,100,1)" }}
-              >
-                {obj.answer}
-              </p>
+            <div className="flex items-start gap-3 text-red">
+              <AlertTriangleIcon size={16} strokeWidth={1.5} className="shrink-0 mt-0.5" />
+              <p className="font-body text-sm leading-relaxed">{obj.answer}</p>
             </div>
           ) : obj.isMulti ? (
-            <div className="flex flex-col gap-4 py-1">
-              <div className="flex gap-3 overflow-x-auto pb-4 snap-x snap-mandatory" style={{ scrollPadding: "0 20px", scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.08) transparent" }}>
+            <div className="flex flex-col gap-4">
+              <div className="flex gap-4 overflow-x-auto pb-4 snap-x snap-mandatory">
                 {obj.answers?.map((ans, idx) => (
                   <div
                     key={idx}
-                    className={`relative shrink-0 w-[300px] sm:w-[350px] snap-center p-4 rounded-xl border transition-all duration-300 flex flex-col min-h-[200px] max-h-[450px] ${
-                      selectedDrafts.includes(idx)
-                        ? "bg-emerald-400/[0.08] border-emerald-400/[0.3] shadow-[0_0_30px_-10px_rgba(52,211,153,0.15)]"
-                        : "bg-white/[0.03] border-white/[0.1] hover:border-white/[0.15] hover:bg-white/[0.05]"
+                    className={`relative shrink-0 w-[320px] snap-center border border-ink p-4 flex flex-col min-h-[200px] max-h-[450px] ${
+                      selectedDrafts.includes(idx) ? "bg-ink text-paper" : "bg-paper"
                     }`}
                   >
-                    <div className="flex justify-between items-center mb-3 border-b border-white/[0.04] pb-2.5 shrink-0">
-                      <span className="text-[10px] text-cyan-400/80 font-semibold uppercase tracking-[0.15em] flex items-center gap-2"><Layers size={12} /> Draft {idx + 1}</span>
+                    <div className="flex justify-between items-center mb-3 border-b border-ink pb-2 shrink-0">
+                      <span className="font-mono text-[10px] uppercase tracking-widest"><Layers size={12} strokeWidth={1.5} className="inline mr-1" /> Draft {idx + 1}</span>
                       <div className="flex items-center gap-3">
-                        <button
-                          onClick={() => onKeepDraft(obj.id, idx)}
-                          className="text-[9px] font-semibold text-white/50 hover:text-emerald-300 transition-colors duration-200 uppercase tracking-widest flex items-center gap-1"
-                          title="Discard others and keep this response"
-                        >
-                          <Check size={12} /> Keep
-                        </button>
-                        <input type="checkbox" className="w-3.5 h-3.5 rounded-full border-white/15 accent-emerald-400 cursor-pointer transition-all duration-200" checked={selectedDrafts.includes(idx)} onChange={(e) => {
-                          if (e.target.checked) setSelectedDrafts(p => [...p, idx]);
-                          else setSelectedDrafts(p => p.filter(x => x !== idx));
-                        }} title="Select draft for synthesis" />
+                        <button onClick={() => onKeepDraft(obj.id, idx)} className="font-mono text-[9px] uppercase tracking-widest underline underline-offset-4 decoration-red hover:text-red transition-colors">Keep</button>
+                        <input type="checkbox" className="w-4 h-4 accent-ink cursor-pointer" checked={selectedDrafts.includes(idx)} onChange={e => { if (e.target.checked) setSelectedDrafts(p => [...p, idx]); else setSelectedDrafts(p => p.filter(x => x !== idx)); }} />
                       </div>
                     </div>
-                    <div className="text-[12px] overflow-y-auto pr-1 leading-[1.75] text-white/85 flex-1" style={{ scrollbarWidth: "thin", scrollbarColor: "rgba(255,255,255,0.06) transparent" }}>
+                    <div className="font-body text-xs overflow-y-auto pr-1 leading-relaxed flex-1 [&_p]:text-justify">
                       {ans ? <Response>{ans}</Response> : (
-                        <div className="space-y-3 pt-1">
-                          <div className="h-2.5 bg-white/[0.04] rounded-md animate-pulse w-full"></div>
-                          <div className="h-2.5 bg-white/[0.04] rounded-md animate-pulse w-[90%]"></div>
-                          <div className="h-2.5 bg-white/[0.04] rounded-md animate-pulse w-[40%]"></div>
+                        <div className="space-y-2 pt-1">
+                          <div className="h-2.5 bg-muted-200 w-full" />
+                          <div className="h-2.5 bg-muted-200 w-[90%]" />
+                          <div className="h-2.5 bg-muted-200 w-[40%]" />
                         </div>
                       )}
                     </div>
@@ -268,136 +140,67 @@ export function MessageBlock({
                 ))}
               </div>
 
-              <AnimatePresence>
-                {selectedDrafts.length > 0 && (
-                  <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 8 }} transition={{ duration: 0.2, ease: [0.25, 0.1, 0.25, 1] }} className="flex flex-wrap gap-2.5 items-center bg-white/[0.04] px-3 py-2.5 rounded-lg border border-white/[0.1]">
-                    <span className="text-[9px] uppercase tracking-[0.15em] text-white/50 px-1 font-semibold">{selectedDrafts.length} Selected</span>
-                    <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="text-[10px] bg-emerald-400/[0.12] text-emerald-400/90 px-4 py-2 rounded-lg border border-emerald-400/[0.2] hover:bg-emerald-400/[0.15] font-semibold uppercase tracking-widest flex items-center gap-2 transition-all duration-200">
-                      <Wand2 size={13} /> Merge via AI
-                    </button>
-                    <button onClick={() => onSummarizeDrafts(obj.id, selectedDrafts)} className="text-[10px] bg-cyan-400/[0.12] text-cyan-400/90 px-4 py-2 rounded-lg border border-cyan-400/[0.2] hover:bg-cyan-400/[0.15] font-semibold uppercase tracking-widest flex items-center gap-2 transition-all duration-200">
-                      <AlignLeft size={13} /> Summarize
-                    </button>
-                  </motion.div>
-                )}
-              </AnimatePresence>
+              {selectedDrafts.length > 0 && (
+                <div className="flex flex-wrap gap-2 items-center border border-ink p-3 bg-muted-100">
+                  <span className="font-mono text-[9px] uppercase tracking-widest text-muted-500">{selectedDrafts.length} Selected</span>
+                  <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="min-h-[44px] px-4 border border-ink bg-ink text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-paper hover:text-ink transition-colors">
+                    <Wand2 size={12} strokeWidth={1.5} className="inline mr-1" /> Merge via AI
+                  </button>
+                  <button onClick={() => onSummarizeDrafts(obj.id, selectedDrafts)} className="min-h-[44px] px-4 border border-ink text-ink font-mono text-[10px] uppercase tracking-widest hover:bg-muted-100 transition-colors">
+                    <AlignLeft size={12} strokeWidth={1.5} className="inline mr-1" /> Summarize
+                  </button>
+                </div>
+              )}
             </div>
           ) : (
-            <div className="leading-[1.8] text-white/90 text-[14px]">
+            <div className="font-body text-sm leading-relaxed [&_p]:text-justify">
               {showRaw ? (
-                <pre
-                  className="text-xs whitespace-pre-wrap break-words"
-                  style={{ color: "rgba(200,255,192,0.6)", lineHeight: 1.8 }}
-                >
-                  {obj.answer}
-                </pre>
-              ) : (
-                isQuiz ? <QuizBlock code={obj.answer} /> :
-                  isFlashcards ? <FlashcardBlock code={obj.answer} /> :
-                    isMindmap ? <MindmapBlock code={obj.answer} /> :
-                      <Response>{obj.answer}</Response>
-              )}
+                <pre className="font-mono text-xs whitespace-pre-wrap break-words text-muted-600">{obj.answer}</pre>
+              ) : isQuiz ? <QuizBlock code={obj.answer} /> :
+                isFlashcards ? <FlashcardBlock code={obj.answer} /> :
+                  isMindmap ? <MindmapBlock code={obj.answer} /> :
+                    <Response>{obj.answer}</Response>}
             </div>
           )}
 
-          {/* Action bar */}
-          <div className="flex flex-wrap items-center gap-1 mt-3">
-            {/* Copy */}
+          {/* Actions bar */}
+          <div className="flex flex-wrap items-center gap-1 mt-4 pt-3 border-t border-divider">
             {((hasAnswer || obj.isMulti) && !isError) && (
               isCopied.state && isCopied.idMes === obj.id ? (
-                <div className={btnActiveUp} style={{ pointerEvents: "none" }}>
-                  <CheckIcon size={11} />
-                  <span>copied</span>
-                </div>
+                <span className={btnActiveUp}><CopyIcon size={11} strokeWidth={1.5} /> copied</span>
               ) : !obj.isMulti ? (
-                <button
-                  className={btnDefault}
-                  onClick={() => copyToClipboard(obj.id)}
-                  title="Copy response"
-                >
-                  <CopyIcon size={11} />
-                  <span>copy</span>
-                </button>
+                <button className={btnGhost} onClick={() => copyToClipboard(obj.id)} title="Copy response"><CopyIcon size={11} strokeWidth={1.5} /> copy</button>
               ) : null
             )}
-
-            {/* Raw toggle */}
             {(hasAnswer && !isError && !obj.isMulti) && (
-              <button
-                className={showRaw ? btnActiveUp : btnDefault}
-                onClick={() => setShowRaw((p) => !p)}
-                title={showRaw ? "Show rendered" : "Show raw markdown"}
-              >
-                {showRaw ? <EyeOff size={11} /> : <Eye size={11} />}
-                <span>{showRaw ? "rendered" : "raw"}</span>
+              <button className={showRaw ? btnActiveUp : btnGhost} onClick={() => setShowRaw(p => !p)} title={showRaw ? "Show rendered" : "Show raw"}>
+                {showRaw ? <EyeOff size={11} strokeWidth={1.5} /> : <Eye size={11} strokeWidth={1.5} />} {showRaw ? "rendered" : "raw"}
               </button>
             )}
-
-            {/* Edit question */}
             {!isEditing && (
-              <button
-                className={btnDefault}
-                onClick={startEdit}
-                title="Edit & re-send"
-              >
-                <Pencil size={11} />
-                <span>edit</span>
-              </button>
+              <button className={btnGhost} onClick={startEdit} title="Edit & re-send"><Pencil size={11} strokeWidth={1.5} /> edit</button>
             )}
-
-            {/* Star */}
-            <button
-              className={isStarred ? btnActiveStar : btnDefault}
-              onClick={() => toggleStarMessage(obj.id)}
-              title={isStarred ? "Unstar" : "Star this message"}
-            >
-              <Star size={11} />
-              <span>{isStarred ? "starred" : "star"}</span>
+            <button className={isStarred ? btnActiveStar : btnGhost} onClick={() => toggleStarMessage(obj.id)} title={isStarred ? "Unstar" : "Star"}>
+              <Star size={11} strokeWidth={1.5} /> {isStarred ? "starred" : "star"}
             </button>
-
-            {/* Thumbs up */}
             {!isError && (
-              <button
-                className={reaction === "up" ? btnActiveUp : btnDefault}
-                onClick={() => setReaction(reaction === "up" ? null : "up")}
-                title="Good response"
-              >
-                <ThumbsUpIcon size={11} />
+              <button className={reaction === "up" ? btnActiveUp : btnGhost} onClick={() => setReaction(reaction === "up" ? null : "up")} title="Good response">
+                <ThumbsUpIcon size={11} strokeWidth={1.5} />
               </button>
             )}
-
-            {/* Thumbs down */}
             {!isError && (
-              <button
-                className={reaction === "down" ? btnActiveDown : btnDefault}
-                onClick={() => setReaction(reaction === "down" ? null : "down")}
-                title="Bad response"
-              >
-                <ThumbsDownIcon size={11} />
+              <button className={reaction === "down" ? btnActiveDown : btnGhost} onClick={() => setReaction(reaction === "down" ? null : "down")} title="Bad response">
+                <ThumbsDownIcon size={11} strokeWidth={1.5} />
               </button>
             )}
-
-            {/* Continue — shown only for truncated messages */}
             {obj.isTruncated && onContinue && (
-              <button
-                className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium rounded-lg border border-cyan-400/[0.25] bg-cyan-400/[0.1] text-cyan-400/80 hover:bg-cyan-400/[0.12] transition-all duration-200"
-                onClick={() => onContinue(obj.id)}
-                title="Continue generating"
-              >
-                <ChevronDown size={11} />
-                <span>continue</span>
+              <button className="font-mono text-[10px] uppercase tracking-widest text-red underline underline-offset-4 hover:text-ink transition-colors" onClick={() => onContinue(obj.id)} title="Continue generating">
+                <ChevronDown size={11} strokeWidth={1.5} className="inline" /> continue
               </button>
             )}
-
-            {/* Retry — shown for errors AND normal messages */}
             {onRetry && (
-              <button
-                className={btnDefault}
-                onClick={() => onRetry(obj.question, obj.id)}
-                title="Retry"
-              >
-                <RefreshCcwIcon size={11} />
-                <span>retry</span>
+              <button className={btnGhost} onClick={() => onRetry(obj.question, obj.id)} title="Retry">
+                <RefreshCcwIcon size={11} strokeWidth={1.5} /> retry
               </button>
             )}
           </div>
@@ -406,14 +209,12 @@ export function MessageBlock({
 
       {/* Streaming placeholder */}
       {(!hasAnswer && !obj.isMulti) && (
-        <div className="pl-5 border-l-[1.5px] border-l-emerald-400/10">
-          <div className="flex items-center gap-1.5 py-1" style={{ color: "rgba(200,255,192,0.4)" }}>
-            <span className="w-1 h-1 rounded-full bg-current animate-[pulse_1.4s_ease-in-out_infinite]" />
-            <span className="w-1 h-1 rounded-full bg-current animate-[pulse_1.4s_ease-in-out_0.2s_infinite]" />
-            <span className="w-1 h-1 rounded-full bg-current animate-[pulse_1.4s_ease-in-out_0.4s_infinite]" />
-          </div>
+        <div className="flex items-center gap-1.5 py-2">
+          <span className="w-1.5 h-1.5 bg-ink animate-[pulse_1.4s_ease-in-out_infinite]" />
+          <span className="w-1.5 h-1.5 bg-ink animate-[pulse_1.4s_ease-in-out_0.2s_infinite]" />
+          <span className="w-1.5 h-1.5 bg-ink animate-[pulse_1.4s_ease-in-out_0.4s_infinite]" />
         </div>
       )}
-    </motion.div>
+    </article>
   );
 }

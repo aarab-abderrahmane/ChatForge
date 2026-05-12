@@ -1,5 +1,4 @@
 import { useState, useEffect, useRef, useContext } from "react";
-import { motion } from "motion/react";
 import { chatsContext } from "../context/chatsContext";
 import "./DocsPage.css";
 import {
@@ -112,29 +111,23 @@ const NAV_SECTIONS = [
 function SectionTitle({ id, icon: Icon, children }) {
     return (
         <div id={id} className="docs-section-title">
-            <Icon size={18} style={{ color: "#7dd3a0" }} />
+            <Icon size={18} />
             <h2>{children}</h2>
         </div>
     );
 }
 
-function Badge({ children, color = "green" }) {
-    const colors = {
-        green: { bg: "rgba(57,255,20,0.08)", border: "rgba(57,255,20,0.15)", text: "#7dd3a0" },
-        cyan: { bg: "rgba(0,200,255,0.08)", border: "rgba(0,200,255,0.15)", text: "#6ec8e6" },
-        pink: { bg: "rgba(255,80,130,0.08)", border: "rgba(255,80,130,0.15)", text: "#e87da0" },
-    };
-    const c = colors[color] || colors.green;
+function Badge({ children }) {
     return (
-        <span className="docs-badge" style={{ background: c.bg, border: `1px solid ${c.border}`, color: c.text }}>
+        <span className="docs-badge">
             {children}
         </span>
     );
 }
 
-function Card({ children, glow = false }) {
+function Card({ children }) {
     return (
-        <div className="docs-card" style={{ boxShadow: glow ? "0 0 24px rgba(57,255,20,0.04), 0 2px 8px rgba(0,0,0,0.2)" : "0 1px 3px rgba(0,0,0,0.15)" }}>
+        <div className="docs-card">
             {children}
         </div>
     );
@@ -194,9 +187,9 @@ export function DocsPage() {
                         Back to App
                     </button>
                     <div className="docs-nav-logo">
-                        <Terminal size={14} style={{ color: "#7dd3a0" }} />
+                        <Terminal size={14} />
                         <span>ChatForge</span>
-                        <Badge color="cyan">v2.0</Badge>
+                        <Badge>v2.0</Badge>
                     </div>
                     <p className="docs-nav-subtitle">Documentation</p>
                 </div>
@@ -232,11 +225,11 @@ export function DocsPage() {
 
                 {/* ── Hero ─────────────────────────────────────────────── */}
                 <div className="docs-hero">
-                    <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }}>
+                    <div>
                         <div className="docs-hero-badges">
-                            <Badge color="green">v2.0</Badge>
-                            <Badge color="cyan">React 19</Badge>
-                            <Badge color="pink">Free AI Models</Badge>
+                            <Badge>v2.0</Badge>
+                            <Badge>React 19</Badge>
+                            <Badge>Free AI Models</Badge>
                         </div>
                         <h1 className="docs-hero-title">
                             <span className="docs-hero-forge">Chat</span>
@@ -256,7 +249,7 @@ export function DocsPage() {
                                 Get API Key <ExternalLink size={12} />
                             </a>
                         </div>
-                    </motion.div>
+                    </div>
                     <Screenshot
                         src={pic(900, 480, "chatforge-hero")}
                         alt="ChatForge terminal interface"
@@ -350,7 +343,7 @@ export function DocsPage() {
                                 { icon: <Trash2 size={16} />, title: "Delete Session", desc: "Hover a session and click the trash icon to permanently delete it. This cannot be undone." },
                                 { icon: <Star size={16} />, title: "Auto-title", desc: "Sessions are automatically titled using the first message you send. You can rename them at any time." },
                             ].map(({ icon, title, desc }) => (
-                                <Card key={title} glow>
+                                <Card key={title}>
                                     <div className="docs-feature-icon">{icon}</div>
                                     <h3 className="docs-feature-title">{title}</h3>
                                     <p className="docs-feature-desc">{desc}</p>
@@ -377,18 +370,16 @@ export function DocsPage() {
                         />
                         <div className="docs-feature-grid">
                             {[
-                                { icon: <Edit3 size={16} />, title: "Edit Prompt", color: "cyan", desc: "Opens a large inline textarea. Fix your prompt and click 'Save & Re-send' to regenerate the AI response from that point." },
-                                { icon: <RotateCcw size={16} />, title: "Retry", color: "green", desc: "Wipes the current AI response and re-sends the exact same prompt to get a fresh answer." },
-                                { icon: <Star size={16} />, title: "Star Message", color: "pink", desc: "Adds a glowing neon border to the message, making it easy to spot when scrolling through long conversations." },
-                                { icon: <Eye size={16} />, title: "Raw Markdown", color: "cyan", desc: "Toggle between rendered Markdown and the raw source text. Useful when the renderer mangles tables or code." },
-                                { icon: <Copy size={16} />, title: "Copy Response", color: "green", desc: "Instantly copies the full AI response text to your clipboard. A ✓ flash confirms the copy." },
-                                { icon: <Layers size={16} />, title: "Multi-Drafts", color: "cyan", desc: "Toggle multiple drafts above the input to generate 3 AI responses simultaneously. Choose the best, or use AI to merge and summarize them." },
-                                { icon: <Terminal size={16} />, title: "Avatars", color: "pink", desc: "Enable 'Message avatars' in Settings → Interface to show user and AI avatar icons on every message block." },
-                            ].map(({ icon, title, color, desc }) => (
-                                <Card key={title} glow>
-                                    <div className="docs-feature-icon" style={{ color: color === "cyan" ? "#6ec8e6" : color === "pink" ? "#e87da0" : "#7dd3a0" }}>
-                                        {icon}
-                                    </div>
+                                { icon: <Edit3 size={16} />, title: "Edit Prompt", desc: "Opens a large inline textarea. Fix your prompt and click 'Save & Re-send' to regenerate the AI response from that point." },
+                                { icon: <RotateCcw size={16} />, title: "Retry", desc: "Wipes the current AI response and re-sends the exact same prompt to get a fresh answer." },
+                                { icon: <Star size={16} />, title: "Star Message", desc: "Adds a glowing neon border to the message, making it easy to spot when scrolling through long conversations." },
+                                { icon: <Eye size={16} />, title: "Raw Markdown", desc: "Toggle between rendered Markdown and the raw source text. Useful when the renderer mangles tables or code." },
+                                { icon: <Copy size={16} />, title: "Copy Response", desc: "Instantly copies the full AI response text to your clipboard. A ✓ flash confirms the copy." },
+                                { icon: <Layers size={16} />, title: "Multi-Drafts", desc: "Toggle multiple drafts above the input to generate 3 AI responses simultaneously. Choose the best, or use AI to merge and summarize them." },
+                                { icon: <Terminal size={16} />, title: "Avatars", desc: "Enable 'Message avatars' in Settings → Interface to show user and AI avatar icons on every message block." },
+                            ].map(({ icon, title, desc }) => (
+                                <Card key={title}>
+                                    <div className="docs-feature-icon">{icon}</div>
                                     <h3 className="docs-feature-title">{title}</h3>
                                     <p className="docs-feature-desc">{desc}</p>
                                 </Card>
@@ -414,7 +405,7 @@ export function DocsPage() {
 
                         <div className="docs-callout">
                             <div className="docs-callout-title">
-                                <Plus size={14} style={{ color: "#6ec8e6" }} />
+                                <Plus size={14} />
                                 Creating Custom Skills
                             </div>
                             <ol className="docs-callout-list">
@@ -452,16 +443,16 @@ export function DocsPage() {
                                 <tbody>
                                     {MODELS.map((m) => (
                                         <tr key={m.name}>
-                                            <td style={{ fontSize: 18 }}>{m.icon}</td>
+                                            <td className="docs-model-icon">{m.icon}</td>
                                             <td><strong>{m.name}</strong></td>
-                                            <td><Badge color="cyan">{m.provider}</Badge></td>
+                                            <td><Badge>{m.provider}</Badge></td>
                                             <td>{m.description}</td>
                                         </tr>
                                     ))}
                                 </tbody>
                             </table>
                         </div>
-                        <p className="docs-prose" style={{ marginTop: 16 }}>
+                        <p className="docs-prose">
                             Switch models in <strong>Settings → AI → AI Intelligence / Model</strong>. The active model is shown in the toolbar. Use <code className="docs-code">{"//>model"}</code> to get a model self-introduction.
                         </p>
                     </section>
@@ -546,7 +537,7 @@ export function DocsPage() {
                                     desc: "Each skill has a unique system prompt that defines the AI's personality and focus. The active skill persists across sessions until you change it.",
                                 },
                             ].map(({ icon, title, desc }) => (
-                                <Card key={title} glow>
+                                <Card key={title}>
                                     <div className="docs-feature-icon">{icon}</div>
                                     <h3 className="docs-feature-title">{title}</h3>
                                     <p className="docs-feature-desc">{desc}</p>
@@ -613,7 +604,7 @@ export function DocsPage() {
                                 { icon: <Download size={16} />, title: "Export as TXT", desc: "Downloads all sessions as a human-readable plain text file. Great for sharing or archiving conversations." },
                                 { icon: <Upload size={16} />, title: "Import Sessions", desc: "Import a previously exported JSON file. Sessions are merged with your existing history — no duplicates." },
                             ].map(({ icon, title, desc }) => (
-                                <Card key={title} glow>
+                                <Card key={title}>
                                     <div className="docs-feature-icon">{icon}</div>
                                     <h3 className="docs-feature-title">{title}</h3>
                                     <p className="docs-feature-desc">{desc}</p>
@@ -653,11 +644,11 @@ export function DocsPage() {
                     <footer className="docs-footer">
                         <div className="docs-footer-inner">
                             <div className="docs-footer-logo">
-                                <Terminal size={16} style={{ color: "#7dd3a0" }} />
+                                <Terminal size={16} />
                                 <span>ChatForge v2.0</span>
                             </div>
                             <p className="docs-footer-text">Made with 💚 and retro vibes · by Abderrahmane Aarab</p>
-                            <button onClick={goBack} className="docs-cta-primary" style={{ marginTop: 12 }}>
+                            <button onClick={goBack} className="docs-cta-primary">
                                 <Terminal size={13} />
                                 Return to App
                             </button>

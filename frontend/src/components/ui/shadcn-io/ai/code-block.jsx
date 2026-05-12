@@ -21,12 +21,12 @@ import { CheckIcon, CopyIcon } from 'lucide-react';
 import { createContext, useContext, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
-// Custom neon terminal theme for code blocks
-const neonTerminalTheme = {
+// Custom newsprint theme for code blocks
+const newsprintTheme = {
   'code[class*="language-"]': {
-    color: '#c8ffc0',
+    color: '#111111',
     background: 'none',
-    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+    fontFamily: "'JetBrains Mono', 'Courier New', monospace",
     fontSize: '0.85rem',
     textAlign: 'left',
     whiteSpace: 'pre',
@@ -38,9 +38,9 @@ const neonTerminalTheme = {
     hyphens: 'none',
   },
   'pre[class*="language-"]': {
-    color: '#c8ffc0',
-    background: '#050f08',
-    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+    color: '#111111',
+    background: '#F5F5F5',
+    fontFamily: "'JetBrains Mono', 'Courier New', monospace",
     fontSize: '0.85rem',
     textAlign: 'left',
     whiteSpace: 'pre',
@@ -54,41 +54,40 @@ const neonTerminalTheme = {
     margin: 0,
     overflow: 'auto',
   },
-  comment: { color: '#4a7a50', fontStyle: 'italic' },
-  prolog: { color: '#4a7a50' },
-  doctype: { color: '#4a7a50' },
-  cdata: { color: '#4a7a50' },
-  punctuation: { color: '#7eed8a' },
-  property: { color: '#00f5ff' },
-  tag: { color: '#00f5ff' },
-  boolean: { color: '#ff2d78' },
-  number: { color: '#ffd700' },
-  constant: { color: '#ff2d78' },
-  symbol: { color: '#ffd700' },
-  deleted: { color: '#ff2d78' },
-  selector: { color: '#39ff14' },
-  'attr-name': { color: '#00f5ff' },
-  string: { color: '#39ff14' },
-  char: { color: '#39ff14' },
-  builtin: { color: '#00f5ff' },
-  inserted: { color: '#39ff14' },
-  operator: { color: '#c8ffc0' },
-  entity: { color: '#ffd700', cursor: 'help' },
-  url: { color: '#00f5ff' },
-  'language-css .token.string': { color: '#39ff14' },
-  'style .token.string': { color: '#39ff14' },
-  variable: { color: '#c8ffc0' },
-  atrule: { color: '#00f5ff' },
-  'attr-value': { color: '#39ff14' },
-  function: { color: '#00f5ff', textShadow: '0 0 6px rgba(0,245,255,0.5)' },
-  'class-name': { color: '#ffd700', textShadow: '0 0 6px rgba(255,215,0,0.4)' },
-  keyword: { color: '#ff2d78', textShadow: '0 0 6px rgba(255,45,120,0.4)' },
-  regex: { color: '#ffd700' },
-  important: { color: '#ffd700', fontWeight: 'bold' },
+  comment: { color: '#A3A3A3', fontStyle: 'italic' },
+  prolog: { color: '#A3A3A3' },
+  doctype: { color: '#A3A3A3' },
+  cdata: { color: '#A3A3A3' },
+  punctuation: { color: '#737373' },
+  property: { color: '#525252' },
+  tag: { color: '#525252' },
+  boolean: { color: '#CC0000' },
+  number: { color: '#CC0000' },
+  constant: { color: '#CC0000' },
+  symbol: { color: '#CC0000' },
+  deleted: { color: '#CC0000' },
+  selector: { color: '#525252' },
+  'attr-name': { color: '#404040' },
+  string: { color: '#CC0000' },
+  char: { color: '#CC0000' },
+  builtin: { color: '#525252' },
+  inserted: { color: '#CC0000' },
+  operator: { color: '#111111' },
+  entity: { color: '#CC0000', cursor: 'help' },
+  url: { color: '#525252' },
+  'language-css .token.string': { color: '#CC0000' },
+  'style .token.string': { color: '#CC0000' },
+  variable: { color: '#111111' },
+  atrule: { color: '#525252' },
+  'attr-value': { color: '#CC0000' },
+  function: { color: '#525252' },
+  'class-name': { color: '#525252' },
+  keyword: { color: '#111111', fontWeight: 'bold' },
+  regex: { color: '#CC0000' },
+  important: { color: '#CC0000', fontWeight: 'bold' },
   bold: { fontWeight: 'bold' },
   italic: { fontStyle: 'italic' },
 };
-
 
 
 
@@ -108,11 +107,10 @@ export const CodeBlock = ({
 }) => (
   <CodeBlockContext.Provider value={{ code }}>
     <div
-      className={cn('relative w-full overflow-hidden rounded-lg my-3', className)}
+      className={cn('relative w-full overflow-hidden my-3', className)}
       style={{
-        border: '1px solid rgba(57,255,20,0.25)',
-        background: '#050f08',
-        boxShadow: '0 0 20px rgba(57,255,20,0.06), inset 0 0 20px rgba(0,0,0,0.5)',
+        border: '1px solid #D4D4D4',
+        background: '#F5F5F5',
       }}
       {...props}
     >
@@ -120,13 +118,13 @@ export const CodeBlock = ({
       <div
         className="flex items-center justify-between px-4 py-1.5"
         style={{
-          borderBottom: '1px solid rgba(57,255,20,0.15)',
-          background: 'rgba(57,255,20,0.04)',
+          borderBottom: '1px solid #D4D4D4',
+          background: '#EEEEEE',
         }}
       >
         <span
           className="text-[10px] tracking-widest uppercase"
-          style={{ color: 'rgba(0,245,255,0.6)', fontFamily: "'Fira Code', monospace" }}
+          style={{ color: '#737373', fontFamily: "'JetBrains Mono', 'Courier New', monospace" }}
         >
           {language || 'code'}
         </span>
@@ -148,13 +146,13 @@ export const CodeBlock = ({
           }}
           language={language || 'text'}
           lineNumberStyle={{
-            color: 'rgba(57,255,20,0.2)',
+            color: '#A3A3A3',
             paddingRight: '1.2rem',
             minWidth: '2.5rem',
             userSelect: 'none',
           }}
           showLineNumbers={showLineNumbers}
-          style={neonTerminalTheme}
+          style={newsprintTheme}
         >
           {code}
         </SyntaxHighlighter>
