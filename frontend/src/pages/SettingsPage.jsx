@@ -38,18 +38,18 @@ const PARAMS = [
 
 function Toggle({ value, onToggle }) {
   return (
-    <button onClick={onToggle} className={`w-8 h-4 border transition-colors duration-150 flex items-center ${value ? "bg-ink border-ink justify-end" : "bg-paper border-muted-400 justify-start"}`} role="switch" aria-checked={value}>
-      <div className={`w-3 h-3 border transition-colors duration-150 mx-[1px] ${value ? "bg-paper border-ink" : "bg-paper border-muted-400"}`} />
+    <button onClick={onToggle} className={`w-8 h-4 border transition-colors duration-150 flex items-center ${value ? "bg-ink border-[var(--color-border)] justify-end" : "bg-paper border-muted-400 justify-start"}`} role="switch" aria-checked={value}>
+      <div className={`w-3 h-3 border transition-colors duration-150 mx-[1px] ${value ? "bg-paper border-[var(--color-border)]" : "bg-paper border-muted-400"}`} />
     </button>
   );
 }
 
 function SectionCard({ title, icon: Icon, children, className = "", colSpan = "" }) {
   return (
-    <div className={`border border-ink bg-paper ${colSpan} ${className}`}>
-      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-ink bg-muted-100">
+    <div className={`border border-[var(--color-border)] bg-paper ${colSpan} ${className}`}>
+      <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-border)] bg-muted-100">
         {Icon && <Icon size={12} className="text-ink" strokeWidth={1.5} />}
-        <span className="font-mono text-[9px] text-ink uppercase tracking-widest font-bold">{title}</span>
+        <span className="font-mono text-xs text-ink uppercase tracking-widest font-bold">{title}</span>
       </div>
       <div className="p-4">
         {children}
@@ -169,10 +169,10 @@ export function SettingsPage() {
   return (
     <div className="w-screen h-screen flex flex-col bg-paper dot-grid-bg overflow-hidden">
       {/* ── Masthead ── */}
-      <header className="border-b border-ink bg-paper shrink-0">
+      <header className="border-b border-[var(--color-border)] bg-paper shrink-0">
         <div className="flex items-center justify-between px-4 md:px-6 py-3">
           <div className="flex items-center gap-3">
-            <button onClick={goBack} className="flex items-center gap-1.5 font-mono text-[10px] text-muted-400 hover:text-ink transition-colors duration-150 uppercase tracking-widest">
+            <button onClick={goBack} className="flex items-center gap-1.5 font-mono text-sm text-muted-400 hover:text-ink transition-colors duration-150 uppercase tracking-widest">
               <ArrowLeft size={13} strokeWidth={1.5} />
               Back
             </button>
@@ -182,7 +182,7 @@ export function SettingsPage() {
           </div>
           <div className="flex items-center gap-2 text-muted-400">
             <Wifi size={11} strokeWidth={1.5} />
-            <span className="font-mono text-[9px] uppercase tracking-wider">{preferences.userId?.slice(0, 8) || "offline"}</span>
+            <span className="font-mono text-xs uppercase tracking-wider">{preferences.userId?.slice(0, 8) || "offline"}</span>
           </div>
         </div>
       </header>
@@ -194,8 +194,8 @@ export function SettingsPage() {
           {/* ═══ AI SKILLS ═══ */}
           <SectionCard title="AI Personality / Skill" icon={Bot} colSpan="md:col-span-2">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-mono text-[9px] text-muted-400">Select or create a skill</span>
-              <button onClick={() => setShowSkillForm((p) => !p)} className="flex items-center gap-1 px-2 py-1 text-[8px] font-mono uppercase tracking-widest border border-ink text-ink hover:bg-muted-100 transition-colors duration-150">
+              <span className="font-mono text-xs text-muted-400">Select or create a skill</span>
+              <button onClick={() => setShowSkillForm((p) => !p)} className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono uppercase tracking-widest border border-[var(--color-border)] text-ink hover:bg-muted-100 transition-colors duration-150">
                 <Plus size={9} strokeWidth={1.5} />New Skill
               </button>
             </div>
@@ -211,9 +211,9 @@ export function SettingsPage() {
                   <div key={skill.id} onClick={() => setSettings((prev) => ({ ...prev, activeSkillId: skill.id }))}
                     className={`relative flex flex-col items-center gap-1.5 p-3 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-red bg-muted-100" : "border-divider"}`}
                     title={skill.description}>
-                    {skill.isCustom && <span className="absolute top-1 right-1 font-mono text-[6px] uppercase text-muted-400">custom</span>}
+                    {skill.isCustom && <span className="absolute top-1 right-1 font-mono text-xs uppercase text-muted-400">custom</span>}
                     <span className="text-lg">{skill.icon}</span>
-                    <span className={`font-mono text-[8px] uppercase tracking-tighter text-center ${isActive ? "text-ink font-bold" : "text-muted-500"}`}>{skill.name}</span>
+                    <span className={`font-mono text-[11px] uppercase tracking-tighter text-center ${isActive ? "text-ink font-bold" : "text-muted-500"}`}>{skill.name}</span>
                     {skill.isCustom && <button onClick={(e) => { e.stopPropagation(); deleteCustomSkill(skill.id); }} className="absolute bottom-1 right-1 text-muted-400 hover:text-red transition-colors"><X size={8} strokeWidth={1.5} /></button>}
                   </div>
                 );
@@ -226,7 +226,7 @@ export function SettingsPage() {
             <button onClick={() => setShowRouting((p) => !p)} className="w-full flex items-center justify-between py-2 hover:bg-muted-100 transition-colors duration-150 px-2 -mx-2">
               <div className="flex items-center gap-2">
                 <span className="text-base">{settings.routingMode === "smart" ? "🔄" : settings.routingMode === "groq" ? "⚡" : settings.routingMode === "gemini" ? "🧠" : "🌐"}</span>
-                <span className="font-mono text-[9px] text-ink font-semibold uppercase tracking-wider">
+                <span className="font-mono text-xs text-ink font-semibold uppercase tracking-wider">
                   {settings.routingMode === "smart" ? "Smart Router" : settings.routingMode === "groq" ? "Force Groq" : settings.routingMode === "gemini" ? "Force Gemini" : "Force OpenRouter"}
                 </span>
               </div>
@@ -243,10 +243,10 @@ export function SettingsPage() {
                       <span className="text-sm">{route.icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
-                          <span className={`font-mono text-[8px] font-semibold uppercase ${isActive ? "text-ink" : "text-muted-500"}`}>{route.label}</span>
-                          {isMissingKey && <span className="font-mono text-[6px] px-1 uppercase border border-red text-red">key missing</span>}
+                          <span className={`font-mono text-[11px] font-semibold uppercase ${isActive ? "text-ink" : "text-muted-500"}`}>{route.label}</span>
+                          {isMissingKey && <span className="font-mono text-xs px-1 uppercase border border-red text-red">key missing</span>}
                         </div>
-                        <div className="font-body text-[8px] mt-0.5 text-muted-400">{route.desc}</div>
+                        <div className="font-body text-[11px] mt-0.5 text-muted-400">{route.desc}</div>
                       </div>
                     </div>
                   );
@@ -260,7 +260,7 @@ export function SettingsPage() {
             <button onClick={() => setShowModels((p) => !p)} className="w-full flex items-center justify-between py-2 hover:bg-muted-100 transition-colors duration-150 px-2 -mx-2">
               <div className="flex items-center gap-2">
                 <span className="text-base">{MODELS.find((m) => m.id === settings.activeModelId)?.icon || "🧠"}</span>
-                <span className="font-mono text-[9px] text-ink font-semibold uppercase tracking-wider">{MODELS.find((m) => m.id === settings.activeModelId)?.name || "Select model"}</span>
+                <span className="font-mono text-xs text-ink font-semibold uppercase tracking-wider">{MODELS.find((m) => m.id === settings.activeModelId)?.name || "Select model"}</span>
               </div>
               {showModels ? <ChevronUp size={11} className="text-muted-400" strokeWidth={1.5} /> : <ChevronDown size={11} className="text-muted-400" strokeWidth={1.5} />}
             </button>
@@ -273,8 +273,8 @@ export function SettingsPage() {
                       className={`flex items-center gap-2 p-2 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-red bg-muted-100 border-divider" : "border-divider"}`}>
                       <span className="text-sm">{model.icon}</span>
                       <div className="flex-1 min-w-0">
-                        <div className={`font-mono text-[8px] font-semibold uppercase ${isActive ? "text-ink" : "text-muted-500"}`}>{model.name}</div>
-                        <div className="font-body text-[7px] text-muted-400">{model.provider}</div>
+                        <div className={`font-mono text-[11px] font-semibold uppercase ${isActive ? "text-ink" : "text-muted-500"}`}>{model.name}</div>
+                        <div className="font-body text-sm text-muted-400">{model.provider}</div>
                       </div>
                     </div>
                   );
@@ -288,7 +288,7 @@ export function SettingsPage() {
             <div className="flex gap-2 mb-3">
               {["short", "balanced", "detailed"].map((opt) => (
                 <button key={opt} onClick={() => setSettings((p) => ({ ...p, responseLength: opt }))}
-                  className={`flex-1 py-1.5 text-[8px] font-mono uppercase tracking-widest border transition-colors duration-150 ${settings.responseLength === opt ? "bg-ink text-paper border-ink" : "border-divider text-muted-500 hover:text-ink hover:border-ink"}`}>
+                  className={`flex-1 py-1.5 text-[11px] font-mono uppercase tracking-widest border transition-colors duration-150 ${settings.responseLength === opt ? "bg-ink text-paper border-[var(--color-border)]" : "border-divider text-muted-500 hover:text-ink hover:border-[var(--color-border)]"}`}>
                   {opt}
                 </button>
               ))}
@@ -297,18 +297,18 @@ export function SettingsPage() {
               {PARAMS.map((param) => (
                 <div key={param.key}>
                   <div className="flex items-center justify-between mb-1">
-                    <span className="font-mono text-[8px] text-ink uppercase tracking-wider">{param.label}</span>
-                    <span className="font-mono text-[8px] text-muted-500">{param.display(settings[param.key] ?? param.defaultVal)}</span>
+                    <span className="font-mono text-[11px] text-ink uppercase tracking-wider">{param.label}</span>
+                    <span className="font-mono text-[11px] text-muted-500">{param.display(settings[param.key] ?? param.defaultVal)}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
                     <button onClick={() => setSettings((p) => ({ ...p, [param.key]: Math.max(param.min, (p[param.key] ?? param.defaultVal) - param.step) }))}
-                      className="w-5 h-5 border border-ink flex items-center justify-center text-ink hover:bg-muted-100 transition-colors text-[10px]">-</button>
+                      className="w-5 h-5 border border-[var(--color-border)] flex items-center justify-center text-ink hover:bg-muted-100 transition-colors text-sm">-</button>
                     <input type="range" min={param.min} max={param.max} step={param.step}
                       value={settings[param.key] ?? param.defaultVal}
                       onChange={(e) => setSettings((p) => ({ ...p, [param.key]: +e.target.value }))}
                       className="flex-1 h-1 appearance-none bg-muted-200 cursor-pointer accent-red outline-none" />
                     <button onClick={() => setSettings((p) => ({ ...p, [param.key]: Math.min(param.max, (p[param.key] ?? param.defaultVal) + param.step) }))}
-                      className="w-5 h-5 border border-ink flex items-center justify-center text-ink hover:bg-muted-100 transition-colors text-[10px]">+</button>
+                      className="w-5 h-5 border border-[var(--color-border)] flex items-center justify-center text-ink hover:bg-muted-100 transition-colors text-sm">+</button>
                   </div>
                 </div>
               ))}
@@ -317,10 +317,10 @@ export function SettingsPage() {
 
           {/* ═══ CONTEXT PREFIX ═══ */}
           <SectionCard title="Context Prefix" icon={MessageSquare} colSpan="md:col-span-2">
-            <p className="font-body text-[9px] text-muted-400 mb-2 leading-relaxed">
+            <p className="font-body text-xs text-muted-400 mb-2 leading-relaxed">
               Prepended to every AI skill prompt. Use it for persistent context (e.g. your name, project, language preference).
             </p>
-            <textarea className="w-full bg-transparent border border-divider px-3 py-2 text-xs font-body text-ink outline-none resize-none focus:border-ink transition-colors placeholder:text-muted-400"
+            <textarea className="w-full bg-transparent border border-divider px-3 py-2 text-xs font-body text-ink outline-none resize-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400"
               rows={3} placeholder="e.g. Always respond in French. My project uses React and Node.js..."
               value={settings.systemPromptPrefix || ""}
               onChange={(e) => setSettings((p) => ({ ...p, systemPromptPrefix: e.target.value }))} />
@@ -329,9 +329,9 @@ export function SettingsPage() {
           {/* ═══ AI TOOLS ═══ */}
           <SectionCard title="AI Action Tools" icon={Wrench} colSpan="md:col-span-2">
             <div className="flex items-center justify-between mb-3">
-              <span className="font-mono text-[9px] text-muted-400">Custom quick-action tools</span>
+              <span className="font-mono text-xs text-muted-400">Custom quick-action tools</span>
               <button onClick={() => { setEditingTool(null); setShowToolForm((p) => !p); }}
-                className="flex items-center gap-1 px-2 py-1 text-[8px] font-mono uppercase tracking-widest border border-ink text-ink hover:bg-muted-100 transition-colors duration-150">
+                className="flex items-center gap-1 px-2 py-1 text-[11px] font-mono uppercase tracking-widest border border-[var(--color-border)] text-ink hover:bg-muted-100 transition-colors duration-150">
                 <Plus size={9} strokeWidth={1.5} />New Tool
               </button>
             </div>
@@ -348,8 +348,8 @@ export function SettingsPage() {
                   <div className="flex items-center gap-2">
                     <span className="text-sm">{tool.icon}</span>
                     <div>
-                      <span className="font-mono text-[9px] font-semibold text-ink uppercase">{tool.label}</span>
-                      <span className="font-body text-[8px] text-muted-400 block">{tool.prompt?.slice(0, 30)}...</span>
+                      <span className="font-mono text-xs font-semibold text-ink uppercase">{tool.label}</span>
+                      <span className="font-body text-[11px] text-muted-400 block">{tool.prompt?.slice(0, 30)}...</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -373,7 +373,7 @@ export function SettingsPage() {
                 <div key={item.key} className="flex items-center justify-between py-1.5 hover:bg-muted-100 px-2 -mx-2 transition-colors cursor-pointer" onClick={() => toggle(item.key)}>
                   <div className="flex items-center gap-2">
                     <item.icon size={11} className="text-muted-400" strokeWidth={1.5} />
-                    <span className="font-body text-[10px] text-ink">{item.label}</span>
+                    <span className="font-body text-sm text-ink">{item.label}</span>
                   </div>
                   <Toggle value={item.defaultValue !== undefined ? item.defaultValue : settings[item.key]} onToggle={() => toggle(item.key)} />
                 </div>
@@ -392,7 +392,7 @@ export function SettingsPage() {
                 <div key={item.key} className="flex items-center justify-between py-1.5 hover:bg-muted-100 px-2 -mx-2 transition-colors cursor-pointer" onClick={() => toggle(item.key)}>
                   <div className="flex items-center gap-2">
                     <item.icon size={11} className="text-muted-400" strokeWidth={1.5} />
-                    <span className="font-body text-[10px] text-ink">{item.label}</span>
+                    <span className="font-body text-sm text-ink">{item.label}</span>
                   </div>
                   <Toggle value={item.defaultValue !== undefined ? item.defaultValue : settings[item.key]} onToggle={() => toggle(item.key)} />
                 </div>
@@ -409,8 +409,8 @@ export function SettingsPage() {
                 { label: "History", key: "↑ / ↓" },
               ].map((s) => (
                 <div key={s.label} className="flex justify-between items-center py-1">
-                  <span className="font-body text-[9px] text-muted-500">{s.label}</span>
-                  <kbd className="font-mono text-[8px] px-1.5 py-0.5 border border-divider text-muted-400">{s.key}</kbd>
+                  <span className="font-body text-xs text-muted-500">{s.label}</span>
+                  <kbd className="font-mono text-[11px] px-1.5 py-0.5 border border-divider text-muted-400">{s.key}</kbd>
                 </div>
               ))}
             </div>
@@ -420,16 +420,16 @@ export function SettingsPage() {
           <SectionCard title="Session Stats" icon={Database}>
             <div className="space-y-1.5">
               <div className="flex justify-between items-center border-b border-divider pb-1">
-                <span className="font-mono text-[8px] text-muted-400 uppercase tracking-wider">Sessions</span>
-                <span className="font-mono text-[9px] text-ink font-bold">{sessions.length}</span>
+                <span className="font-mono text-[11px] text-muted-400 uppercase tracking-wider">Sessions</span>
+                <span className="font-mono text-xs text-ink font-bold">{sessions.length}</span>
               </div>
               <div className="flex justify-between items-center border-b border-divider pb-1">
-                <span className="font-mono text-[8px] text-muted-400 uppercase tracking-wider">Messages</span>
-                <span className="font-mono text-[9px] text-ink font-bold">{totalMessages}</span>
+                <span className="font-mono text-[11px] text-muted-400 uppercase tracking-wider">Messages</span>
+                <span className="font-mono text-xs text-ink font-bold">{totalMessages}</span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="font-mono text-[8px] text-muted-400 uppercase tracking-wider">Est. tokens</span>
-                <span className="font-mono text-[9px] text-ink font-bold">~{estTokens.toLocaleString()}</span>
+                <span className="font-mono text-[11px] text-muted-400 uppercase tracking-wider">Est. tokens</span>
+                <span className="font-mono text-xs text-ink font-bold">~{estTokens.toLocaleString()}</span>
               </div>
             </div>
           </SectionCard>
@@ -437,17 +437,17 @@ export function SettingsPage() {
           {/* ═══ STORAGE ═══ */}
           <SectionCard title="Storage" icon={Database}>
             <div className="flex items-center justify-between mb-2">
-              <span className="font-mono text-[8px] text-muted-400">IndexedDB</span>
-              <button onClick={fetchStorageUsage} className="font-mono text-[7px] uppercase tracking-widest text-muted-400 hover:text-ink transition-colors">Refresh</button>
+              <span className="font-mono text-[11px] text-muted-400">IndexedDB</span>
+              <button onClick={fetchStorageUsage} className="font-mono text-sm uppercase tracking-widest text-muted-400 hover:text-ink transition-colors">Refresh</button>
             </div>
             <div className="flex items-center justify-between mb-1.5">
-              <span className="font-mono text-[8px] text-muted-400">Usage</span>
-              <span className="font-mono text-[8px] text-ink font-bold">{storageUsage.percentage}%</span>
+              <span className="font-mono text-[11px] text-muted-400">Usage</span>
+              <span className="font-mono text-[11px] text-ink font-bold">{storageUsage.percentage}%</span>
             </div>
-            <div className="h-1.5 w-full border border-ink bg-paper mb-1.5">
+            <div className="h-1.5 w-full border border-[var(--color-border)] bg-paper mb-1.5">
               <div className="h-full bg-ink transition-all duration-300" style={{ width: `${storageUsage.percentage}%` }} />
             </div>
-            <div className="flex justify-between font-mono text-[7px] uppercase tracking-widest text-muted-400">
+            <div className="flex justify-between font-mono text-sm uppercase tracking-widest text-muted-400">
               <span>{(storageUsage.used / (1024 * 1024)).toFixed(1)} MB</span>
               <span>{(storageUsage.quota / (1024 * 1024)).toFixed(0)} MB</span>
             </div>
@@ -458,19 +458,19 @@ export function SettingsPage() {
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
               <button onClick={exportChats} className="flex items-center gap-2 p-2.5 border border-divider hover:bg-muted-100 transition-colors text-left">
                 <Download size={13} className="text-muted-400" strokeWidth={1.5} />
-                <span className="font-body text-[10px] text-ink">Export JSON</span>
+                <span className="font-body text-sm text-ink">Export JSON</span>
               </button>
               <button onClick={exportTxt} className="flex items-center gap-2 p-2.5 border border-divider hover:bg-muted-100 transition-colors text-left">
                 <Download size={13} className="text-muted-400" strokeWidth={1.5} />
-                <span className="font-body text-[10px] text-ink">Export TXT</span>
+                <span className="font-body text-sm text-ink">Export TXT</span>
               </button>
               <div>
                 <input ref={fileInputRef} type="file" accept=".json" className="hidden" onChange={handleImport} />
                 <button onClick={() => fileInputRef.current?.click()} className="w-full flex items-center gap-2 p-2.5 border border-divider hover:bg-muted-100 transition-colors text-left">
                   <Upload size={13} className="text-muted-400" strokeWidth={1.5} />
                   <div>
-                    <span className="font-body text-[10px] text-ink block">Import JSON</span>
-                    <span className="font-mono text-[7px] text-muted-400">Merges sessions</span>
+                    <span className="font-body text-sm text-ink block">Import JSON</span>
+                    <span className="font-mono text-sm text-muted-400">Merges sessions</span>
                   </div>
                 </button>
               </div>
@@ -482,27 +482,27 @@ export function SettingsPage() {
             <div className="space-y-1.5">
               <button onClick={clearCurrentChat} className="w-full flex items-center gap-2 p-2 border border-red hover:bg-red/5 transition-colors text-left">
                 <Trash2 size={11} className="text-red" strokeWidth={1.5} />
-                <span className="font-body text-[10px] text-red">Clear current chat</span>
+                <span className="font-body text-sm text-red">Clear current chat</span>
               </button>
               <button onClick={() => setShowClearConfirm(true)} className="w-full flex items-center gap-2 p-2 border border-red hover:bg-red/5 transition-colors text-left">
                 <Layers size={11} className="text-red" strokeWidth={1.5} />
-                <span className="font-body text-[10px] text-red">Clear ALL sessions</span>
+                <span className="font-body text-sm text-red">Clear ALL sessions</span>
               </button>
               <button onClick={resetAPIKey} className="w-full flex items-center gap-2 p-2 border border-red hover:bg-red/5 transition-colors text-left">
                 <Key size={11} className="text-red" strokeWidth={1.5} />
-                <span className="font-body text-[10px] text-red">Reset API key</span>
+                <span className="font-body text-sm text-red">Reset API key</span>
               </button>
             </div>
           </SectionCard>
 
           {/* ═══ API KEYS ═══ */}
-          <div className="border border-ink bg-paper col-span-1 md:col-span-2 lg:col-span-3">
-            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-ink bg-muted-100">
+          <div className="border border-[var(--color-border)] bg-paper col-span-1 md:col-span-2 lg:col-span-3">
+            <div className="flex items-center gap-2 px-4 py-2.5 border-b border-[var(--color-border)] bg-muted-100">
               <Key size={12} className="text-ink" strokeWidth={1.5} />
-              <span className="font-mono text-[9px] text-ink uppercase tracking-widest font-bold">API Keys</span>
+              <span className="font-mono text-xs text-ink uppercase tracking-widest font-bold">API Keys</span>
             </div>
             <div className="p-4">
-              <p className="font-body text-[10px] text-muted-400 mb-3 leading-relaxed">
+              <p className="font-body text-sm text-muted-400 mb-3 leading-relaxed">
                 You provide your own API keys — they are encrypted and stored securely.
                 <span className="text-ink font-semibold"> OpenRouter</span> is <span className="text-ink">required</span>.
                 Groq and Gemini are optional but enable smarter routing.
@@ -518,13 +518,13 @@ export function SettingsPage() {
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm">{prov.icon}</span>
-                          <span className={`font-mono text-[9px] font-semibold uppercase tracking-wider ${isActive ? "text-ink" : "text-muted-500"}`}>{prov.label}</span>
-                          {prov.required && <span className="font-mono text-[6px] px-1 uppercase border border-red text-red">required</span>}
+                          <span className={`font-mono text-xs font-semibold uppercase tracking-wider ${isActive ? "text-ink" : "text-muted-500"}`}>{prov.label}</span>
+                          {prov.required && <span className="font-mono text-xs px-1 uppercase border border-red text-red">required</span>}
                         </div>
                         {isActive ? (
-                          <span className="flex items-center gap-1 font-mono text-[7px] text-muted-500 uppercase tracking-wider"><Check size={8} className="text-ink" strokeWidth={1.5} /> Active</span>
+                          <span className="flex items-center gap-1 font-mono text-sm text-muted-500 uppercase tracking-wider"><Check size={8} className="text-ink" strokeWidth={1.5} /> Active</span>
                         ) : (
-                          <span className="flex items-center gap-1 font-mono text-[7px] text-muted-400 uppercase tracking-wider"><AlertCircle size={8} strokeWidth={1.5} /> Not set</span>
+                          <span className="flex items-center gap-1 font-mono text-sm text-muted-400 uppercase tracking-wider"><AlertCircle size={8} strokeWidth={1.5} /> Not set</span>
                         )}
                       </div>
                       <div className="flex gap-1.5 mb-1">
@@ -532,7 +532,7 @@ export function SettingsPage() {
                           <input type={visible ? "text" : "password"} placeholder={prov.placeholder}
                             value={keyValues[prov.id]}
                             onChange={(e) => setKeyValues((p) => ({ ...p, [prov.id]: e.target.value }))}
-                            className="w-full bg-transparent border-b border-divider pb-1 pr-6 text-[10px] font-mono text-ink outline-none focus:border-ink transition-colors placeholder:text-muted-400"
+                            className="w-full bg-transparent border-b border-divider pb-1 pr-6 text-sm font-mono text-ink outline-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400"
                             onKeyDown={(e) => e.key === "Enter" && handleSaveKey(prov.id)} />
                           <button onClick={() => setKeyVisible((p) => ({ ...p, [prov.id]: !p[prov.id] }))}
                             className="absolute right-0 top-0 text-muted-400 hover:text-ink transition-colors">
@@ -540,27 +540,27 @@ export function SettingsPage() {
                           </button>
                         </div>
                         <button disabled={!keyValues[prov.id]?.trim() || saving} onClick={() => handleSaveKey(prov.id)}
-                          className={`px-2.5 text-[8px] font-mono font-bold uppercase tracking-widest border transition-colors duration-150 flex items-center gap-1 ${keyValues[prov.id]?.trim() && !saving ? "border-ink text-ink hover:bg-muted-100" : "border-muted-200 text-muted-400 cursor-not-allowed bg-muted-100"}`}>
+                          className={`px-2.5 text-[11px] font-mono font-bold uppercase tracking-widest border transition-colors duration-150 flex items-center gap-1 ${keyValues[prov.id]?.trim() && !saving ? "border-[var(--color-border)] text-ink hover:bg-muted-100" : "border-muted-200 text-muted-400 cursor-not-allowed bg-muted-100"}`}>
                           {saving ? <Loader size={8} className="animate-spin" strokeWidth={1.5} /> : "Save"}
                         </button>
                       </div>
                       {result && (
-                        <div className={`font-mono text-[7px] mt-1 flex items-start gap-1 ${result.ok ? (result.warning ? "text-muted-500" : "text-ink") : "text-red"}`}>
+                        <div className={`font-mono text-sm mt-1 flex items-start gap-1 ${result.ok ? (result.warning ? "text-muted-500" : "text-ink") : "text-red"}`}>
                           <span>{result.ok ? (result.warning ? "!" : "+") : "-"}</span>
                           <span>{result.ok ? result.warning || "Key saved" : result.error}</span>
                         </div>
                       )}
                       <div className="flex items-center justify-between mt-1.5">
-                        <span className="font-mono text-[7px] text-muted-400">{prov.hint}</span>
-                        <a href={prov.link} target="_blank" rel="noreferrer" className="font-mono text-[7px] text-ink hover:text-red underline underline-offset-2">Get key</a>
+                        <span className="font-mono text-sm text-muted-400">{prov.hint}</span>
+                        <a href={prov.link} target="_blank" rel="noreferrer" className="font-mono text-sm text-ink hover:text-red underline underline-offset-2">Get key</a>
                       </div>
                     </div>
                   );
                 })}
               </div>
               <div className="mt-3 p-3 border border-divider">
-                <div className="font-mono text-[8px] text-muted-500 uppercase tracking-widest mb-2 font-bold">Smart Router</div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-[7px] text-muted-400">
+                <div className="font-mono text-[11px] text-muted-500 uppercase tracking-widest mb-2 font-bold">Smart Router</div>
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-sm text-muted-400">
                   <div><span className="text-ink font-semibold">Short messages</span> → Groq</div>
                   <div><span className="text-ink font-semibold">Code & programming</span> → Gemini</div>
                   <div><span className="text-ink font-semibold">Creative & long text</span> → OpenRouter</div>
@@ -576,15 +576,15 @@ export function SettingsPage() {
       {/* ── Clear All Confirm Dialog ── */}
       {showClearConfirm && (
         <div className="absolute inset-0 z-50 flex items-center justify-center bg-paper/90">
-          <div className="border border-ink bg-paper p-6 text-center max-w-sm">
+          <div className="border border-[var(--color-border)] bg-paper p-6 text-center max-w-sm">
             <div className="font-serif text-3xl mb-3 text-red">!</div>
-            <div className="font-mono text-[10px] font-bold text-ink uppercase tracking-widest mb-2">Clear All Sessions?</div>
-            <div className="font-body text-[10px] text-muted-400 mb-5">This will permanently delete all {sessions.length} sessions. This action cannot be undone.</div>
+            <div className="font-mono text-sm font-bold text-ink uppercase tracking-widest mb-2">Clear All Sessions?</div>
+            <div className="font-body text-sm text-muted-400 mb-5">This will permanently delete all {sessions.length} sessions. This action cannot be undone.</div>
             <div className="flex gap-2">
               <button onClick={() => { clearAllSessions(); setShowClearConfirm(false); setPreferences((prev) => ({ ...prev, currentPage: "chat" })); }}
-                className="flex-1 py-2.5 text-[10px] font-mono font-bold uppercase tracking-widest border border-red text-red hover:bg-red hover:text-paper transition-colors duration-150">Delete All</button>
+                className="flex-1 py-2.5 text-sm font-mono font-bold uppercase tracking-widest border border-red text-red hover:bg-red hover:text-paper transition-colors duration-150">Delete All</button>
               <button onClick={() => setShowClearConfirm(false)}
-                className="flex-1 py-2.5 text-[10px] font-mono font-bold uppercase tracking-widest border border-ink text-ink hover:bg-muted-100 transition-colors duration-150">Cancel</button>
+                className="flex-1 py-2.5 text-sm font-mono font-bold uppercase tracking-widest border border-[var(--color-border)] text-ink hover:bg-muted-100 transition-colors duration-150">Cancel</button>
             </div>
           </div>
         </div>
@@ -601,9 +601,9 @@ function SkillFormContent({ onSave, onCancel }) {
     <>
       <div className="flex gap-2.5">
         <div className="relative">
-          <button onClick={() => setShowEmojiPicker((p) => !p)} className="w-7 h-7 border border-ink flex items-center justify-center hover:bg-muted-100 transition-colors text-base">{form.icon}</button>
+          <button onClick={() => setShowEmojiPicker((p) => !p)} className="w-7 h-7 border border-[var(--color-border)] flex items-center justify-center hover:bg-muted-100 transition-colors text-base">{form.icon}</button>
           {showEmojiPicker && (
-            <div className="absolute top-8 left-0 z-50 p-1.5 border border-ink bg-paper grid grid-cols-5 gap-1 shadow-[4px_4px_0px_0px_#111]">
+            <div className="absolute top-8 left-0 z-50 p-1.5 border border-[var(--color-border)] bg-paper grid grid-cols-5 gap-1 shadow-[4px_4px_0px_0px_#111]">
               {EMOJI_OPTIONS.map((e) => (
                 <button key={e} onClick={() => { setForm((p) => ({ ...p, icon: e })); setShowEmojiPicker(false); }} className="w-6 h-6 text-sm hover:bg-muted-100 flex items-center justify-center">{e}</button>
               ))}
@@ -612,18 +612,18 @@ function SkillFormContent({ onSave, onCancel }) {
         </div>
         <input type="text" placeholder="Skill name..." maxLength={24} value={form.name}
           onChange={(e) => setForm((p) => ({ ...p, name: e.target.value }))}
-          className="flex-1 bg-transparent border-b border-divider pb-1 text-xs font-body text-ink outline-none focus:border-ink transition-colors placeholder:text-muted-400" />
+          className="flex-1 bg-transparent border-b border-divider pb-1 text-xs font-body text-ink outline-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400" />
       </div>
       <input type="text" placeholder="Short description..." maxLength={60} value={form.description}
         onChange={(e) => setForm((p) => ({ ...p, description: e.target.value }))}
-        className="w-full bg-transparent border-b border-divider pb-1 text-[10px] font-body text-ink outline-none focus:border-ink transition-colors placeholder:text-muted-400" />
+        className="w-full bg-transparent border-b border-divider pb-1 text-sm font-body text-ink outline-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400" />
       <textarea placeholder="System prompt..." value={form.systemPrompt}
         onChange={(e) => setForm((p) => ({ ...p, systemPrompt: e.target.value }))} rows={3}
-        className="w-full bg-transparent border border-divider px-2 py-1.5 text-[10px] font-body text-ink outline-none resize-none focus:border-ink transition-colors placeholder:text-muted-400" />
+        className="w-full bg-transparent border border-divider px-2 py-1.5 text-sm font-body text-ink outline-none resize-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400" />
       <div className="flex gap-2">
         <button onClick={() => valid && onSave(form)} disabled={!valid}
-          className={`flex-1 py-1.5 text-[9px] font-mono font-bold uppercase tracking-widest border border-ink transition-colors ${valid ? "bg-ink text-paper" : "bg-muted-100 text-muted-400 border-muted-200 cursor-not-allowed"}`}>Save</button>
-        <button onClick={onCancel} className="px-3 py-1.5 text-[9px] font-mono uppercase tracking-widest border border-ink text-ink hover:bg-muted-100 transition-colors">Cancel</button>
+          className={`flex-1 py-1.5 text-xs font-mono font-bold uppercase tracking-widest border border-[var(--color-border)] transition-colors ${valid ? "bg-ink text-paper" : "bg-muted-100 text-muted-400 border-muted-200 cursor-not-allowed"}`}>Save</button>
+        <button onClick={onCancel} className="px-3 py-1.5 text-xs font-mono uppercase tracking-widest border border-[var(--color-border)] text-ink hover:bg-muted-100 transition-colors">Cancel</button>
       </div>
     </>
   );
@@ -637,9 +637,9 @@ function ToolFormContent({ onSave, onCancel, initialData }) {
     <>
       <div className="flex gap-2.5">
         <div className="relative">
-          <button onClick={() => setShowEmojiPicker((p) => !p)} className="w-7 h-7 border border-ink flex items-center justify-center hover:bg-muted-100 transition-colors text-base">{form.icon}</button>
+          <button onClick={() => setShowEmojiPicker((p) => !p)} className="w-7 h-7 border border-[var(--color-border)] flex items-center justify-center hover:bg-muted-100 transition-colors text-base">{form.icon}</button>
           {showEmojiPicker && (
-            <div className="absolute top-8 left-0 z-50 p-1.5 border border-ink bg-paper grid grid-cols-5 gap-1 shadow-[4px_4px_0px_0px_#111]">
+            <div className="absolute top-8 left-0 z-50 p-1.5 border border-[var(--color-border)] bg-paper grid grid-cols-5 gap-1 shadow-[4px_4px_0px_0px_#111]">
               {EMOJI_OPTIONS.map((e) => (
                 <button key={e} onClick={() => { setForm((p) => ({ ...p, icon: e })); setShowEmojiPicker(false); }} className="w-6 h-6 text-sm hover:bg-muted-100 flex items-center justify-center">{e}</button>
               ))}
@@ -648,15 +648,15 @@ function ToolFormContent({ onSave, onCancel, initialData }) {
         </div>
         <input type="text" placeholder="Tool label..." maxLength={16} value={form.label}
           onChange={(e) => setForm((p) => ({ ...p, label: e.target.value }))}
-          className="flex-1 bg-transparent border-b border-divider pb-1 text-xs font-body text-ink outline-none focus:border-ink transition-colors placeholder:text-muted-400" />
+          className="flex-1 bg-transparent border-b border-divider pb-1 text-xs font-body text-ink outline-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400" />
       </div>
       <textarea placeholder="Prompt template..." value={form.prompt || ""}
         onChange={(e) => setForm((p) => ({ ...p, prompt: e.target.value }))} rows={2}
-        className="w-full bg-transparent border border-divider px-2 py-1.5 text-[10px] font-body text-ink outline-none resize-none focus:border-ink transition-colors placeholder:text-muted-400" />
+        className="w-full bg-transparent border border-divider px-2 py-1.5 text-sm font-body text-ink outline-none resize-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400" />
       <div className="flex gap-2">
         <button onClick={() => valid && onSave(form)} disabled={!valid}
-          className={`flex-1 py-1.5 text-[9px] font-mono font-bold uppercase tracking-widest border border-ink transition-colors ${valid ? "bg-ink text-paper" : "bg-muted-100 text-muted-400 border-muted-200 cursor-not-allowed"}`}>Save</button>
-        <button onClick={onCancel} className="px-3 py-1.5 text-[9px] font-mono uppercase tracking-widest border border-ink text-ink hover:bg-muted-100 transition-colors">Cancel</button>
+          className={`flex-1 py-1.5 text-xs font-mono font-bold uppercase tracking-widest border border-[var(--color-border)] transition-colors ${valid ? "bg-ink text-paper" : "bg-muted-100 text-muted-400 border-muted-200 cursor-not-allowed"}`}>Save</button>
+        <button onClick={onCancel} className="px-3 py-1.5 text-xs font-mono uppercase tracking-widest border border-[var(--color-border)] text-ink hover:bg-muted-100 transition-colors">Cancel</button>
       </div>
     </>
   );

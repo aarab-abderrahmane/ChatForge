@@ -196,7 +196,7 @@ const DEFAULT_MODEL_ID = "meta-llama/llama-3.3-70b-instruct:free";
 
 const defaultSettings = {
   font: "jetbrains",
-  fontSize: 14,
+  fontSize: 16,
   sounds: false,
   compactMode: false,
   showTimestamps: false,

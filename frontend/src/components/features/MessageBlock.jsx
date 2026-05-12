@@ -108,7 +108,7 @@ export function MessageBlock({
           {isError ? (
             <div className="flex items-start gap-3 text-red">
               <AlertTriangleIcon size={16} strokeWidth={1.5} className="shrink-0 mt-0.5" />
-              <p className="font-body text-sm leading-relaxed">{obj.answer}</p>
+              <p className="font-body text-base leading-relaxed">{obj.answer}</p>
             </div>
           ) : obj.isMulti ? (
             <div className="flex flex-col gap-4">
@@ -127,7 +127,7 @@ export function MessageBlock({
                         <input type="checkbox" className="w-4 h-4 accent-ink cursor-pointer" checked={selectedDrafts.includes(idx)} onChange={e => { if (e.target.checked) setSelectedDrafts(p => [...p, idx]); else setSelectedDrafts(p => p.filter(x => x !== idx)); }} />
                       </div>
                     </div>
-                    <div className="font-body text-xs overflow-y-auto pr-1 leading-relaxed flex-1 [&_p]:text-justify">
+                    <div className="font-body text-sm overflow-y-auto pr-1 leading-relaxed flex-1 [&_p]:text-justify">
                       {ans ? <Response>{ans}</Response> : (
                         <div className="space-y-2 pt-1">
                           <div className="h-2.5 bg-muted-200 w-full" />
@@ -153,7 +153,7 @@ export function MessageBlock({
               )}
             </div>
           ) : (
-            <div className="font-body text-sm leading-relaxed [&_p]:text-justify">
+            <div className="font-body text-base leading-relaxed [&_p]:text-justify">
               {showRaw ? (
                 <pre className="font-mono text-xs whitespace-pre-wrap break-words text-muted-600">{obj.answer}</pre>
               ) : isQuiz ? <QuizBlock code={obj.answer} /> :
