@@ -18,6 +18,8 @@ export async function askGroq(messages, apiKey, options = {}) {
         temperature = 0.7,
         max_tokens = 4096,
         top_p = 1.0,
+        frequency_penalty,
+        presence_penalty,
     } = options;
 
     const fullMessages = [
@@ -42,6 +44,8 @@ export async function askGroq(messages, apiKey, options = {}) {
                 temperature,
                 max_tokens,
                 top_p,
+                frequency_penalty,
+                presence_penalty,
             }),
             signal: controller.signal,
         });

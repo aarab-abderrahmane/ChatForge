@@ -1,15 +1,38 @@
 import cors from "cors";
 import express from "express";
+import rateLimit from "express-rate-limit";
 import { connectDB } from "./db.js";
 import fs from "node:fs";
 import path from "node:path";
-import { askGroq, validateGroqKey } from "./groqClient.js";
-import { askGeminiStream, validateGeminiKey, askGeminiSync } from "./geminiClient.js";
-import { askHuggingFace, validateHuggingFaceKey } from "./huggingfaceClient.js";
+import { validateGroqKey } from "./groqClient.js";
+import { validateGeminiKey } from "./geminiClient.js";
+import { validateHuggingFaceKey } from "./huggingfaceClient.js";
+import { smartRouter, detectTaskType, FREE_MODELS, askAI } from "./smartRouter.js";
 
 const app = express();
-app.use(cors());
+
+const allowedOrigins = process.env.ALLOWED_ORIGINS
+  ? process.env.ALLOWED_ORIGINS.split(",")
+  : ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"];
+
+app.use(cors({
+  origin: (origin, cb) => {
+    if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
+    cb(null, true);
+  },
+  credentials: true,
+}));
+
 app.use(express.json());
+
+const limiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 30,
+  message: { error: "Too many requests, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/", limiter);
 
 // In-Memory Fallback Cache (for when MongoDB is down)
 const CACHE_FILE = path.join(process.cwd(), ".keys_cache.json");
@@ -36,14 +59,39 @@ function saveMemoryCache() {
 }
 
 // ─────────────────────────────────────────────
-// Crypto helpers
+// Crypto helpers — AES-256-GCM
 // ─────────────────────────────────────────────
+import crypto from "node:crypto";
+
+const ALGO = "aes-256-gcm";
+const KEY = crypto.scryptSync(
+  process.env.ENCRYPTION_SECRET || "ChatForge-Default-Secret-Change-In-Production-!!",
+  "salt",
+  32
+);
+
 export function encrypt(text) {
-  return Buffer.from(text).toString("base64");
+  const iv = crypto.randomBytes(12);
+  const cipher = crypto.createCipheriv(ALGO, KEY, iv);
+  let enc = cipher.update(text, "utf8", "hex");
+  enc += cipher.final("hex");
+  const authTag = cipher.getAuthTag().toString("hex");
+  return `${iv.toString("hex")}:${authTag}:${enc}`;
 }
 
-export function decrypt(text) {
-  return Buffer.from(text, "base64").toString("utf8");
+export function decrypt(encoded) {
+  try {
+    const [ivHex, authTagHex, enc] = encoded.split(":");
+    const iv = Buffer.from(ivHex, "hex");
+    const authTag = Buffer.from(authTagHex, "hex");
+    const decipher = crypto.createDecipheriv(ALGO, KEY, iv);
+    decipher.setAuthTag(authTag);
+    let dec = decipher.update(enc, "hex", "utf8");
+    dec += decipher.final("utf8");
+    return dec;
+  } catch {
+    return encoded;
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -139,251 +187,7 @@ export async function getUserKeys(userId) {
   };
 }
 
-// ─────────────────────────────────────────────
-// OpenRouter free models (fallback list)
-// ─────────────────────────────────────────────
-export const FREE_MODELS = [
-  "meta-llama/llama-3.3-70b-instruct:free",
-  "google/gemma-2-9b-it:free",
-  "meta-llama/llama-3.2-3b-instruct:free",
-  "microsoft/phi-3-mini-128k-instruct:free",
-  "qwen/qwen-2.5-72b-instruct:free"
-];
-
-// ─────────────────────────────────────────────
-// OpenRouter call (streaming)
-// ─────────────────────────────────────────────
-export async function askAI(messages, key, options = {}) {
-  const {
-    models = FREE_MODELS,
-    systemPrompt = "You are a helpful AI assistant.",
-    temperature = 0.7,
-    stream = false,
-    top_p,
-    frequency_penalty,
-    presence_penalty,
-    max_tokens,
-  } = options;
-
-  const fullMessages = [{ role: "system", content: systemPrompt }, ...messages];
-  const triedErrors = [];
-  let rateLimitStrikes = 0;
-
-  for (const model of models) {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 30000);
-
-    const cleanKey = String(key || "").replace(/[^\x00-\x7F]/g, "").trim();
-
-    try {
-      const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
-        method: "POST",
-        headers: {
-          "Authorization": `Bearer ${cleanKey}`,
-          "Content-Type": "application/json",
-          "HTTP-Referer": "https://chatforge.app",
-          "X-Title": "ChatForge",
-          "User-Agent": "ChatForge/2.0"
-        },
-        body: JSON.stringify({
-          model,
-          messages: fullMessages,
-          stream,
-          temperature,
-          top_p,
-          frequency_penalty,
-          presence_penalty,
-          max_tokens,
-        }),
-        signal: controller.signal,
-      });
-
-      clearTimeout(timeout);
-
-      if (!response.ok) {
-        let errBody = {};
-        try { errBody = await response.json(); } catch (e) { }
-        const msg = errBody?.error?.message || `HTTP ${response.status}`;
-        console.warn(`[OpenRouter Debug] Model: ${model}, Status: ${response.status}, Error: ${msg}`);
-
-        // Fail-fast on multiple rate limits
-        if (response.status === 429 || response.status === 503 || msg.toLowerCase().includes("capacity") || msg.toLowerCase().includes("rate limit")) {
-          rateLimitStrikes++;
-          if (rateLimitStrikes >= 2) {
-            throw new Error(`RATE_LIMIT_EXHAUSTED: ${msg}`);
-          }
-        }
-
-        // Only hard-fail on confirmed auth errors (invalid key, not just missing header quirks)
-        const msgLower = msg.toLowerCase();
-        const isHardAuthFail = (response.status === 401 || response.status === 403) &&
-          (msgLower.includes("invalid api key") ||
-            msgLower.includes("invalid key") ||
-            msgLower.includes("unauthorized") ||
-            msgLower.includes("no auth") ||
-            msgLower.includes("api key not found"));
-        if (isHardAuthFail) {
-          throw new Error(`Authentication failed: ${msg}`);
-        }
-        triedErrors.push(`${model}: ${msg}`);
-        continue;
-      }
-
-      console.log(`[ChatForge] ✓ Serving via OpenRouter: ${model} (Streaming: ${stream})`);
-      return response;
-    } catch (err) {
-      clearTimeout(timeout);
-      const errMsg = err.name === "AbortError" ? "timed out (30s)" : err.message;
-      console.warn(`[ChatForge] Model "${model}" error: ${errMsg}`);
-
-      if (errMsg.includes("RATE_LIMIT_EXHAUSTED")) {
-        throw err; // Bubble up immediately to trip the circuit breaker
-      }
-
-      triedErrors.push(`${model}: ${errMsg}`);
-      continue;
-    }
-  }
-
-  throw new Error(`OpenRouter failed all models: ${triedErrors.join(" | ")}`);
-}
-
-// ─────────────────────────────────────────────
-// Task-type detection - Dual-Model Orchestration
-// ─────────────────────────────────────────────
-
-function detectTaskType(messages) {
-  const lastMsg = messages[messages.length - 1]?.content || "";
-  const lower = lastMsg.toLowerCase();
-
-  // Speedster: Short UI updates, instant micro-tasks, small fixes
-  if (lower.length < 150 && !lower.includes("```")) return "speedster";
-
-  // Specialist: Massive file analysis, reading history, finding bugs
-  // Characterized by large prompts or multiple files, tool calls for reading
-  if (messages.length > 15 || lower.includes("find bug") || lower.includes("search") || lower.includes("read_file")) return "specialist";
-
-  // Architect: High-level planning, complex logic, task breakdown
-  return "architect";
-}
-
-// ─────────────────────────────────────────────
-// Smart Router — picks provider, then falls back
-// ─────────────────────────────────────────────
-export async function smartRouter(messages, keys, options = {}) {
-  const taskType = detectTaskType(messages);
-
-  // Determine priority order
-  const routingMode = options.routingMode || "smart";
-  let order;
-
-  if (routingMode === "smart") {
-    if (taskType === "speedster") {
-      // Speedster -> Groq (Llama 3)
-      order = ["groq", "gemini", "openrouter", "huggingface"];
-    } else if (taskType === "specialist") {
-      // Specialist -> Gemini 1.5 Flash (massive context)
-      order = ["gemini", "openrouter", "groq", "huggingface"];
-    } else {
-      // Architect -> OpenRouter (Qwen 2.5 72B / Llama 3.3 70B)
-      order = ["openrouter", "gemini", "groq", "huggingface"];
-    }
-  } else if (routingMode === "groq") {
-    order = ["groq", "gemini", "huggingface", "openrouter"];
-  } else if (routingMode === "gemini") {
-    order = ["gemini", "huggingface", "groq", "openrouter"];
-  } else if (routingMode === "openrouter") {
-    order = ["openrouter", "gemini", "huggingface", "groq"];
-  } else if (routingMode === "huggingface") {
-    order = ["huggingface", "groq", "gemini", "openrouter"];
-  } else {
-    // default (should not be reached due to above)
-    order = ["openrouter", "gemini", "groq", "huggingface"];
-  }
-
-  const errors = [];
-
-  for (const provider of order) {
-    // 1. Health Check (Circuit Breaker)
-    const health = BACKEND_MEMORY_CACHE.health[provider];
-    if (health && health.status === "down" && Date.now() < health.retryAt) {
-      const waitSec = Math.ceil((health.retryAt - Date.now()) / 1000);
-      console.log(`[Router] Skipping ${provider} (Circuit Breaker active for ${waitSec}s)`);
-      errors.push(`${provider}: disabled (rate limit) - retry in ${waitSec}s`);
-      continue; // Skip this provider and immediately loop to the next
-    }
-
-    // 2. Key Check
-    const key = keys[provider];
-    if (!key) {
-      console.log(`[Router] Skipping ${provider} (No key configured)`);
-      errors.push(`${provider}: no key configured`);
-      continue;
-    }
-
-    try {
-      console.log(`[Router] Attempting: ${provider} (TaskType: ${taskType})`);
-
-      if (provider === "groq") {
-        const res = await askGroq(messages, key, options);
-        if (health) delete BACKEND_MEMORY_CACHE.health[provider];
-        return { stream: res, provider: "groq", isGenerator: false };
-      }
-
-      if (provider === "gemini") {
-        const useStream = options.stream !== false;
-        if (!useStream) {
-          const res = await askGeminiSync(messages, key, options);
-          if (health) delete BACKEND_MEMORY_CACHE.health[provider];
-          return { stream: res, provider: "gemini", isGenerator: false };
-        } else {
-          const gen = askGeminiStream(messages, key, options);
-          if (health) delete BACKEND_MEMORY_CACHE.health[provider];
-          return { stream: gen, provider: "gemini", isGenerator: true };
-        }
-      }
-
-      if (provider === "openrouter") {
-        const finalModels = options.model
-          ? [options.model, ...FREE_MODELS.filter((m) => m !== options.model)]
-          : FREE_MODELS;
-        const useStream = options.stream !== false;
-        const res = await askAI(messages, key, { ...options, models: finalModels, stream: useStream });
-        if (health) delete BACKEND_MEMORY_CACHE.health[provider];
-        return { stream: res, provider: "openrouter", isGenerator: false };
-      }
-
-      if (provider === "huggingface") {
-        const res = await askHuggingFace(messages, key, options);
-        if (health) delete BACKEND_MEMORY_CACHE.health[provider];
-        return { stream: res, provider: "huggingface", isGenerator: false };
-      }
-    } catch (err) {
-      const errMsg = err.message || "Unknown error";
-      console.warn(`[SmartRouter] ${provider} failed: ${errMsg}`);
-
-      // 3. Circuit Breaker Logic
-      if (errMsg.includes("RATE_LIMIT_EXHAUSTED") || errMsg.includes("rate limit") || errMsg.includes("429") || errMsg.includes("capacity")) {
-        console.log(`[Circuit Breaker] Tripping for ${provider} (15m cooldown)`);
-        BACKEND_MEMORY_CACHE.health[provider] = {
-          status: "down",
-          retryAt: Date.now() + 900000 // 15 minutes
-        };
-      }
-
-      const isRateLimit = errMsg.includes("RATE_LIMIT_EXHAUSTED") || errMsg.includes("rate limit");
-      const cleanErrMsg = errMsg.replace("RATE_LIMIT_EXHAUSTED: ", "");
-      errors.push(`${provider}: ${isRateLimit ? "Rate Limit Exceeded (Circuit Breaker Tripped)" : cleanErrMsg}`);
-
-      // Crucial: we do NOT break. Let the loop move on to the next provider.
-    }
-  }
-
-  const errorDetails = errors.length > 0 ? `\n\nFallback Details:\n${errors.join("\n")}` : "";
-  throw new Error(
-    `AI Connection Failed. All available providers failed. ${errorDetails}`
-  );
-}
+// ─── Router moved to ./smartRouter.js ───
 
 
 
@@ -435,8 +239,6 @@ app.post("/api/agent", async (req, res) => {
   if (!keys || (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface)) {
     keys = await getUserKeys(userId);
   }
-
-  // Must have at least one key
   if (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface) {
     return res.status(401).json({ response: "No API keys found! Please add at least one key in Settings.", type: "error" });
   }
@@ -677,8 +479,6 @@ app.post("/api/chat", async (req, res) => {
   if (!keys || (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface)) {
     keys = await getUserKeys(userId);
   }
-
-  // Must have at least one key
   if (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface) {
     return res.status(401).json({ response: "No API keys found! Please add at least one key in Settings.", type: "error" });
   }
@@ -1155,7 +955,6 @@ app.post("/api/agent/run", async (req, res) => {
   if (!keys || (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface)) {
     keys = await getUserKeys(userId);
   }
-
   if (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface) {
     return res.status(401).json({ error: "No API keys found! Please add at least one key in Settings." });
   }
@@ -1446,6 +1245,16 @@ async function startServer() {
     console.error("Critical server error:", err);
   }
 }
+
+// ─────────────────────────────────────────────
+// Global Error Handler
+// ─────────────────────────────────────────────
+app.use((err, req, res, _next) => {
+  console.error("Unhandled error:", err);
+  const status = err.status || err.statusCode || 500;
+  if (res.headersSent) return;
+  res.status(status).json({ error: err.message || "Internal server error" });
+});
 
 export default app;
 startServer();

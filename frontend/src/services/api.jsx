@@ -1,6 +1,6 @@
 import { KeysService } from './db';
 
-const BASE_URL = "http://localhost:5000/api";
+const BASE_URL = "/api";
 
 export const api = {
 
@@ -25,9 +25,11 @@ export const api = {
       const isOR = cleanKey.startsWith("sk-or-v1-");
       const isGroq = cleanKey.startsWith("gsk_");
       const isGemini = cleanKey.startsWith("AIza");
+      const isHuggingFace = cleanKey.startsWith("hf_");
 
       if (isGroq) payload.groq = cleanKey;
       else if (isGemini) payload.gemini = cleanKey;
+      else if (isHuggingFace) payload.huggingface = cleanKey;
       else payload.openrouter = cleanKey;
 
       const res = await fetch(`${BASE_URL}/keys`, {
@@ -49,9 +51,10 @@ export const api = {
         } else {
           // If the key FORMAT is correct but the SERVICE is failing (429, 503, etc.)
           // we allow them in but with a warning.
-          if (isOR || isGroq || isGemini) {
-            const providerName = isOR ? "OpenRouter" : isGroq ? "Groq" : "Gemini";
-            await KeysService.saveKeys({ [isOR ? "openrouter" : isGroq ? "groq" : "gemini"]: cleanKey });
+          if (isOR || isGroq || isGemini || isHuggingFace) {
+            const providerName = isOR ? "OpenRouter" : isGroq ? "Groq" : isGemini ? "Gemini" : "HuggingFace";
+            const providerKey = isOR ? "openrouter" : isGroq ? "groq" : isGemini ? "gemini" : "huggingface";
+            await KeysService.saveKeys({ [providerKey]: cleanKey });
             return {
               type: "success",
               response: `warning:${providerName} service is currently busy or unreachable, but your key has been saved. You can try chatting now.`
@@ -66,8 +69,9 @@ export const api = {
     } catch (error) {
       // Offline or network error: allow entry if key looks valid
       const cleanKey = String(key || "").trim();
-      if (cleanKey.startsWith("sk-or-v1-") || cleanKey.startsWith("gsk_") || cleanKey.startsWith("AIza")) {
-        await KeysService.saveKeys({ openrouter: cleanKey }); // default to OR if uncertain
+      if (cleanKey.startsWith("sk-or-v1-") || cleanKey.startsWith("gsk_") || cleanKey.startsWith("AIza") || cleanKey.startsWith("hf_")) {
+        const providerKey = cleanKey.startsWith("gsk_") ? "groq" : cleanKey.startsWith("AIza") ? "gemini" : cleanKey.startsWith("hf_") ? "huggingface" : "openrouter";
+        await KeysService.saveKeys({ [providerKey]: cleanKey });
         return { type: "success", response: "warning:Network issue - key saved in offline mode." };
       }
       return { type: "error", response: `Connection error: ${error.message}` };
@@ -156,56 +160,5 @@ export const api = {
     }
   },
 
-  // ── WORKSPACE AGENT (JSON/Tasks Logic) ─────────────────────────
-  agentChat: async (userId, messages, skillPrompt, model, parameters = {}, workspaceState = null, signal) => {
-    const keys = await KeysService.getKeys();
 
-    // Ensure max_tokens is reasonable to avoid 413 or excessive costs
-    const safeParams = {
-      ...parameters,
-      max_tokens: 4096 // Increase this specifically for agentic tasks
-    };
-
-    const clientKeys = {
-      openrouter: keys.openrouter,
-      groq: keys.groq,
-      gemini: keys.gemini,
-      huggingface: keys.huggingface,
-    };
-
-    const res = await fetch(`${BASE_URL}/agent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId, messages, skillPrompt, model, parameters: safeParams, workspaceState, clientKeys }),
-      signal,
-    });
-    return res;
-  },
-
-  // ── AGENT RUN (Orchestrator) ───────────────────────────────────
-  agentRun: async (userId, goal, workspaceState, clientKeys, model, parameters = {}, signal) => {
-    // Correctly resolve keys: if clientKeys is missing or empty, fetch from local storage
-    const keys = (clientKeys && Object.keys(clientKeys).length > 0)
-      ? clientKeys
-      : await KeysService.getKeys();
-    const safeParams = {
-      ...parameters,
-      max_tokens: 4096,
-    };
-
-    const res = await fetch(`${BASE_URL}/agent/run`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        userId,
-        goal,
-        workspaceState,
-        clientKeys: keys,
-        model,
-        parameters: safeParams,
-      }),
-      signal,
-    });
-    return res;  // Returns the raw Response for SSE parsing by the UI
-  },
 };

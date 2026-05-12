@@ -1,31 +1,31 @@
-import { createContext, useState, useEffect, useCallback, useMemo } from "react";
-import { api } from "../services/api";
+import { createContext, useState, useEffect, useCallback } from "react";
 import { ConversationsService, KeysService } from "../services/db";
 
 export const chatsContext = createContext();
 
-const check_key_exists = async (setPreferences, preferences) => {
-  // Check if any provider key exists in IndexedDB (frontend-centric)
+const check_key_exists = async (setPreferences) => {
   const status = await KeysService.getStatus();
   const hasAnyKey = status.openrouter || status.groq || status.gemini || status.huggingface;
-  if (hasAnyKey) {
-    setPreferences((prev) => ({ ...prev, currentPage: "chat" }));
-  } else {
-    setPreferences((prev) => ({ ...prev, currentPage: "guide" }));
-  }
+  setPreferences((prev) => ({ ...prev, currentPage: hasAnyKey ? "chat" : "guide" }));
 };
 
 function uuid() {
   if (typeof crypto !== "undefined" && crypto.randomUUID) {
     return crypto.randomUUID();
   }
-  // Fallback for non-secure contexts (HTTP)
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    return ([1e7]+-1e3+-4e3+-8e3+-1e11).replace(/[018]/g, c =>
+      (c ^ crypto.getRandomValues(new Uint8Array(1))[0] & 15 >> c / 4).toString(16)
+    );
+  }
   return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
     const r = (Math.random() * 16) | 0;
     const v = c === "x" ? r : (r & 0x3) | 0x8;
     return v.toString(16);
   });
 }
+
+
 
 const WELCOME_MESSAGES = [
   {
@@ -37,21 +37,21 @@ const WELCOME_MESSAGES = [
   },
   {
     type: "ch",
-    id: 1,
+    id: "welcome-1",
     question: "Who is the author of this website?",
     answer: "Abderrahmane Aarab",
     timestamp: new Date().toISOString(),
   },
   {
-    id: 2,
     type: "ch",
+    id: "welcome-2",
     question: "How can I generate a short summary of my chat history?",
     answer: "Simply type `//>summarize` and the AI will summarize the conversation.",
     timestamp: new Date().toISOString(),
   },
   {
-    id: 3,
     type: "ch",
+    id: "welcome-3",
     question: "Can I create my own custom AI skills?",
     answer: "Yes! Open Settings (⚙️) → scroll to Custom Skills → click 'New Skill' to define your own AI persona with a custom system prompt.",
     timestamp: new Date().toISOString(),
@@ -284,7 +284,16 @@ export function ChatsProvider({ children }) {
   const [preferences, setPreferences] = useState(() => {
     try {
       const stored = localStorage.getItem("Preferences");
-      return stored ? JSON.parse(stored) : defaultPreferences;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        // Guard: if localStorage has a stale/removed page, reset to guide
+        const validPages = ["chat", "guide", "docs"];
+        if (!validPages.includes(parsed.currentPage)) {
+          parsed.currentPage = "guide";
+        }
+        return parsed;
+      }
+      return defaultPreferences;
     } catch {
       return defaultPreferences;
     }
@@ -479,12 +488,15 @@ export function ChatsProvider({ children }) {
     });
   }, []);
 
-  // Sync sessions to IndexedDB
+  // Sync sessions to IndexedDB (debounced)
   useEffect(() => {
-    if (sessions.length > 0) {
-      sessions.forEach(s => ConversationsService.saveConversation(s));
-    }
-    localStorage.setItem("ChatForge_Sessions", JSON.stringify(sessions));
+    const timer = setTimeout(() => {
+      if (sessions.length > 0) {
+        sessions.forEach(s => ConversationsService.saveConversation(s));
+      }
+      localStorage.setItem("ChatForge_Sessions", JSON.stringify(sessions));
+    }, 5000);
+    return () => clearTimeout(timer);
   }, [sessions]);
 
   // Sync activeSessionId to localStorage (still useful for UI state across tabs/reloads)
@@ -601,15 +613,12 @@ export function ChatsProvider({ children }) {
   // ── Key check + provider status on mount ────────────────────────
   useEffect(() => {
     const run = async () => {
-      await KeysService.migrateLegacyKeys(); // Auto-migrate old keys
-      await check_key_exists(setPreferences, preferences);
-      // Always re-read from IndexedDB (source of truth) rather than relying on
-      // backend to stay in sync — avoids stale providerStatus after guide-page save
+      await KeysService.migrateLegacyKeys();
+      await check_key_exists(setPreferences);
       const status = await KeysService.getStatus();
       setProviderStatus(status);
     };
     run();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Re-sync providerStatus any time the user navigates to the chat page

@@ -1,5 +1,3 @@
-import fetch from "node-fetch";
-
 /**
  * Validates a Hugging Face API key by making a small request to the Inference API.
  */

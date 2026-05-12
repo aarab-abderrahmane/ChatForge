@@ -1,0 +1,23 @@
+{
+  "apikeys": {
+    "847e464c-2f63-4f3b-86ec-bcc31932a611": {
+      "encryptedKey": "c2stb3ItdjEtMjZhYTNmZDU0YTZkMTYzYjI0YTk3YjY0M2Y0NjViNmQ1ODk5MjJmYjFiMjQxY2NkOTA5YjRiNmU2ODIyZDY2Zg=="
+    },
+    "71050ce8-86b3-4081-bf9c-f451fdc4405f": {
+      "encryptedKey": "0cea96a1c829b92228a4d588:6bb8d2b7fef4da15a020fd3c1319d72f:3987280eea13c12ce3b76decc9ae98d79f8cb20893ea2cf63972586536a1053b646a7f54835a02efbdb9658bbdd9e0bbfed5549585e5aaf2d661f3d05a74b3e385ad0e125c62e848bd"
+    },
+    "2de87cd6-0fcd-45ef-b0f5-2583fe9f2f98": {
+      "encryptedKey": "ac4d4f57d6c291481b48eece:84f0843692be3b7893a63f0300e37534:b71b06b948c1c57b9fa034546df26e943202b46e8fee7d17d129e1552db1a47a00565a44cd2613806658d111c060df12681208f518cdc54a806fdfccfe4dc9230d241755700d38426b"
+    },
+    "30b1f336-04a9-4e69-9a3a-a5eadfb6923f": {
+      "encryptedKey": "2eca6e16ff161083e8d7d24f:cc17024a9553424410a67046facd8c36:12caabce63f95a6544ec8178612a721db35d4e3b022a2dbdec39713ce022ebc18291acc2cd5027a8e9a5fb56fe3870415bf9a4c7a14a3f50f7875fbde122559625a1ebbb517be02a6b",
+      "encryptedGroq": "03878dcd4cdb1a7bf509e592:7146ef30edeb2bcb50463d163c56ada4:b92153965c1c002445c5b90e5dba5418800f07be1adc6cb470667bf7a8ed2122d31780a97119479d732167957a8abf9e1601e48a29a065c6"
+    }
+  },
+  "health": {
+    "openrouter": {
+      "status": "down",
+      "retryAt": 1778578472035
+    }
+  }
+}

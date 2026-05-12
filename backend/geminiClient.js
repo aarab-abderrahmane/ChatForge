@@ -28,7 +28,7 @@ export async function* askGeminiStream(messages, apiKey, options = {}) {
         parts: [{ text: m.content }],
     }));
 
-    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:streamGenerateContent?alt=sse&key=${apiKey}`;
+    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -37,7 +37,10 @@ export async function* askGeminiStream(messages, apiKey, options = {}) {
     try {
         response = await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey,
+            },
             body: JSON.stringify({
                 system_instruction: { parts: [{ text: systemPrompt }] },
                 contents,
@@ -116,7 +119,7 @@ export async function askGeminiSync(messages, apiKey, options = {}) {
         parts: [{ text: m.content }],
     }));
 
-    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -125,7 +128,10 @@ export async function askGeminiSync(messages, apiKey, options = {}) {
     try {
         response = await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey,
+            },
             body: JSON.stringify({
                 system_instruction: { parts: [{ text: systemPrompt }] },
                 contents,
@@ -168,10 +174,13 @@ export async function askGeminiSync(messages, apiKey, options = {}) {
  */
 export async function validateGeminiKey(apiKey) {
     try {
-        const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent?key=${apiKey}`;
+        const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
         const res = await fetch(url, {
             method: "POST",
-            headers: { "Content-Type": "application/json" },
+            headers: {
+              "Content-Type": "application/json",
+              "x-goog-api-key": apiKey,
+            },
             body: JSON.stringify({
                 contents: [{ role: "user", parts: [{ text: "Say hi." }] }],
                 generationConfig: { maxOutputTokens: 5 },

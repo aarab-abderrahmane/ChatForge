@@ -65,11 +65,10 @@ export const ContextBuilder = {
      */
     build: async (chats, currentSummary = "", currentQuestion = "") => {
         // 1. FILTER: Exclude the default FAQ/Welcome messages from AI context to prevent pollution
-        // These have fixed IDs 1, 2, 3 in chatsContext.jsx
         const chatHistory = chats.filter(c =>
             c.type === "ch" &&
             (c.question || c.answer) &&
-            ![1, 2, 3].includes(c.id)
+            typeof c.id === "string" && !c.id.startsWith("welcome-")
         );
 
         let messages = [];
@@ -92,15 +91,9 @@ export const ContextBuilder = {
             ]);
         }
 
-        // 2. LAST OUTPUT INJECTION: Only inject if it's very fresh and relevant
-        const lastAnswerMsg = [...chatHistory].reverse().find(c => c.answer);
-        const lastAnswer = lastAnswerMsg?.answer;
-        if (lastAnswer && lastAnswer.length > 50 && lastAnswer.length < 5000) {
-            messages.push({
-                role: "system",
-                content: "PREVIOUS CONTEXT (Last Assistant Output):\n" + truncate(lastAnswer, 2000, true)
-            });
-        }
+        // 2. NOTE: Last assistant output is already included in the messages array above.
+        // Do NOT inject it again as a system message — that would cause duplicate context
+        // which wastes tokens and can confuse the model.
 
         // 3. FIX STALE MESSAGE: Explicitly append the current question if it's not already the last message
         if (currentQuestion && (!messages.length || messages[messages.length - 1].content !== currentQuestion)) {
@@ -144,9 +137,9 @@ export const ContextBuilder = {
      * Smart Router logic (Client-side decision)
      * @param {String} text - Current user message.
      * @param {Object} providerStatus - Which providers have active keys.
-     * @returns {String} routingMode ('groq', 'gemini', 'openrouter')
+     * @returns {String} routingMode ('groq', 'gemini', 'openrouter', 'huggingface')
      */
-    route(text, providerStatus = { openrouter: true, gemini: true, groq: true }) {
+    route(text, providerStatus = { openrouter: true, gemini: true, groq: true, huggingface: false }) {
         const lower = text.toLowerCase();
 
         // Helper to check if a provider is actually available
@@ -174,7 +167,10 @@ export const ContextBuilder = {
                 ].some(kw => lower.includes(kw)) || hasCodeHighDensity(text);
 
                 if (isCodeTask) ideal = "openrouter";
-                else if (text.trim().split(/\s+/).length < 15) ideal = "groq";
+                else if (text.trim().split(/\s+/).length < 15 && isAvailable("groq")) ideal = "groq";
+                else if (isAvailable("openrouter")) ideal = "openrouter";
+                else if (isAvailable("gemini")) ideal = "gemini";
+                else if (isAvailable("huggingface")) ideal = "huggingface";
                 else ideal = "openrouter";
             }
         }
@@ -209,7 +205,7 @@ export const ContextBuilder = {
         const prompt = `Summarize the following conversation in EXACTLY TWO SENTENCES. Keep the most important project details and decisions. \n\nExisting Summary: ${trimmedOldSummary}\n\nNew Conversation:\n${historyText}`;
 
         try {
-            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer.", "groq-llama-3.1-70b", { routingMode: "groq", max_tokens: 150 });
+            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer.", "llama-3.3-70b-versatile", { routingMode: "groq", max_tokens: 150 });
             if (!res.ok) return oldSummary;
 
             const reader = res.body.getReader();

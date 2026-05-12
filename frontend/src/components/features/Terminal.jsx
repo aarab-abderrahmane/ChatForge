@@ -24,7 +24,6 @@ import {
   Code2,
   List,
   MessageSquare,
-  Briefcase,
   Network,
   PenLine,
   ChevronLeft,
@@ -572,21 +571,6 @@ export const Terminal = ({
                 <Search size={14} style={{ color: showSearch ? "rgba(0,245,255,0.7)" : "rgba(200,255,192,0.6)" }} />
               </button>
             )}
-
-            {/* Workspaces Link */}
-            <button
-              onClick={() => {
-                setPreferences((prev) => ({
-                  ...prev,
-                  _prevPage: prev.currentPage,
-                  currentPage: "workspaces",
-                }));
-              }}
-              className="p-1.5 rounded-lg transition-all duration-200 ease-out hover:bg-white/[0.04] active:scale-95"
-              title="Workspaces"
-            >
-              <Briefcase size={14} style={{ color: "rgba(200,255,192,0.6)" }} />
-            </button>
 
             {/* Docs Page Link */}
             <button

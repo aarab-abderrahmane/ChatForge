@@ -30,7 +30,7 @@ const BOOT_MESSAGES = [
   { type: "ok", content: "[✓] Node runtime v20.x detected", delay: 600 },
   { type: "ok", content: "[✓] Loading AI modules...", delay: 900 },
   { type: "warn", content: "[!] AI Provider key not detected", delay: 1200 },
-  { type: "info", content: "→  Supports: OpenRouter, Groq (gsk_...), or Gemini (AIza...)", delay: 1500 },
+  { type: "info", content: "→  Supports: OpenRouter (sk-or-v1...), Groq (gsk_...), Gemini (AIza...), HuggingFace (hf_...)", delay: 1500 },
   { type: "info", content: "→  Paste your key below to enable full AI access", delay: 1800 },
   { type: "sys", content: "System ready. Awaiting authentication.", delay: 2100 },
 ];
@@ -63,7 +63,7 @@ export async function KeyTest(
   } catch (err) {
     setMessages((prev) => [
       ...prev,
-      { type: "error", content: `[✗] Connection error: ${err}` },
+      { type: "error", content: `[✗] Connection error: ${err.message || err}` },
     ]);
   } finally {
     setLoading(false);

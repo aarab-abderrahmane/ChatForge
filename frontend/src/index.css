@@ -192,33 +192,8 @@
 }
 
 /* ═══════════════════════════════════════════
-   SCANLINES EFFECT
+   SCANLINES EFFECT (via div overlay in App.jsx)
    ═══════════════════════════════════════════ */
-/* .scan-lines {
-  position: relative;
-  overflow: hidden;
-}
-
-.scan-lines::before {
-  content: "";
-  position: fixed;
-  inset: 0;
-  background: repeating-linear-gradient(0deg,
-    transparent, transparent 2px,
-    rgba(0, 0, 0, 0.08) 2px, rgba(0, 0, 0, 0.08) 4px);
-  pointer-events: none;
-  z-index: 9999;
-  animation: scanline-scroll 8s linear infinite;
-}
-
-.scan-lines.scanlines-off::before {
-  display: none;
-}
-
-@keyframes scanline-scroll {
-  0% { background-position: 0 0; }
-  100% { background-position: 0 80px; }
-} */
 
 /* ═══════════════════════════════════════════
    NEON GLOW UTILITIES

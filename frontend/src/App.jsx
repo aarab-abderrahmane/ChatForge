@@ -34,16 +34,12 @@ function App() {
     loading,
     setLoading,
     preferences,
-    setPreferences,
     settings,
     customSkills,
     sessions,
     updateSessionSummary,
     updateSessionRoute,
     activeSessionId,
-    setActiveSessionId,
-    createNewSession,
-    renameSession,
     providerStatus,
   } = useContext(chatsContext) || {};
 
@@ -90,14 +86,16 @@ function App() {
     root.style.setProperty('--theme-accent', theme.accent);
   }, [settings.theme, settings.customTheme]);
 
-  // ── Keyboard sounds ──
+  // ── Keyboard sounds (reuses AudioContext) ──
   useEffect(() => {
     if (!settings.sounds) return;
+
+    let ctx = null;
 
     const handleKey = (e) => {
       if (e.key.length !== 1 && e.key !== 'Backspace') return;
 
-      const ctx = new (window.AudioContext || window.webkitAudioContext)();
+      if (!ctx) ctx = new (window.AudioContext || window.webkitAudioContext)();
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
 
@@ -112,7 +110,10 @@ function App() {
     };
 
     window.addEventListener('keydown', handleKey);
-    return () => window.removeEventListener('keydown', handleKey);
+    return () => {
+      window.removeEventListener('keydown', handleKey);
+      if (ctx) ctx.close();
+    };
   }, [settings.sounds]);
 
   // ── Listen for stats events ──
@@ -122,7 +123,7 @@ function App() {
     };
     window.addEventListener('chatforge:stats', handleStats);
     return () => window.removeEventListener('chatforge:stats', handleStats);
-  }, [setChats]);
+  }, []);
 
   // ════════════════════════════════════════════
   //  CORE AI STREAM
@@ -147,7 +148,7 @@ function App() {
     const session = sessions.find((s) => s.id === activeSessionId) || { messages: chats, summary: '' };
 
     const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } =
-      await ContextBuilder.build(chats, null, session.summary, question);
+      await ContextBuilder.build(chats, session.summary, question);
 
     // ── Model routing & locking ──
     let finalRoutingMode = settings.routingMode || 'smart';
@@ -451,7 +452,7 @@ function App() {
   // ── Send handler ──
   const handleSend = useCallback(
     (e, draftCount = 1) => {
-      const newId = new Date();
+      const newId = crypto.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
       const text = (e.target?.value ?? e.target?.innerText ?? query).trim();
       if (!text) return;
 
@@ -508,6 +509,11 @@ function App() {
     },
     [query, transformCommand]
   );
+
+  const handleEditSubmit = useCallback((newQuestion) => {
+    setQuery(newQuestion);
+    setTimeout(() => handleSend({ target: { value: newQuestion } }), 0);
+  }, [handleSend]);
 
   const handleMergeDrafts = useCallback((msgId, indices) => {
     const msg = chats.find((c) => c.id === msgId);
@@ -589,6 +595,7 @@ function App() {
               setQuery={setQuery}
               messagesEndRef={messagesEndRef}
               onRetry={handleRetry}
+              onEditSubmit={handleEditSubmit}
               onStopAI={handleStopAI}
               onMergeDrafts={handleMergeDrafts}
               onSummarizeDrafts={handleSummarizeDrafts}
