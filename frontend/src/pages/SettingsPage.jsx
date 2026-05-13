@@ -76,8 +76,8 @@ export function SettingsPage() {
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [showToolForm, setShowToolForm] = useState(false);
   const [editingTool, setEditingTool] = useState(null);
-  const [showRouting, setShowRouting] = useState(false);
-  const [showModels, setShowModels] = useState(false);
+  const [showRouting, setShowRouting] = useState(true);
+  const [showModels, setShowModels] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fileInputRef = useRef(null);
 

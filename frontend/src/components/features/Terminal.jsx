@@ -51,7 +51,7 @@ export const Terminal = ({
   const activeModel = MODELS.find(m => m.id === settings.activeModelId) || MODELS[0];
 
   const [showCmdMenu, setShowCmdMenu] = useState(false);
-  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768);
+  const [sidebarOpen, setSidebarOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [charCount, setCharCount] = useState(0);
   const [promptHistIdx, setPromptHistIdx] = useState(-1);
@@ -326,59 +326,61 @@ export const Terminal = ({
           <div className="flex flex-col flex-1 min-h-0">
             {/* ── Messages ─────────────────────────── */}
             <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 py-4 dot-grid-bg">
-              {chats.map((obj, index) => {
-                if (obj.type === "ms") {
+              <div className="mx-auto max-w-3xl">
+                {chats.map((obj, index) => {
+                  if (obj.type === "ms") {
+                    return (
+                      <div key={index} className="mb-6 border-b border-divider pb-4">
+                        {obj.content.map((line, i) => (
+                          <p key={i} className="font-mono text-xs text-muted-500 uppercase tracking-widest mb-1">{line}</p>
+                        ))}
+                      </div>
+                    );
+                  }
                   return (
-                    <div key={index} className="mb-6 border-b border-divider pb-4">
-                      {obj.content.map((line, i) => (
-                        <p key={i} className="font-mono text-xs text-muted-500 uppercase tracking-widest mb-1">{line}</p>
-                      ))}
-                    </div>
+                    <MessageBlock
+                      key={obj.id || index}
+                      obj={obj} index={index}
+                      isLast={index === chats.length - 1}
+                      isCopied={isCopied}
+                      copyToClipboard={copyToClipboard}
+                      onRetry={onRetry}
+                      onEditSubmit={onEditSubmit || ((newQ) => handleSend({ target: { value: newQ } }, draftCount))}
+                      onMergeDrafts={onMergeDrafts}
+                      onSummarizeDrafts={onSummarizeDrafts}
+                      onKeepDraft={onKeepDraft}
+                      onContinue={onContinue}
+                    />
                   );
-                }
-                return (
-                  <MessageBlock
-                    key={obj.id || index}
-                    obj={obj} index={index}
-                    isLast={index === chats.length - 1}
-                    isCopied={isCopied}
-                    copyToClipboard={copyToClipboard}
-                    onRetry={onRetry}
-                    onEditSubmit={onEditSubmit || ((newQ) => handleSend({ target: { value: newQ } }, draftCount))}
-                    onMergeDrafts={onMergeDrafts}
-                    onSummarizeDrafts={onSummarizeDrafts}
-                    onKeepDraft={onKeepDraft}
-                    onContinue={onContinue}
-                  />
-                );
-              })}
+                })}
 
-              {/* ── Loading Indicator ────────────────── */}
-              {loading && (
-                <div className="flex items-center justify-between py-4 border-t border-divider mt-4">
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-[3px] h-4">
-                      {[6, 14, 10, 16].map((h, i) => (
-                        <div key={i} className="w-[3px] bg-ink" style={{ height: `${h}px`, animation: `pulse 1.2s ease-in-out ${i * 0.15}s infinite alternate` }} />
-                      ))}
+                {/* ── Loading Indicator ────────────────── */}
+                {loading && (
+                  <div className="flex items-center justify-between py-4 border-t border-divider mt-4">
+                    <div className="flex items-center gap-3">
+                      <div className="flex items-center gap-[3px] h-4">
+                        {[6, 14, 10, 16].map((h, i) => (
+                          <div key={i} className="w-[3px] bg-ink" style={{ height: `${h}px`, animation: `pulse 1.2s ease-in-out ${i * 0.15}s infinite alternate` }} />
+                        ))}
+                      </div>
+                      <div>
+                        <span className="font-mono text-xs text-ink font-semibold uppercase tracking-wider">
+                          Generating response<span className="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+                        </span>
+                        <p className="font-mono text-[9px] text-muted-500 uppercase tracking-widest">AI is processing your request</p>
+                      </div>
                     </div>
-                    <div>
-                      <span className="font-mono text-xs text-ink font-semibold uppercase tracking-wider">
-                        Generating response<span className="loading-dots"><span>.</span><span>.</span><span>.</span></span>
-                      </span>
-                      <p className="font-mono text-[9px] text-muted-500 uppercase tracking-widest">AI is processing your request</p>
-                    </div>
+                    <button
+                      onClick={onStopAI}
+                      className="min-h-[44px] px-4 border border-ink bg-ink text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-paper hover:text-ink transition-colors"
+                    >
+                      <XIcon size={12} strokeWidth={1.5} className="inline mr-1" /> Stop
+                    </button>
                   </div>
-                  <button
-                    onClick={onStopAI}
-                    className="min-h-[44px] px-4 border border-ink bg-ink text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-paper hover:text-ink transition-colors"
-                  >
-                    <XIcon size={12} strokeWidth={1.5} className="inline mr-1" /> Stop
-                  </button>
-                </div>
-              )}
+                )}
 
-              <div ref={messagesEndRef} />
+                <div ref={messagesEndRef} />
+              </div>
             </div>
 
             {/* ── Input Area ──────────────────────────── */}
