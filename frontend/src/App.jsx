@@ -138,10 +138,11 @@ function App() {
         '\n\nCRITICAL: The user wants you to CONTINUE exactly from where you stopped. Do NOT repeat anything you already wrote. Do NOT start from the beginning. Simply provide the next part of the code or text.';
     }
 
+    const rawTemp = (settings.temperature ?? 7) / 10;
     const draftTemp =
       draftIndex > 0
-        ? Math.min((settings.temperature || 0.7) + draftIndex * 0.15, 1.5)
-        : settings.temperature || 0.7;
+        ? Math.min(rawTemp + draftIndex * 0.15, 1.5)
+        : rawTemp;
 
     // ── Execute stream ──
     try {
@@ -152,9 +153,9 @@ function App() {
         activeModelId,
         {
           temperature: draftTemp,
-          top_p: settings.topP,
-          frequency_penalty: settings.frequencyPenalty,
-          presence_penalty: settings.presencePenalty,
+          top_p: (settings.topP ?? 10) / 10,
+          frequency_penalty: (settings.frequencyPenalty ?? 0) / 10,
+          presence_penalty: (settings.presencePenalty ?? 0) / 10,
           max_tokens: maxTokens,
           routingMode: finalRoutingMode,
         },

@@ -194,6 +194,8 @@ export const DEFAULT_AI_TOOLS = [
 
 const DEFAULT_MODEL_ID = "meta-llama/llama-3.3-70b-instruct:free";
 
+const SETTINGS_VERSION = 2;
+
 const defaultSettings = {
   font: "jetbrains",
   fontSize: 16,
@@ -208,12 +210,13 @@ const defaultSettings = {
   activeSkillId: "general",
   activeModelId: DEFAULT_MODEL_ID,
   responseLength: "balanced",
-  temperature: 0.7,
-  topP: 1.0,
-  frequencyPenalty: 0.0,
-  presencePenalty: 0.0,
+  temperature: 7,
+  topP: 10,
+  frequencyPenalty: 0,
+  presencePenalty: 0,
   systemPromptPrefix: "",
   routingMode: "smart",
+  _settingsVersion: SETTINGS_VERSION,
 };
 
 export function ChatsProvider({ children }) {
@@ -254,7 +257,19 @@ export function ChatsProvider({ children }) {
   const [settings, setSettings] = useState(() => {
     try {
       const stored = localStorage.getItem("ChatForge_Settings");
-      return stored ? { ...defaultSettings, ...JSON.parse(stored) } : defaultSettings;
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed._settingsVersion !== SETTINGS_VERSION) {
+          // Migrate v1 decimal values → v2 slider integer values
+          if (typeof parsed.temperature === 'number' && parsed.temperature < 2) parsed.temperature = Math.round(parsed.temperature * 10);
+          if (typeof parsed.topP === 'number' && parsed.topP < 2) parsed.topP = Math.round(parsed.topP * 10);
+          if (typeof parsed.frequencyPenalty === 'number' && Math.abs(parsed.frequencyPenalty) < 5) parsed.frequencyPenalty = Math.round(parsed.frequencyPenalty * 10);
+          if (typeof parsed.presencePenalty === 'number' && Math.abs(parsed.presencePenalty) < 5) parsed.presencePenalty = Math.round(parsed.presencePenalty * 10);
+          parsed._settingsVersion = SETTINGS_VERSION;
+        }
+        return { ...defaultSettings, ...parsed };
+      }
+      return defaultSettings;
     } catch {
       return defaultSettings;
     }

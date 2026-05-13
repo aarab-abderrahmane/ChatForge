@@ -36,9 +36,15 @@ const PARAMS = [
   { key: "maxTokens", label: "Max Tokens", min: 256, max: 8192, step: 256, display: (v) => v, defaultVal: 2048 },
 ];
 
+const RESPONSE_PRESETS = {
+  short: { maxTokens: 1024, temperature: 3, topP: 9, frequencyPenalty: 5, presencePenalty: 5 },
+  balanced: { maxTokens: 2048, temperature: 7, topP: 10, frequencyPenalty: 0, presencePenalty: 0 },
+  detailed: { maxTokens: 4096, temperature: 10, topP: 10, frequencyPenalty: 0, presencePenalty: 0 },
+};
+
 function Toggle({ value, onToggle }) {
   return (
-    <button onClick={onToggle} className={`w-8 h-4 border transition-colors duration-150 flex items-center ${value ? "bg-ink border-[var(--color-border)] justify-end" : "bg-paper border-muted-400 justify-start"}`} role="switch" aria-checked={value}>
+    <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} className={`w-8 h-4 border transition-colors duration-150 flex items-center ${value ? "bg-ink border-[var(--color-border)] justify-end" : "bg-paper border-muted-400 justify-start"}`} role="switch" aria-checked={value}>
       <div className={`w-3 h-3 border transition-colors duration-150 mx-[1px] ${value ? "bg-paper border-[var(--color-border)]" : "bg-paper border-muted-400"}`} />
     </button>
   );
@@ -108,7 +114,7 @@ export function SettingsPage() {
     }
   };
 
-  const toggle = (key) => setSettings((prev) => ({ ...prev, [key]: !prev[key] }));
+  const toggle = (key) => setSettings({ ...settings, [key]: !settings[key] });
 
   const goBack = () => setPreferences((prev) => ({ ...prev, currentPage: "chat" }));
   const resetAPIKey = () => setPreferences((prev) => ({ ...prev, currentPage: "guide" }));
@@ -208,7 +214,7 @@ export function SettingsPage() {
               {allSkills.map((skill) => {
                 const isActive = settings.activeSkillId === skill.id;
                 return (
-                  <div key={skill.id} onClick={() => setSettings((prev) => ({ ...prev, activeSkillId: skill.id }))}
+                  <div key={skill.id} onClick={() => setSettings({ ...settings, activeSkillId: skill.id })}
                     className={`relative flex flex-col items-center gap-1.5 p-3 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-red bg-muted-100" : "border-divider"}`}
                     title={skill.description}>
                     {skill.isCustom && <span className="absolute top-1 right-1 font-mono text-xs uppercase text-muted-400">custom</span>}
@@ -238,7 +244,7 @@ export function SettingsPage() {
                   const isActive = settings.routingMode === route.id;
                   const isMissingKey = route.id !== "smart" && !providerStatus[route.id];
                   return (
-                    <div key={route.id} onClick={() => !isMissingKey && setSettings((prev) => ({ ...prev, routingMode: route.id }))}
+                    <div key={route.id} onClick={() => !isMissingKey && setSettings({ ...settings, routingMode: route.id })}
                       className={`flex items-center gap-2 p-2 border transition-all duration-150 ${isMissingKey ? "opacity-35 cursor-not-allowed" : "cursor-pointer hover:bg-muted-100"} ${isActive ? "border-l-4 border-red bg-muted-100 border-divider" : "border-divider"}`}>
                       <span className="text-sm">{route.icon}</span>
                       <div className="flex-1 min-w-0">
@@ -269,7 +275,7 @@ export function SettingsPage() {
                 {MODELS.map((model) => {
                   const isActive = settings.activeModelId === model.id;
                   return (
-                    <div key={model.id} onClick={() => { setSettings((prev) => ({ ...prev, activeModelId: model.id })); setShowModels(false); }}
+                    <div key={model.id} onClick={() => { setSettings({ ...settings, activeModelId: model.id }); setShowModels(false); }}
                       className={`flex items-center gap-2 p-2 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-red bg-muted-100 border-divider" : "border-divider"}`}>
                       <span className="text-sm">{model.icon}</span>
                       <div className="flex-1 min-w-0">
@@ -287,7 +293,7 @@ export function SettingsPage() {
           <SectionCard title="Response" icon={MessageSquare}>
             <div className="flex gap-2 mb-3">
               {["short", "balanced", "detailed"].map((opt) => (
-                <button key={opt} onClick={() => setSettings((p) => ({ ...p, responseLength: opt }))}
+                <button key={opt} type="button" onClick={() => setSettings({ ...settings, responseLength: opt, ...RESPONSE_PRESETS[opt] })}
                   className={`flex-1 py-1.5 text-[11px] font-mono uppercase tracking-widest border transition-colors duration-150 ${settings.responseLength === opt ? "bg-ink text-paper border-[var(--color-border)]" : "border-divider text-muted-500 hover:text-ink hover:border-[var(--color-border)]"}`}>
                   {opt}
                 </button>
@@ -301,13 +307,13 @@ export function SettingsPage() {
                     <span className="font-mono text-[11px] text-muted-500">{param.display(settings[param.key] ?? param.defaultVal)}</span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    <button onClick={() => setSettings((p) => ({ ...p, [param.key]: Math.max(param.min, (p[param.key] ?? param.defaultVal) - param.step) }))}
+                    <button type="button" onClick={() => setSettings({ ...settings, [param.key]: Math.max(param.min, (settings[param.key] ?? param.defaultVal) - param.step) })}
                       className="w-5 h-5 border border-[var(--color-border)] flex items-center justify-center text-ink hover:bg-muted-100 transition-colors text-sm">-</button>
                     <input type="range" min={param.min} max={param.max} step={param.step}
                       value={settings[param.key] ?? param.defaultVal}
-                      onChange={(e) => setSettings((p) => ({ ...p, [param.key]: +e.target.value }))}
+                      onChange={(e) => setSettings({ ...settings, [param.key]: +e.target.value })}
                       className="flex-1 h-1 appearance-none bg-muted-200 cursor-pointer accent-red outline-none" />
-                    <button onClick={() => setSettings((p) => ({ ...p, [param.key]: Math.min(param.max, (p[param.key] ?? param.defaultVal) + param.step) }))}
+                    <button type="button" onClick={() => setSettings({ ...settings, [param.key]: Math.min(param.max, (settings[param.key] ?? param.defaultVal) + param.step) })}
                       className="w-5 h-5 border border-[var(--color-border)] flex items-center justify-center text-ink hover:bg-muted-100 transition-colors text-sm">+</button>
                   </div>
                 </div>
@@ -323,7 +329,7 @@ export function SettingsPage() {
             <textarea className="w-full bg-transparent border border-divider px-3 py-2 text-xs font-body text-ink outline-none resize-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400"
               rows={3} placeholder="e.g. Always respond in French. My project uses React and Node.js..."
               value={settings.systemPromptPrefix || ""}
-              onChange={(e) => setSettings((p) => ({ ...p, systemPromptPrefix: e.target.value }))} />
+              onChange={(e) => setSettings({ ...settings, systemPromptPrefix: e.target.value })} />
           </SectionCard>
 
           {/* ═══ AI TOOLS ═══ */}
@@ -368,14 +374,14 @@ export function SettingsPage() {
                 { key: "autoScroll", icon: MousePointerClick, label: "Auto-scroll" },
                 { key: "streamingIndicator", icon: Zap, label: "Streaming indicator" },
                 { key: "showTimestamps", icon: Clock, label: "Timestamps" },
-                { key: "animations", icon: Sparkles, label: "Animations", defaultValue: (settings.animations !== false) },
+                { key: "animations", icon: Sparkles, label: "Animations" },
               ].map((item) => (
                 <div key={item.key} className="flex items-center justify-between py-1.5 hover:bg-muted-100 px-2 -mx-2 transition-colors cursor-pointer" onClick={() => toggle(item.key)}>
                   <div className="flex items-center gap-2">
                     <item.icon size={11} className="text-muted-400" strokeWidth={1.5} />
                     <span className="font-body text-sm text-ink">{item.label}</span>
                   </div>
-                  <Toggle value={item.defaultValue !== undefined ? item.defaultValue : settings[item.key]} onToggle={() => toggle(item.key)} />
+                  <Toggle value={settings[item.key]} onToggle={() => toggle(item.key)} />
                 </div>
               ))}
             </div>
@@ -385,8 +391,8 @@ export function SettingsPage() {
           <SectionCard title="Layout" icon={LayoutList}>
             <div className="space-y-2">
               {[
-                { key: "showToolbar", icon: LayoutList, label: "AI toolbar", defaultValue: settings.showToolbar !== false },
-                { key: "showHintBar", icon: Wand2, label: "Keyboard hints", defaultValue: settings.showHintBar !== false },
+                { key: "showToolbar", icon: LayoutList, label: "AI toolbar" },
+                { key: "showHintBar", icon: Wand2, label: "Keyboard hints" },
                 { key: "showAvatars", icon: MessageSquare, label: "Message avatars" },
               ].map((item) => (
                 <div key={item.key} className="flex items-center justify-between py-1.5 hover:bg-muted-100 px-2 -mx-2 transition-colors cursor-pointer" onClick={() => toggle(item.key)}>
@@ -394,7 +400,7 @@ export function SettingsPage() {
                     <item.icon size={11} className="text-muted-400" strokeWidth={1.5} />
                     <span className="font-body text-sm text-ink">{item.label}</span>
                   </div>
-                  <Toggle value={item.defaultValue !== undefined ? item.defaultValue : settings[item.key]} onToggle={() => toggle(item.key)} />
+                  <Toggle value={settings[item.key]} onToggle={() => toggle(item.key)} />
                 </div>
               ))}
             </div>
