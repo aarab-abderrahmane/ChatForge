@@ -44,7 +44,7 @@ const RESPONSE_PRESETS = {
 
 function Toggle({ value, onToggle }) {
   return (
-    <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} className={`w-8 h-4 border transition-colors duration-150 flex items-center ${value ? "bg-ink border-[var(--color-border)] justify-end" : "bg-paper border-muted-400 justify-start"}`} role="switch" aria-checked={value}>
+    <button type="button" onClick={(e) => { e.stopPropagation(); onToggle(); }} className={`w-8 h-4 border transition-colors duration-150 flex items-center ${value ? "bg-green border-green justify-end" : "bg-paper border-muted-400 justify-start"}`} role="switch" aria-checked={value}>
       <div className={`w-3 h-3 border transition-colors duration-150 mx-[1px] ${value ? "bg-paper border-[var(--color-border)]" : "bg-paper border-muted-400"}`} />
     </button>
   );
@@ -186,7 +186,7 @@ export function SettingsPage() {
             <Settings2 size={14} className="text-ink" strokeWidth={1.5} />
             <h1 className="font-serif text-lg font-black uppercase tracking-tight">Settings</h1>
           </div>
-          <div className="flex items-center gap-2 text-muted-400">
+          <div className="flex items-center gap-2 text-green">
             <Wifi size={11} strokeWidth={1.5} />
             <span className="font-mono text-xs uppercase tracking-wider">{preferences.userId?.slice(0, 8) || "offline"}</span>
           </div>
@@ -215,7 +215,7 @@ export function SettingsPage() {
                 const isActive = settings.activeSkillId === skill.id;
                 return (
                   <div key={skill.id} onClick={() => setSettings({ ...settings, activeSkillId: skill.id })}
-                    className={`relative flex flex-col items-center gap-1.5 p-3 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-red bg-muted-100" : "border-divider"}`}
+                    className={`relative flex flex-col items-center gap-1.5 p-3 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-green bg-muted-100" : "border-divider"}`}
                     title={skill.description}>
                     {skill.isCustom && <span className="absolute top-1 right-1 font-mono text-xs uppercase text-muted-400">custom</span>}
                     <span className="text-lg">{skill.icon}</span>
@@ -245,7 +245,7 @@ export function SettingsPage() {
                   const isMissingKey = route.id !== "smart" && !providerStatus[route.id];
                   return (
                     <div key={route.id} onClick={() => !isMissingKey && setSettings({ ...settings, routingMode: route.id })}
-                      className={`flex items-center gap-2 p-2 border transition-all duration-150 ${isMissingKey ? "opacity-35 cursor-not-allowed" : "cursor-pointer hover:bg-muted-100"} ${isActive ? "border-l-4 border-red bg-muted-100 border-divider" : "border-divider"}`}>
+                      className={`flex items-center gap-2 p-2 border transition-all duration-150 ${isMissingKey ? "opacity-35 cursor-not-allowed" : "cursor-pointer hover:bg-muted-100"} ${isActive ? "border-l-4 border-green bg-muted-100 border-divider" : "border-divider"}`}>
                       <span className="text-sm">{route.icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-1.5">
@@ -276,7 +276,7 @@ export function SettingsPage() {
                   const isActive = settings.activeModelId === model.id;
                   return (
                     <div key={model.id} onClick={() => { setSettings({ ...settings, activeModelId: model.id }); setShowModels(false); }}
-                      className={`flex items-center gap-2 p-2 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-red bg-muted-100 border-divider" : "border-divider"}`}>
+                      className={`flex items-center gap-2 p-2 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-green bg-muted-100 border-divider" : "border-divider"}`}>
                       <span className="text-sm">{model.icon}</span>
                       <div className="flex-1 min-w-0">
                         <div className={`font-mono text-[11px] font-semibold uppercase ${isActive ? "text-ink" : "text-muted-500"}`}>{model.name}</div>
@@ -294,7 +294,7 @@ export function SettingsPage() {
             <div className="flex gap-2 mb-3">
               {["short", "balanced", "detailed"].map((opt) => (
                 <button key={opt} type="button" onClick={() => setSettings({ ...settings, responseLength: opt, ...RESPONSE_PRESETS[opt] })}
-                  className={`flex-1 py-1.5 text-[11px] font-mono uppercase tracking-widest border transition-colors duration-150 ${settings.responseLength === opt ? "bg-ink text-paper border-[var(--color-border)]" : "border-divider text-muted-500 hover:text-ink hover:border-[var(--color-border)]"}`}>
+                  className={`flex-1 py-1.5 text-[11px] font-mono uppercase tracking-widest border transition-colors duration-150 ${settings.responseLength === opt ? "bg-green text-paper border-green" : "border-divider text-muted-500 hover:text-ink hover:border-[var(--color-border)]"}`}>
                   {opt}
                 </button>
               ))}
@@ -312,7 +312,7 @@ export function SettingsPage() {
                     <input type="range" min={param.min} max={param.max} step={param.step}
                       value={settings[param.key] ?? param.defaultVal}
                       onChange={(e) => setSettings({ ...settings, [param.key]: +e.target.value })}
-                      className="flex-1 h-1 appearance-none bg-muted-200 cursor-pointer accent-red outline-none" />
+                      className="flex-1 h-1 appearance-none bg-muted-200 cursor-pointer accent-green outline-none" />
                     <button type="button" onClick={() => setSettings({ ...settings, [param.key]: Math.min(param.max, (settings[param.key] ?? param.defaultVal) + param.step) })}
                       className="w-5 h-5 border border-[var(--color-border)] flex items-center justify-center text-ink hover:bg-muted-100 transition-colors text-sm">+</button>
                   </div>
@@ -528,7 +528,7 @@ export function SettingsPage() {
                           {prov.required && <span className="font-mono text-xs px-1 uppercase border border-red text-red">required</span>}
                         </div>
                         {isActive ? (
-                          <span className="flex items-center gap-1 font-mono text-sm text-muted-500 uppercase tracking-wider"><Check size={8} className="text-ink" strokeWidth={1.5} /> Active</span>
+                          <span className="flex items-center gap-1 font-mono text-sm text-green uppercase tracking-wider"><Check size={8} className="text-green" strokeWidth={1.5} /> Active</span>
                         ) : (
                           <span className="flex items-center gap-1 font-mono text-sm text-muted-400 uppercase tracking-wider"><AlertCircle size={8} strokeWidth={1.5} /> Not set</span>
                         )}
@@ -551,14 +551,14 @@ export function SettingsPage() {
                         </button>
                       </div>
                       {result && (
-                        <div className={`font-mono text-sm mt-1 flex items-start gap-1 ${result.ok ? (result.warning ? "text-muted-500" : "text-ink") : "text-red"}`}>
+                        <div className={`font-mono text-sm mt-1 flex items-start gap-1 ${result.ok ? (result.warning ? "text-muted-500" : "text-green") : "text-red"}`}>
                           <span>{result.ok ? (result.warning ? "!" : "+") : "-"}</span>
                           <span>{result.ok ? result.warning || "Key saved" : result.error}</span>
                         </div>
                       )}
                       <div className="flex items-center justify-between mt-1.5">
                         <span className="font-mono text-sm text-muted-400">{prov.hint}</span>
-                        <a href={prov.link} target="_blank" rel="noreferrer" className="font-mono text-sm text-ink hover:text-red underline underline-offset-2">Get key</a>
+                        <a href={prov.link} target="_blank" rel="noreferrer" className="font-mono text-sm text-ink hover:text-green underline underline-offset-2">Get key</a>
                       </div>
                     </div>
                   );
@@ -628,7 +628,7 @@ function SkillFormContent({ onSave, onCancel }) {
         className="w-full bg-transparent border border-divider px-2 py-1.5 text-sm font-body text-ink outline-none resize-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400" />
       <div className="flex gap-2">
         <button onClick={() => valid && onSave(form)} disabled={!valid}
-          className={`flex-1 py-1.5 text-xs font-mono font-bold uppercase tracking-widest border border-[var(--color-border)] transition-colors ${valid ? "bg-ink text-paper" : "bg-muted-100 text-muted-400 border-muted-200 cursor-not-allowed"}`}>Save</button>
+          className={`flex-1 py-1.5 text-xs font-mono font-bold uppercase tracking-widest border border-[var(--color-border)] transition-colors ${valid ? "bg-green text-paper" : "bg-muted-100 text-muted-400 border-muted-200 cursor-not-allowed"}`}>Save</button>
         <button onClick={onCancel} className="px-3 py-1.5 text-xs font-mono uppercase tracking-widest border border-[var(--color-border)] text-ink hover:bg-muted-100 transition-colors">Cancel</button>
       </div>
     </>
@@ -661,7 +661,7 @@ function ToolFormContent({ onSave, onCancel, initialData }) {
         className="w-full bg-transparent border border-divider px-2 py-1.5 text-sm font-body text-ink outline-none resize-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400" />
       <div className="flex gap-2">
         <button onClick={() => valid && onSave(form)} disabled={!valid}
-          className={`flex-1 py-1.5 text-xs font-mono font-bold uppercase tracking-widest border border-[var(--color-border)] transition-colors ${valid ? "bg-ink text-paper" : "bg-muted-100 text-muted-400 border-muted-200 cursor-not-allowed"}`}>Save</button>
+          className={`flex-1 py-1.5 text-xs font-mono font-bold uppercase tracking-widest border border-[var(--color-border)] transition-colors ${valid ? "bg-green text-paper" : "bg-muted-100 text-muted-400 border-muted-200 cursor-not-allowed"}`}>Save</button>
         <button onClick={onCancel} className="px-3 py-1.5 text-xs font-mono uppercase tracking-widest border border-[var(--color-border)] text-ink hover:bg-muted-100 transition-colors">Cancel</button>
       </div>
     </>

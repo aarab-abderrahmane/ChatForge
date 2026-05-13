@@ -15,10 +15,10 @@ function formatTime(isoString) {
   try { return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return ""; }
 }
 
-const btnGhost = "inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-500 hover:text-red transition-colors";
-const btnActiveUp = `${btnGhost} text-ink`;
+const btnGhost = "inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-500 hover:text-green transition-colors";
+const btnActiveUp = `${btnGhost} text-green`;
 const btnActiveDown = `${btnGhost} text-red`;
-const btnActiveStar = `${btnGhost} text-ink`;
+const btnActiveStar = `${btnGhost} text-green`;
 
 export function MessageBlock({
   obj, index, isLast, isCopied, copyToClipboard, onRetry,
@@ -74,7 +74,7 @@ export function MessageBlock({
                 rows={3}
               />
               <div className="flex gap-2">
-                <button onClick={commitEdit} className="min-h-[44px] px-4 border border-ink bg-ink text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-paper hover:text-ink transition-colors">
+                <button onClick={commitEdit} className="min-h-[44px] px-4 border border-green bg-green text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-green/90 transition-colors">
                   <Check size={12} strokeWidth={1.5} className="inline mr-1" /> Save & Re-send
                 </button>
                 <button onClick={cancelEdit} className="min-h-[44px] px-4 border border-ink text-ink font-mono text-[10px] uppercase tracking-widest hover:bg-muted-100 transition-colors">
@@ -143,7 +143,7 @@ export function MessageBlock({
               {selectedDrafts.length > 0 && (
                 <div className="flex flex-wrap gap-2 items-center border border-ink p-3 bg-muted-100">
                   <span className="font-mono text-[9px] uppercase tracking-widest text-muted-500">{selectedDrafts.length} Selected</span>
-                  <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="min-h-[44px] px-4 border border-ink bg-ink text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-paper hover:text-ink transition-colors">
+                  <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="min-h-[44px] px-4 border border-green bg-green text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-green/90 transition-colors">
                     <Wand2 size={12} strokeWidth={1.5} className="inline mr-1" /> Merge via AI
                   </button>
                   <button onClick={() => onSummarizeDrafts(obj.id, selectedDrafts)} className="min-h-[44px] px-4 border border-ink text-ink font-mono text-[10px] uppercase tracking-widest hover:bg-muted-100 transition-colors">

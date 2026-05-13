@@ -167,7 +167,7 @@ export function Sidebar({ isOpen, onToggle }) {
               key={session.id}
               className={`border-b border-divider transition-all duration-150 cursor-pointer ${
                 isActive
-                  ? "border-l-4 border-red bg-muted-100"
+                  ? "border-l-4 border-green bg-muted-100"
                   : "border-l-4 border-transparent hover:bg-muted-100"
               }`}
               onClick={() => !isEditing && setActiveSessionId(session.id)}

@@ -179,7 +179,7 @@ export const GuidePage = () => {
                           href="https://openrouter.ai"
                           target="_blank"
                           rel="noreferrer"
-                          className="inline-flex items-center gap-1 underline decoration-dashed underline-offset-4 text-muted-500 hover:text-red"
+                          className="inline-flex items-center gap-1 underline decoration-dashed underline-offset-4 text-muted-500 hover:text-green"
                         >
                           openrouter.ai
                           <ExternalLinkIcon size={11} />
@@ -216,7 +216,7 @@ export const GuidePage = () => {
                   currentPage: "chat",
                 }))
               }
-              className="border border-ink bg-ink text-paper hover:bg-ink/90 font-mono text-xs uppercase tracking-widest px-6 py-3 inline-flex items-center gap-2 cursor-pointer"
+              className="border border-green bg-green text-paper hover:bg-green/90 font-mono text-xs uppercase tracking-widest px-6 py-3 inline-flex items-center gap-2 cursor-pointer"
             >
               <ArrowRightCircleIcon size={16} />
               Launch Chat Terminal
