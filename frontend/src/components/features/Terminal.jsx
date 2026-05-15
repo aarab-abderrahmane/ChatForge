@@ -9,7 +9,8 @@ import { GuidePage } from "../../pages/guidePage";
 import {
   Settings, Trash2, Plus, SendHorizonal, FileText,
   Search, X as XIcon, Wifi, WifiOff, Menu, Sparkles,
-  Layers, ChevronLeft, ChevronRight,
+  Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil,
+  Briefcase, Bug, Code, BarChart3, TrendingUp,
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
@@ -209,6 +210,36 @@ export const Terminal = ({
 
   const fontSizeStyle = { fontSize: `${settings.fontSize || 14}px` };
 
+  const iosIcons = {
+    improve: Sparkles,
+    explain: Lightbulb,
+    grammar: Pencil,
+    proTone: Briefcase,
+    debug: Bug,
+    writecode: Code,
+    analyze: BarChart3,
+    clear: Trash2,
+    stats: TrendingUp,
+  };
+
+  const toolColors = {
+    improve: "#D97706",
+    explain: "#CA8A04",
+    grammar: "#2563EB",
+    proTone: "#4F46E5",
+    debug: "#CC0000",
+    writecode: "#059669",
+    analyze: "#0D9488",
+    clear: "#737373",
+    stats: "#EA580C",
+  };
+
+  const ToolIcon = ({ tool }) => {
+    const Icon = iosIcons[tool.id];
+    const color = toolColors[tool.id];
+    return Icon ? <Icon size={12} strokeWidth={2} className="mr-1" style={{ color }} /> : <span className="mr-1">{tool.icon}</span>;
+  };
+
   return (
     <div className={cn("flex flex-row h-full w-full border-b border-ink", className)} style={fontSizeStyle}>
       {isMobile && sidebarOpen && (
@@ -384,98 +415,100 @@ export const Terminal = ({
             </div>
 
             {/* ── Input Area ──────────────────────────── */}
-            <div className="border-t border-ink bg-paper px-4 py-3">
-              {/* AI Tools Bar */}
-              {settings.showToolbar !== false && aiTools.length > 0 && (
-                <div className="mb-3 border border-ink p-2">
-                  <div className="flex flex-wrap gap-2">
-                    {aiTools.map(tool => (
+            <div>
+              <div className="mx-auto max-w-3xl border-t border-black  px-4 py-3">
+                {/* AI Tools Bar */}
+                {settings.showToolbar !== false && aiTools.length > 0 && (
+                  <div className="mb-3 border border-ink p-2">
+                    <div className="flex flex-wrap gap-2">
+                      {aiTools.filter(t => !(settings.hiddenTools || []).includes(t.id)).map(tool => (
+                        <button
+                          key={tool.id}
+                          onClick={() => handleToolClick(tool)}
+                          className="font-[-apple-system,BlinkMacSystemFont,system-ui,sans-serif] text-[10px] flex justify-between items-center text-ink uppercase tracking-widest px-3 py-1.5 border border-ink hover:bg-ink hover:text-paper transition-colors"
+                          title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
+                        >
+                          <ToolIcon tool={tool} />
+                          {tool.label}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Command palette */}
+                {showCmdMenu && (
+                  <div className="border border-ink bg-paper mb-2 max-h-64 overflow-y-auto">
+                    <div className="font-mono text-[10px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b border-ink bg-muted-100">
+                      Available Commands
+                    </div>
+                    {COMMANDS.filter(c => c.cmd.startsWith(query.toLowerCase())).map(c => (
                       <button
-                        key={tool.id}
-                        onClick={() => handleToolClick(tool)}
-                        className="font-mono text-[10px] text-ink uppercase tracking-widest px-3 py-1.5 border border-ink hover:bg-ink hover:text-paper transition-colors"
-                        title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
+                        key={c.cmd}
+                        onClick={() => handleCmdSelect(c.cmd)}
+                        className="w-full flex items-center justify-between px-3 py-2 text-left font-mono text-xs hover:bg-muted-100 transition-colors border-b border-divider last:border-b-0"
                       >
-                        <span className="mr-1">{tool.icon}</span>
-                        {tool.label}
+                        <span className="font-semibold text-ink">{c.icon} {c.cmd}</span>
+                        <span className="text-muted-500 text-[10px]">{c.desc}</span>
                       </button>
                     ))}
                   </div>
-                </div>
-              )}
+                )}
 
-              {/* Command palette */}
-              {showCmdMenu && (
-                <div className="border border-ink bg-paper mb-2 max-h-64 overflow-y-auto">
-                  <div className="font-mono text-[10px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b border-ink bg-muted-100">
-                    Available Commands
+                <div className="flex items-end gap-2">
+                  <div className="flex-1 relative">
+                    <textarea
+                      ref={textareaRef}
+                      className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink placeholder:text-muted-400 outline-none resize-none min-h-[44px] max-h-[160px]"
+                      placeholder="Ask anything\u2026 or type //> for commands"
+                      value={query}
+                      onChange={handleInputChange}
+                      onKeyDown={handleKeyDown}
+                      autoFocus
+                      disabled={loading}
+                      rows={1}
+                      onFocus={e => e.currentTarget.style.background = "#F5F5F5"}
+                      onBlur={e => e.currentTarget.style.background = "transparent"}
+                    />
+                    {charCount > 0 && (
+                      <span className="absolute bottom-1 right-2 font-mono text-[9px] text-muted-500 bg-paper px-1">
+                        ~{estTokens} tokens | {charCount} chars
+                      </span>
+                    )}
                   </div>
-                  {COMMANDS.filter(c => c.cmd.startsWith(query.toLowerCase())).map(c => (
-                    <button
-                      key={c.cmd}
-                      onClick={() => handleCmdSelect(c.cmd)}
-                      className="w-full flex items-center justify-between px-3 py-2 text-left font-mono text-xs hover:bg-muted-100 transition-colors border-b border-divider last:border-b-0"
-                    >
-                      <span className="font-semibold text-ink">{c.icon} {c.cmd}</span>
-                      <span className="text-muted-500 text-[10px]">{c.desc}</span>
-                    </button>
-                  ))}
-                </div>
-              )}
 
-              <div className="flex items-end gap-2">
-                <div className="flex-1 relative">
-                  <textarea
-                    ref={textareaRef}
-                    className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink placeholder:text-muted-400 outline-none resize-none min-h-[44px] max-h-[160px]"
-                    placeholder="Ask anything\u2026 or type //> for commands"
-                    value={query}
-                    onChange={handleInputChange}
-                    onKeyDown={handleKeyDown}
-                    autoFocus
-                    disabled={loading}
-                    rows={1}
-                    onFocus={e => e.currentTarget.style.background = "#F5F5F5"}
-                    onBlur={e => e.currentTarget.style.background = "transparent"}
-                  />
-                  {charCount > 0 && (
-                    <span className="absolute bottom-1 right-2 font-mono text-[9px] text-muted-500 bg-paper px-1">
-                      ~{estTokens} tokens | {charCount} chars
-                    </span>
-                  )}
+                  <button
+                    type="button"
+                    title={draftCount > 1 ? "Multi-Draft: 3 Variants" : "Single Draft"}
+                    onClick={() => setDraftCount(d => d === 1 ? 3 : 1)}
+                    className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-colors ${draftCount > 1 ? "border-ink bg-ink text-paper" : "border-ink text-ink hover:bg-muted-100"}`}
+                  >
+                    <Layers size={16} strokeWidth={1.5} />
+                    {draftCount > 1 && <span className="ml-1 font-mono text-[10px]">{draftCount}</span>}
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      if (loading) { onStopAI?.(); return; }
+                      if (!query.trim()) return;
+                      executeCommand(query) || doSend({ target: { value: query } });
+                    }}
+                    disabled={!loading && !query.trim()}
+                    className="min-h-[44px] min-w-[44px] flex items-center justify-center border border-ink transition-colors bg-ink text-paper hover:bg-paper hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed"
+                    title={loading ? "Stop Generation" : "Send Message"}
+                  >
+                    {loading ? <XIcon size={18} strokeWidth={1.5} /> : <SendHorizonal size={18} strokeWidth={1.5} />}
+                  </button>
                 </div>
 
-                <button
-                  type="button"
-                  title={draftCount > 1 ? "Multi-Draft: 3 Variants" : "Single Draft"}
-                  onClick={() => setDraftCount(d => d === 1 ? 3 : 1)}
-                  className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-colors ${draftCount > 1 ? "border-ink bg-ink text-paper" : "border-ink text-ink hover:bg-muted-100"}`}
-                >
-                  <Layers size={16} strokeWidth={1.5} />
-                  {draftCount > 1 && <span className="ml-1 font-mono text-[10px]">{draftCount}</span>}
-                </button>
-
-                <button
-                  onClick={() => {
-                    if (loading) { onStopAI?.(); return; }
-                    if (!query.trim()) return;
-                    executeCommand(query) || doSend({ target: { value: query } });
-                  }}
-                  disabled={!loading && !query.trim()}
-                  className="min-h-[44px] min-w-[44px] flex items-center justify-center border border-ink transition-colors bg-ink text-paper hover:bg-paper hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed"
-                  title={loading ? "Stop Generation" : "Send Message"}
-                >
-                  {loading ? <XIcon size={18} strokeWidth={1.5} /> : <SendHorizonal size={18} strokeWidth={1.5} />}
-                </button>
+                {settings.showHintBar !== false && (
+                  <div className="flex items-center gap-4 mt-2 font-mono text-[9px] text-muted-500 uppercase tracking-widest">
+                    <span><kbd className="border border-ink px-1">Enter</kbd> send</span>
+                    <span><kbd className="border border-ink px-1">Shift+Enter</kbd> newline</span>
+                    <span><kbd className="border border-ink px-1">/&gt;</kbd> commands</span>
+                  </div>
+                )}
               </div>
-
-              {settings.showHintBar !== false && (
-                <div className="flex items-center gap-4 mt-2 font-mono text-[9px] text-muted-500 uppercase tracking-widest">
-                  <span><kbd className="border border-ink px-1">Enter</kbd> send</span>
-                  <span><kbd className="border border-ink px-1">Shift+Enter</kbd> newline</span>
-                  <span><kbd className="border border-ink px-1">/&gt;</kbd> commands</span>
-                </div>
-              )}
             </div>
           </div>
         ) : (

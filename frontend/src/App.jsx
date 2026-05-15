@@ -47,6 +47,7 @@ function App() {
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
   const streamCountRef = useRef(0);
+  const askAIRef = useRef(null);
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
 
   // All skills (built-in + custom)
@@ -230,7 +231,7 @@ function App() {
       if (summaryUpdateNeeded && !draftIndex) {
         ContextBuilder.summarize(preferences.userId, chats, session.summary).then((newSummary) => {
           if (newSummary && newSummary !== session.summary) {
-            updateSessionSummary(id, newSummary);
+            updateSessionSummary(activeSessionId, newSummary);
           }
         });
       }
@@ -287,27 +288,26 @@ function App() {
       startStream(question, id, overrideSkillId, -1, abortControllerRef.current.signal);
     }
   }
+  askAIRef.current = askAI;
 
   // ── Handlers ──
   const handleStopAI = useCallback(() => {
-    if (!abortControllerRef.current) return;
-    abortControllerRef.current.abort();
+    abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setLoading(false);
-
-    setChats((prev) => {
-      const lastMsg = [...prev].reverse().find((m) => m.type === 'ch');
-      if (!lastMsg) return prev;
+    // Find last message OUTSIDE the setter
+    const lastMsg = [...chats].reverse().find(m => m.type === 'ch');
+    if (lastMsg) {
       setQuery(lastMsg.question);
-      return prev.filter((m) => m.id !== lastMsg.id);
-    });
-  }, [setLoading, setChats, setQuery]);
+      setChats(prev => prev.filter(m => m.id !== lastMsg.id));
+    }
+  }, [chats, setLoading, setChats, setQuery]);
 
   const handleRetry = useCallback(
     (question, id) => {
       const msg = chats.find((c) => c.id === id);
       if (!msg) return;
-      askAI(question, id, msg.skillId, msg.isMulti ? msg.answers?.length : 1);
+      askAIRef.current(question, id, msg.skillId, msg.isMulti ? msg.answers?.length : 1);
     },
     [chats]
   );
@@ -321,7 +321,7 @@ function App() {
         prev.map((obj) => (obj.id === id ? { ...obj, isTruncated: false } : obj))
       );
 
-      askAI(
+      askAIRef.current(
         'Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.',
         id,
         msg.skillId,
@@ -427,7 +427,7 @@ function App() {
           timestamp: new Date().toISOString(),
         };
         setChats((prev) => [...prev, newMsg]);
-        askAI(transformed.question, newId, transformed.skillId, draftCount);
+        askAIRef.current(transformed.question, newId, transformed.skillId, draftCount);
         return;
       }
 
@@ -450,7 +450,7 @@ function App() {
         lowerText === 'كمل' ||
         lowerText === 'continue code';
 
-      askAI(
+      askAIRef.current(
         isContinue
           ? 'Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.'
           : text,

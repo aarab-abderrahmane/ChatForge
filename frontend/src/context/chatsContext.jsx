@@ -216,6 +216,7 @@ const defaultSettings = {
   presencePenalty: 0,
   systemPromptPrefix: "",
   routingMode: "smart",
+  hiddenTools: [],
   _settingsVersion: SETTINGS_VERSION,
 };
 

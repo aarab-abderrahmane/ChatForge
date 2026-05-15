@@ -36,9 +36,6 @@
   --radius-xl: 0;
 }
 
-:root{
-    --color-border: #bdbdbd; 
-}
 
 /* ── Base Reset ── */
 *, *::before, *::after {
@@ -51,7 +48,7 @@ html {
 }
 
 body {
-  background: #f4f3ee;
+  background: var(--color-paper);
   color: #111111;
   font-family: 'Lora', Georgia, serif;
   min-height: 100vh;

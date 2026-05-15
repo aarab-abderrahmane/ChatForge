@@ -349,21 +349,31 @@ export function SettingsPage() {
               </div>
             )}
             <div className="flex flex-col gap-1.5 max-h-48 overflow-y-auto">
-              {aiTools.map((tool) => (
-                <div key={tool.id} className="flex items-center justify-between p-2 border border-divider hover:bg-muted-100 transition-colors group">
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm">{tool.icon}</span>
-                    <div>
-                      <span className="font-mono text-xs font-semibold text-ink uppercase">{tool.label}</span>
-                      <span className="font-body text-[11px] text-muted-400 block">{tool.prompt?.slice(0, 30)}...</span>
+              {aiTools.map((tool) => {
+                const hidden = (settings.hiddenTools || []).includes(tool.id);
+                return (
+                  <div key={tool.id} className="flex items-center justify-between p-2 border border-divider hover:bg-muted-100 transition-colors group">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => {
+                        const current = settings.hiddenTools || [];
+                        const next = hidden ? current.filter(id => id !== tool.id) : [...current, tool.id];
+                        setSettings({ ...settings, hiddenTools: next });
+                      }} className={`p-1 transition-colors ${hidden ? "text-muted-300" : "text-muted-400 hover:text-ink"}`} title={hidden ? "Show in toolbar" : "Hide from toolbar"}>
+                        {hidden ? <EyeOff size={12} strokeWidth={1.5} /> : <Eye size={12} strokeWidth={1.5} />}
+                      </button>
+                      <span className={`text-sm ${hidden ? "opacity-30" : ""}`}>{tool.icon}</span>
+                      <div>
+                        <span className={`font-mono text-xs font-semibold uppercase ${hidden ? "text-muted-300 line-through" : "text-ink"}`}>{tool.label}</span>
+                        <span className="font-body text-[11px] text-muted-400 block">{tool.prompt?.slice(0, 30)}...</span>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={() => { setEditingTool(tool); setShowToolForm(true); }} className="p-1 text-muted-400 hover:text-ink"><Settings2 size={10} strokeWidth={1.5} /></button>
+                      <button onClick={() => deleteAITool(tool.id)} className="p-1 text-muted-400 hover:text-red"><Trash2 size={10} strokeWidth={1.5} /></button>
                     </div>
                   </div>
-                  <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button onClick={() => { setEditingTool(tool); setShowToolForm(true); }} className="p-1 text-muted-400 hover:text-ink"><Settings2 size={10} strokeWidth={1.5} /></button>
-                    <button onClick={() => deleteAITool(tool.id)} className="p-1 text-muted-400 hover:text-red"><Trash2 size={10} strokeWidth={1.5} /></button>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </SectionCard>
 

@@ -78,14 +78,20 @@ export const ContextBuilder = {
         const lastFewMessages = chatHistory.slice(-4);
         const codeMode = lastFewMessages.some(c => hasCodeHighDensity(c.question) || hasCodeHighDensity(c.answer));
 
+        // Exclude the in-flight message (no answer, matches currentQuestion) from history
+        // to prevent duplication — it will be appended once at the end.
+        const historyForMessages = currentQuestion
+            ? chatHistory.filter(c => !(!c.answer && c.question === currentQuestion))
+            : chatHistory;
+
         // 10-message rule logic
-        if (chatHistory.length <= 10) {
-            messages = chatHistory.flatMap(c => [
+        if (historyForMessages.length <= 10) {
+            messages = historyForMessages.flatMap(c => [
                 { role: "user", content: truncate(c.question, MAX_MESSAGE_CONTENT, codeMode) },
                 ...(c.answer ? [{ role: "assistant", content: truncate(c.answer, MAX_MESSAGE_CONTENT, codeMode) }] : [])
             ]);
         } else {
-            messages = chatHistory.slice(-6).flatMap(c => [
+            messages = historyForMessages.slice(-6).flatMap(c => [
                 { role: "user", content: truncate(c.question, MAX_MESSAGE_CONTENT, codeMode) },
                 ...(c.answer ? [{ role: "assistant", content: truncate(c.answer, MAX_MESSAGE_CONTENT, codeMode) }] : [])
             ]);
@@ -95,9 +101,9 @@ export const ContextBuilder = {
         // Do NOT inject it again as a system message — that would cause duplicate context
         // which wastes tokens and can confuse the model.
 
-        // 3. FIX STALE MESSAGE: Explicitly append the current question if it's not already the last message
-        if (currentQuestion && (!messages.length || messages[messages.length - 1].content !== currentQuestion)) {
-            messages.push({ role: "user", content: currentQuestion });
+        // 3. Append currentQuestion exactly once (with truncation) after the history.
+        if (currentQuestion) {
+            messages.push({ role: "user", content: truncate(currentQuestion, MAX_MESSAGE_CONTENT, codeMode) });
         }
 
         // Build System Prompt
