@@ -138,7 +138,6 @@ export const api = {
         huggingface: keys.huggingface,
       };
 
-      // نرسل الطلب إلى مسار /chat العادي بدون workspaceState
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -148,8 +147,7 @@ export const api = {
           skillPrompt,
           model,
           parameters: safeParams,
-          clientKeys,
-          isAgent: false // تأكيد أن هذه دردشة عادية
+          clientKeys
         }),
         signal,
       });

@@ -8,9 +8,9 @@ import { GuidePage } from "../../pages/guidePage";
 
 import {
   Settings, Trash2, Plus, SendHorizonal, FileText,
-  Search, X as XIcon, Wifi, WifiOff, Menu, Sparkles,
-  Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil,
-  Briefcase, Bug, Code, BarChart3, TrendingUp,
+  Search, X as XIcon, Menu, Sparkles,
+  Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil,Wifi,
+  Briefcase, Bug, Code, BarChart3, TrendingUp, ChevronUp, ChevronDown,
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
@@ -61,6 +61,7 @@ export const Terminal = ({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator?.onLine ?? true);
   const [draftCount, setDraftCount] = useState(1);
+  const [toolbarOpen, setToolbarOpen] = useState(true);
 
   const textareaRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -419,20 +420,31 @@ export const Terminal = ({
               <div className="mx-auto max-w-3xl border-t border-black  px-4 py-3">
                 {/* AI Tools Bar */}
                 {settings.showToolbar !== false && aiTools.length > 0 && (
-                  <div className="mb-3 border border-ink p-2">
-                    <div className="flex flex-wrap gap-2">
-                      {aiTools.filter(t => !(settings.hiddenTools || []).includes(t.id)).map(tool => (
-                        <button
-                          key={tool.id}
-                          onClick={() => handleToolClick(tool)}
-                          className="font-[-apple-system,BlinkMacSystemFont,system-ui,sans-serif] text-[10px] flex justify-between items-center text-ink uppercase tracking-widest px-3 py-1.5 border border-ink hover:bg-ink hover:text-paper transition-colors"
-                          title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
-                        >
-                          <ToolIcon tool={tool} />
-                          {tool.label}
-                        </button>
-                      ))}
-                    </div>
+                  <div className="mb-3 border border-ink">
+                    <button
+                      onClick={() => setToolbarOpen(p => !p)}
+                      className="w-full flex items-center justify-between px-3 py-2 bg-muted-100 font-mono text-[10px] uppercase tracking-widest text-ink hover:bg-muted-200 transition-colors"
+                    >
+                      <span>AI Tools</span>
+                      {toolbarOpen ? <ChevronUp size={12} strokeWidth={1.5} /> : <ChevronDown size={12} strokeWidth={1.5} />}
+                    </button>
+                    {toolbarOpen && (
+                      <div className="p-2">
+                        <div className="flex flex-wrap gap-2">
+                          {aiTools.filter(t => !(settings.hiddenTools || []).includes(t.id)).map(tool => (
+                            <button
+                              key={tool.id}
+                              onClick={() => handleToolClick(tool)}
+                              className="font-[-apple-system,BlinkMacSystemFont,system-ui,sans-serif] text-[10px] flex justify-between items-center text-ink uppercase tracking-widest px-3 py-1.5 border border-ink hover:bg-ink hover:text-paper transition-colors"
+                              title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
+                            >
+                              <ToolIcon tool={tool} />
+                              {tool.label}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+                    )}
                   </div>
                 )}
 

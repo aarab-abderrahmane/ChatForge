@@ -78,11 +78,8 @@ export const ContextBuilder = {
         const lastFewMessages = chatHistory.slice(-4);
         const codeMode = lastFewMessages.some(c => hasCodeHighDensity(c.question) || hasCodeHighDensity(c.answer));
 
-        // Exclude the in-flight message (no answer, matches currentQuestion) from history
-        // to prevent duplication — it will be appended once at the end.
-        const historyForMessages = currentQuestion
-            ? chatHistory.filter(c => !(!c.answer && c.question === currentQuestion))
-            : chatHistory;
+        // Only include messages that have a completed answer (no in-flight messages)
+        const historyForMessages = chatHistory.filter(c => !!c.answer);
 
         // 10-message rule logic
         if (historyForMessages.length <= 10) {

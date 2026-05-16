@@ -21,8 +21,8 @@ import { CheckIcon, CopyIcon } from 'lucide-react';
 import { createContext, useContext, useState } from 'react';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
-// Custom newsprint theme for code blocks
-const newsprintTheme = {
+// VS Code Light+ inspired theme
+const codeTheme = {
   'code[class*="language-"]': {
     color: '#111111',
     background: 'none',
@@ -54,37 +54,37 @@ const newsprintTheme = {
     margin: 0,
     overflow: 'auto',
   },
-  comment: { color: '#A3A3A3', fontStyle: 'italic' },
-  prolog: { color: '#A3A3A3' },
-  doctype: { color: '#A3A3A3' },
-  cdata: { color: '#A3A3A3' },
-  punctuation: { color: '#737373' },
-  property: { color: '#525252' },
-  tag: { color: '#525252' },
-  boolean: { color: '#CC0000' },
-  number: { color: '#CC0000' },
-  constant: { color: '#CC0000' },
-  symbol: { color: '#CC0000' },
-  deleted: { color: '#CC0000' },
-  selector: { color: '#525252' },
-  'attr-name': { color: '#404040' },
-  string: { color: '#CC0000' },
-  char: { color: '#CC0000' },
-  builtin: { color: '#525252' },
-  inserted: { color: '#CC0000' },
+  comment: { color: '#6A9955', fontStyle: 'italic' },
+  prolog: { color: '#6A9955' },
+  doctype: { color: '#6A9955' },
+  cdata: { color: '#6A9955' },
+  punctuation: { color: '#111111' },
+  property: { color: '#EC5243' },
+  tag: { color: '#800000' },
+  boolean: { color: '#0000FF' },
+  number: { color: '#098658' },
+  constant: { color: '#098658' },
+  symbol: { color: '#098658' },
+  deleted: { color: '#A31515' },
+  selector: { color: '#800000' },
+  'attr-name': { color: '#FF0000' },
+  string: { color: '#A31515' },
+  char: { color: '#A31515' },
+  builtin: { color: '#0000FF' },
+  inserted: { color: '#098658' },
   operator: { color: '#111111' },
-  entity: { color: '#CC0000', cursor: 'help' },
-  url: { color: '#525252' },
-  'language-css .token.string': { color: '#CC0000' },
-  'style .token.string': { color: '#CC0000' },
-  variable: { color: '#111111' },
-  atrule: { color: '#525252' },
-  'attr-value': { color: '#CC0000' },
-  function: { color: '#525252' },
-  'class-name': { color: '#525252' },
-  keyword: { color: '#111111', fontWeight: 'bold' },
-  regex: { color: '#CC0000' },
-  important: { color: '#CC0000', fontWeight: 'bold' },
+  entity: { color: '#A31515', cursor: 'help' },
+  url: { color: '#111111' },
+  'language-css .token.string': { color: '#A31515' },
+  'style .token.string': { color: '#A31515' },
+  variable: { color: '#001080' },
+  atrule: { color: '#795E26' },
+  'attr-value': { color: '#A31515' },
+  function: { color: '#795E26' },
+  'class-name': { color: '#267F99' },
+  keyword: { color: '#0000FF' },
+  regex: { color: '#A31515' },
+  important: { color: '#0000FF', fontWeight: 'bold' },
   bold: { fontWeight: 'bold' },
   italic: { fontStyle: 'italic' },
 };
@@ -152,7 +152,7 @@ export const CodeBlock = ({
             userSelect: 'none',
           }}
           showLineNumbers={showLineNumbers}
-          style={newsprintTheme}
+          style={codeTheme}
         >
           {code}
         </SyntaxHighlighter>

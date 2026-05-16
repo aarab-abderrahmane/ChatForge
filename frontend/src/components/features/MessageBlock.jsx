@@ -104,7 +104,11 @@ export function MessageBlock({
 
       {/* Answer content */}
       {(hasAnswer || obj.isMulti) && (
-        <div className="ml-0">
+        <div className="flex gap-4">
+          <div className="shrink-0 w-8 h-8 border border-ink flex items-center justify-center font-mono text-[10px] uppercase tracking-widest mt-0.5" title="AI">
+            AI
+          </div>
+          <div className="flex-1 min-w-0">
           {isError ? (
             <div className="flex items-start gap-3 text-red">
               <AlertTriangleIcon size={16} strokeWidth={1.5} className="shrink-0 mt-0.5" />
@@ -203,6 +207,7 @@ export function MessageBlock({
                 <RefreshCcwIcon size={11} strokeWidth={1.5} /> retry
               </button>
             )}
+          </div>
           </div>
         </div>
       )}
