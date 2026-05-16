@@ -40,6 +40,43 @@ const hasCodeHighDensity = (text) => {
     return count >= 3 || text.includes("```");
 };
 
+const FACT_PATTERNS = [
+    { key: "name", label: "Name", patterns: [
+        /my name is (\w+)/i, /call me (\w+)/i,
+        /you can call me (\w+)/i, /i(?:'m| am) called (\w+)/i,
+    ]},
+    { key: "location", label: "Location", patterns: [
+        /i live in (\w+(?:\s+\w+)?)/i, /i(?:'m| am) from (\w+(?:\s+\w+)?)/i,
+    ]},
+];
+
+const extractFacts = (text, existingFacts = {}) => {
+    if (!text) return existingFacts;
+    const newFacts = { ...existingFacts };
+    for (const { key, patterns } of FACT_PATTERNS) {
+        if (newFacts[key]) continue;
+        for (const regex of patterns) {
+            const match = text.match(regex);
+            if (match) {
+                const val = match[1].charAt(0).toUpperCase() + match[1].slice(1);
+                if (val.length > 2 && val.length < 50) {
+                    newFacts[key] = val;
+                }
+                break;
+            }
+        }
+    }
+    return newFacts;
+};
+
+const buildFactsBlock = (userFacts) => {
+    const entries = Object.entries(userFacts).filter(([, v]) => v);
+    if (!entries.length) return "";
+    const factsStr = entries.map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v}`).join(" | ");
+    return `=== USER FACTS (Always trust these over code examples) ===\n${factsStr}\n\n` +
+        "CRITICAL: If user facts above conflict with example data in code or JSON snippets in recent messages, ALWAYS trust user facts.\n\n";
+};
+
 /**
  * Context Builder Logic:
  * 1. Takes current chats and active project (if any).
@@ -63,7 +100,7 @@ export const ContextBuilder = {
      * @param {String} currentQuestion - The fresh question being sent (to avoid stale state).
      * @returns {Object} { messages, systemPrompt, summaryUpdateNeeded }
      */
-    build: async (chats, currentSummary = "", currentQuestion = "") => {
+    build: async (chats, currentSummary = "", currentQuestion = "", userFacts = {}) => {
         // 1. FILTER: Exclude the default FAQ/Welcome messages from AI context to prevent pollution
         const chatHistory = chats.filter(c =>
             c.type === "ch" &&
@@ -79,7 +116,8 @@ export const ContextBuilder = {
         const codeMode = lastFewMessages.some(c => hasCodeHighDensity(c.question) || hasCodeHighDensity(c.answer));
 
         // Only include messages that have a completed answer (no in-flight messages)
-        const historyForMessages = chatHistory.filter(c => !!c.answer);
+        // and exclude ephemeral messages (draft summaries, merge results, etc.)
+        const historyForMessages = chatHistory.filter(c => !c.isEphemeral && !!c.answer);
 
         // 10-message rule logic
         if (historyForMessages.length <= 10) {
@@ -103,8 +141,17 @@ export const ContextBuilder = {
             messages.push({ role: "user", content: truncate(currentQuestion, MAX_MESSAGE_CONTENT, codeMode) });
         }
 
+        // Extract user facts from current question + existing chats (retroactive)
+        let mergedFacts = extractFacts(currentQuestion, { ...userFacts });
+        if (!userFacts || !Object.keys(userFacts).length) {
+            for (const c of chatHistory) {
+                mergedFacts = extractFacts(c.question, mergedFacts);
+                mergedFacts = extractFacts(c.answer, mergedFacts);
+            }
+        }
+
         // Build System Prompt
-        let systemPrompt = "";
+        let systemPrompt = buildFactsBlock(mergedFacts);
 
         if (summary) {
             systemPrompt += `Below is a brief summary of the conversation so far for context. HOWEVER, prioritize the LATEST user request above all else.\nSummary: [${summary}]\n\n`;
@@ -127,7 +174,8 @@ export const ContextBuilder = {
         return {
             messages,
             systemPrompt,
-            summaryUpdateNeeded: chatHistory.length > 10 // Flag to trigger background summarization
+            summaryUpdateNeeded: chatHistory.length > 10, // Flag to trigger background summarization
+            updatedFacts: mergedFacts
         };
     },
 

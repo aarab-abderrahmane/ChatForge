@@ -40,6 +40,7 @@ function App() {
     sessions,
     updateSessionSummary,
     updateSessionRoute,
+    updateSessionFacts,
     activeSessionId,
     providerStatus,
   } = useContext(chatsContext) || {};
@@ -99,8 +100,12 @@ function App() {
 
     const session = sessions.find((s) => s.id === activeSessionId) || { messages: chats, summary: '' };
 
-    const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded } =
-      await ContextBuilder.build(chats, session.summary, question);
+    const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded, updatedFacts } =
+      await ContextBuilder.build(chats, session.summary, question, session.userFacts || {});
+
+    if (updatedFacts && JSON.stringify(updatedFacts) !== JSON.stringify(session.userFacts || {})) {
+      updateSessionFacts(activeSessionId, updatedFacts);
+    }
 
     // ── Model routing & locking ──
     let finalRoutingMode = settings.routingMode || 'smart';
@@ -480,9 +485,11 @@ function App() {
     const msg = chats.find((c) => c.id === msgId);
     if (!msg) return;
     const selected = indices.map((i) => msg.answers[i]).join('\n\n---\n\n');
-    setQuery(
-      `Summarize the key differences and insights from these alternate drafts:\n\n${selected}`
-    );
+    const text = `Summarize the key differences and insights from these alternate drafts:\n\n${selected}`;
+    const newId = crypto.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
+    const newMsg = { id: newId, type: 'ch', question: text, isEphemeral: true, timestamp: new Date().toISOString() };
+    setChats((prev) => [...prev, newMsg]);
+    askAIRef.current(text, newId, null, 1);
   }, [chats]);
 
   const handleKeepDraft = useCallback((msgId, index) => {

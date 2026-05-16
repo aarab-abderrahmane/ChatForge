@@ -411,6 +411,7 @@ export function ChatsProvider({ children }) {
     messages: overrides.messages || WELCOME_MESSAGES,
     createdAt: new Date().toISOString(),
     summary: overrides.summary || "",
+    userFacts: overrides.userFacts || {},
     routingMode: overrides.routingMode || null, // Locked routing mode for this session
     ...overrides,
   });
@@ -534,12 +535,16 @@ export function ChatsProvider({ children }) {
     setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, routingMode } : s)));
   }, []);
 
+  const updateSessionFacts = useCallback((id, userFacts) => {
+    setSessions((prev) => prev.map((s) => (s.id === id ? { ...s, userFacts } : s)));
+  }, []);
+
   const clearCurrentChat = useCallback(() => {
     // Clear only the active session's messages, preserving other sessions
     setSessions((prev) =>
       prev.map((s) =>
         s.id === (activeSession?.id)
-          ? { ...s, messages: WELCOME_MESSAGES, title: "New Chat", summary: "", routingMode: null }
+          ? { ...s, messages: WELCOME_MESSAGES, title: "New Chat", summary: "", userFacts: {}, routingMode: null }
           : s
       )
     );
@@ -622,6 +627,7 @@ export function ChatsProvider({ children }) {
         renameSession,
         updateSessionSummary,
         updateSessionRoute,
+        updateSessionFacts,
         clearCurrentChat,
         clearAllSessions,
         importSessions,
