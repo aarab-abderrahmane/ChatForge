@@ -81,6 +81,8 @@ export const KeysService = {
         if (keys.groq) encrypted.groq = await encryptKey(keys.groq);
         if (keys.gemini) encrypted.gemini = await encryptKey(keys.gemini);
         if (keys.huggingface) encrypted.huggingface = await encryptKey(keys.huggingface);
+        if (keys.together) encrypted.together = await encryptKey(keys.together);
+        if (keys.mistral) encrypted.mistral = await encryptKey(keys.mistral);
 
         const existing = await idb.get(stores.KEYS, 'user_keys') || {};
         await idb.put(stores.KEYS, { ...existing, ...encrypted });
@@ -92,6 +94,8 @@ export const KeysService = {
         if (encrypted.groq) decrypted.groq = await decryptKey(encrypted.groq);
         if (encrypted.gemini) decrypted.gemini = await decryptKey(encrypted.gemini);
         if (encrypted.huggingface) decrypted.huggingface = await decryptKey(encrypted.huggingface);
+        if (encrypted.together) decrypted.together = await decryptKey(encrypted.together);
+        if (encrypted.mistral) decrypted.mistral = await decryptKey(encrypted.mistral);
         return decrypted;
     },
     getStatus: async () => {
@@ -101,6 +105,8 @@ export const KeysService = {
             groq: !!keys.groq,
             gemini: !!keys.gemini,
             huggingface: !!keys.huggingface,
+            together: !!keys.together,
+            mistral: !!keys.mistral,
         };
     },
     /**

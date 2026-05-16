@@ -9,7 +9,7 @@ import { GuidePage } from "../../pages/guidePage";
 import {
   Settings, Trash2, Plus, SendHorizonal, FileText,
   Search, X as XIcon, Menu, Sparkles,
-  Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil,Wifi,
+  Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil,Wifi,WifiOff, 
   Briefcase, Bug, Code, BarChart3, TrendingUp, ChevronUp, ChevronDown,
 } from "lucide-react";
 
@@ -61,7 +61,7 @@ export const Terminal = ({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [isOnline, setIsOnline] = useState(navigator?.onLine ?? true);
   const [draftCount, setDraftCount] = useState(1);
-  const [toolbarOpen, setToolbarOpen] = useState(true);
+  const [toolbarOpen, setToolbarOpen] = useState(false);
 
   const textareaRef = useRef(null);
   const searchInputRef = useRef(null);

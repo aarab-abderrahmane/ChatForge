@@ -20,6 +20,7 @@ export async function* askGeminiStream(messages, apiKey, options = {}) {
         temperature = 0.7,
         maxOutputTokens = 2048,
         topP = 1.0,
+        model,
     } = options;
 
     // Convert OpenAI-style messages → Gemini format
@@ -28,7 +29,8 @@ export async function* askGeminiStream(messages, apiKey, options = {}) {
         parts: [{ text: m.content }],
     }));
 
-    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:streamGenerateContent?alt=sse`;
+    const geminiModel = model || GEMINI_MODEL;
+    const url = `${GEMINI_BASE}/${geminiModel}:streamGenerateContent?alt=sse`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);
@@ -112,6 +114,7 @@ export async function askGeminiSync(messages, apiKey, options = {}) {
         temperature = 0.7,
         maxOutputTokens = 2048,
         topP = 1.0,
+        model,
     } = options;
 
     const contents = messages.map((m) => ({
@@ -119,7 +122,8 @@ export async function askGeminiSync(messages, apiKey, options = {}) {
         parts: [{ text: m.content }],
     }));
 
-    const url = `${GEMINI_BASE}/${GEMINI_MODEL}:generateContent`;
+    const geminiModel = model || GEMINI_MODEL;
+    const url = `${GEMINI_BASE}/${geminiModel}:generateContent`;
 
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 30000);

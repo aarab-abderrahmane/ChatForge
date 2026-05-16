@@ -92,7 +92,7 @@ export function MessageBlock({
         <div className="flex items-center gap-2 shrink-0">
           {obj.provider && (
             <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border border-ink px-1.5 py-0.5">
-              {obj.provider === "groq" ? "GROQ" : obj.provider === "gemini" ? "GEMINI" : obj.provider === "huggingface" ? "HUGGINGFACE" : "OPENROUTER"}
+              {obj.provider === "groq" ? "GROQ" : obj.provider === "gemini" ? "GEMINI" : obj.provider === "huggingface" ? "HUGGINGFACE" : obj.provider === "together" ? "TOGETHER" : obj.provider === "mistral" ? "MISTRAL" : "OPENROUTER"}
             </span>
           )}
           {isStarred && <span className="text-ink" title="Starred">&#9733;</span>}

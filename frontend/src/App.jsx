@@ -129,6 +129,10 @@ function App() {
     const isCodeTask = finalRoutingMode === 'openrouter' || finalRoutingMode === 'gemini';
     const maxTokens = isCodeTask ? 4096 : settings.maxTokens || 1024;
 
+    // When Smart Router is the global setting, send 'smart' to the backend
+    // so it uses the full TASK_MODELS fallback chain (not single-provider mode)
+    const apiRoutingMode = settings.routingMode === 'smart' ? 'smart' : finalRoutingMode;
+
     // ── Build final system prompt ──
     let finalSystemPrompt =
       (prefix ? `${contextSystemPrompt}\n\n[User context]: ${prefix}` : contextSystemPrompt) ||
@@ -163,7 +167,8 @@ function App() {
           frequency_penalty: (settings.frequencyPenalty ?? 0) / 10,
           presence_penalty: (settings.presencePenalty ?? 0) / 10,
           max_tokens: maxTokens,
-          routingMode: finalRoutingMode,
+          routingMode: apiRoutingMode,
+          smartTaskType: settings.smartTaskType || "auto",
         },
         signal
       );

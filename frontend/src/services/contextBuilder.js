@@ -229,7 +229,7 @@ export const ContextBuilder = {
         // FALLBACK LOGIC: If ideal is not available, try others in order of capability
         if (isAvailable(ideal)) return ideal;
 
-        const fallbacks = ["openrouter", "gemini", "huggingface", "groq"];
+        const fallbacks = ["openrouter", "together", "mistral", "gemini", "huggingface", "groq"];
         for (const f of fallbacks) {
             if (isAvailable(f)) return f;
         }

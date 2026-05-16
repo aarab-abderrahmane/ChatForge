@@ -26,10 +26,12 @@ export const api = {
       const isGroq = cleanKey.startsWith("gsk_");
       const isGemini = cleanKey.startsWith("AIza");
       const isHuggingFace = cleanKey.startsWith("hf_");
+      const isTogether = cleanKey.startsWith("tgp_");
 
       if (isGroq) payload.groq = cleanKey;
       else if (isGemini) payload.gemini = cleanKey;
       else if (isHuggingFace) payload.huggingface = cleanKey;
+      else if (isTogether) payload.together = cleanKey;
       else payload.openrouter = cleanKey;
 
       const res = await fetch(`${BASE_URL}/keys`, {
@@ -51,9 +53,9 @@ export const api = {
         } else {
           // If the key FORMAT is correct but the SERVICE is failing (429, 503, etc.)
           // we allow them in but with a warning.
-          if (isOR || isGroq || isGemini || isHuggingFace) {
-            const providerName = isOR ? "OpenRouter" : isGroq ? "Groq" : isGemini ? "Gemini" : "HuggingFace";
-            const providerKey = isOR ? "openrouter" : isGroq ? "groq" : isGemini ? "gemini" : "huggingface";
+          if (isOR || isGroq || isGemini || isHuggingFace || isTogether) {
+            const providerName = isOR ? "OpenRouter" : isGroq ? "Groq" : isGemini ? "Gemini" : isHuggingFace ? "HuggingFace" : "Together AI";
+            const providerKey = isOR ? "openrouter" : isGroq ? "groq" : isGemini ? "gemini" : isHuggingFace ? "huggingface" : "together";
             await KeysService.saveKeys({ [providerKey]: cleanKey });
             return {
               type: "success",
@@ -69,8 +71,8 @@ export const api = {
     } catch (error) {
       // Offline or network error: allow entry if key looks valid
       const cleanKey = String(key || "").trim();
-      if (cleanKey.startsWith("sk-or-v1-") || cleanKey.startsWith("gsk_") || cleanKey.startsWith("AIza") || cleanKey.startsWith("hf_")) {
-        const providerKey = cleanKey.startsWith("gsk_") ? "groq" : cleanKey.startsWith("AIza") ? "gemini" : cleanKey.startsWith("hf_") ? "huggingface" : "openrouter";
+      if (cleanKey.startsWith("sk-or-v1-") || cleanKey.startsWith("gsk_") || cleanKey.startsWith("AIza") || cleanKey.startsWith("hf_") || cleanKey.startsWith("tgp_")) {
+        const providerKey = cleanKey.startsWith("gsk_") ? "groq" : cleanKey.startsWith("AIza") ? "gemini" : cleanKey.startsWith("hf_") ? "huggingface" : cleanKey.startsWith("tgp_") ? "together" : "openrouter";
         await KeysService.saveKeys({ [providerKey]: cleanKey });
         return { type: "success", response: "warning:Network issue - key saved in offline mode." };
       }
@@ -115,7 +117,7 @@ export const api = {
     try {
       return await KeysService.getStatus();
     } catch {
-      return { openrouter: false, groq: false, gemini: false, huggingface: false };
+      return { openrouter: false, groq: false, gemini: false, huggingface: false, together: false, mistral: false };
     }
   },
 
@@ -136,6 +138,8 @@ export const api = {
         groq: keys.groq,
         gemini: keys.gemini,
         huggingface: keys.huggingface,
+        together: keys.together,
+        mistral: keys.mistral,
       };
 
       const res = await fetch(`${BASE_URL}/chat`, {

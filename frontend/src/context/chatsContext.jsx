@@ -216,6 +216,7 @@ const defaultSettings = {
   presencePenalty: 0,
   systemPromptPrefix: "",
   routingMode: "smart",
+  smartTaskType: "auto",
   hiddenTools: [],
   _settingsVersion: SETTINGS_VERSION,
 };
@@ -224,7 +225,7 @@ export function ChatsProvider({ children }) {
   const [loading, setLoading] = useState(false);
 
   // ── Provider status (which AI providers are configured) ─────────────
-  const [providerStatus, setProviderStatus] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false });
+  const [providerStatus, setProviderStatus] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false, together: false, mistral: false });
 
   // ── Preferences (userId, currentPage) ──────────────────────────────
   const defaultPreferences = {

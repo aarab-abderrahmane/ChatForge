@@ -15,10 +15,12 @@ const EMOJI_OPTIONS = [
 ];
 
 const ROUTING_OPTIONS = [
-  { id: "smart", label: "Smart Router (Auto)", icon: "🔄", desc: "Shorts → Groq, Code → Gemini, Long → OpenRouter." },
+  { id: "smart", label: "Smart Router (Auto)", icon: "🔄", desc: "Shorts → Together/Mistral/Groq, Code → Gemini/OpenRouter, Creative → OpenRouter." },
   { id: "groq", label: "Force Groq", icon: "⚡", desc: "Send everything to Groq (requires Groq key)." },
   { id: "gemini", label: "Force Gemini", icon: "🧠", desc: "Send everything to Gemini (requires Gemini key)." },
   { id: "openrouter", label: "Force OpenRouter", icon: "🌐", desc: "Send everything to OpenRouter (mandatory fallback)." },
+  { id: "together", label: "Force Together AI", icon: "🤝", desc: "Send everything to Together AI (requires Together key)." },
+  { id: "mistral", label: "Force Mistral AI", icon: "🌪️", desc: "Send everything to Mistral AI (requires Mistral key)." },
 ];
 
 const PROVIDERS = [
@@ -26,6 +28,8 @@ const PROVIDERS = [
   { id: "groq", label: "Groq", icon: "⚡", required: false, placeholder: "gsk_...", hint: "Optional. Used for short & fast queries.", link: "https://console.groq.com/keys" },
   { id: "gemini", label: "Gemini", icon: "🧠", required: false, placeholder: "AIza...", hint: "Optional. Used for code & programming tasks.", link: "https://aistudio.google.com/app/apikey" },
   { id: "huggingface", label: "Hugging Face", icon: "🤗", required: false, placeholder: "hf_...", hint: "Optional. Specialized open source models.", link: "https://huggingface.co/settings/tokens" },
+  { id: "together", label: "Together AI", icon: "🤝", required: false, placeholder: "tgp-...", hint: "Optional. 200M tokens/month free tier. Fast fallback.", link: "https://api.together.xyz/settings/api-keys" },
+  { id: "mistral", label: "Mistral AI", icon: "🌪️", required: false, placeholder: "Enter Mistral API key...", hint: "Optional. 1B tokens free trial. Great for generation.", link: "https://console.mistral.ai/api-keys" },
 ];
 
 const PARAMS = [
@@ -76,14 +80,14 @@ export function SettingsPage() {
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [showToolForm, setShowToolForm] = useState(false);
   const [editingTool, setEditingTool] = useState(null);
-  const [showRouting, setShowRouting] = useState(true);
+  const [showRouting, setShowRouting] = useState(false);
   const [showModels, setShowModels] = useState(true);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const fileInputRef = useRef(null);
 
-  const [keyValues, setKeyValues] = useState({ openrouter: "", groq: "", gemini: "", huggingface: "" });
-  const [keyVisible, setKeyVisible] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false });
-  const [keySaving, setKeySaving] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false });
+  const [keyValues, setKeyValues] = useState({ openrouter: "", groq: "", gemini: "", huggingface: "", together: "", mistral: "" });
+  const [keyVisible, setKeyVisible] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false, together: false, mistral: false });
+  const [keySaving, setKeySaving] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false, together: false, mistral: false });
   const [keyResults, setKeyResults] = useState({});
   const [storageUsage, setStorageUsage] = useState({ used: 0, quota: 0, percentage: 0 });
 
@@ -259,10 +263,38 @@ export function SettingsPage() {
                 })}
               </div>
             )}
+            {settings.routingMode === "smart" && (
+              <div className="border-t border-divider pt-3 mt-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <Gauge size={11} className="text-muted-400" strokeWidth={1.5} />
+                  <span className="font-mono text-[11px] text-ink uppercase tracking-widest font-bold">Task Profile</span>
+                </div>
+                <div className="grid grid-cols-2 gap-1.5">
+                  {[
+                    { id: "auto", label: "Auto", desc: "Auto-detect based on message" },
+                    { id: "speedster", label: "Speedster", desc: "Short & fast queries" },
+                    { id: "specialist", label: "Specialist", desc: "Code & complex tasks" },
+                    { id: "architect", label: "Architect", desc: "Creative & long text" },
+                  ].map((t) => {
+                    const isActive = settings.smartTaskType === t.id;
+                    return (
+                      <div key={t.id} onClick={() => setSettings({ ...settings, smartTaskType: t.id })}
+                        className={`flex items-center gap-2 p-2 border cursor-pointer transition-all duration-150 hover:bg-muted-100 ${isActive ? "border-l-4 border-green bg-muted-100 border-divider" : "border-divider"}`}>
+                        <div className="flex-1 min-w-0">
+                          <div className={`font-mono text-[11px] font-semibold uppercase ${isActive ? "text-ink" : "text-muted-500"}`}>{t.label}</div>
+                          <div className="font-body text-[11px] mt-0.5 text-muted-400">{t.desc}</div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
           </SectionCard>
 
           {/* ═══ AI MODEL ═══ */}
-          <SectionCard title="Fallback Model" icon={Bot}>
+          <SectionCard title="OpenRouter Model" icon={Wifi}>
+            <p className="font-body text-xs text-muted-400 mb-2 leading-relaxed">Model used when OpenRouter is the active provider. Other providers use their own default models.</p>
             <button onClick={() => setShowModels((p) => !p)} className="w-full flex items-center justify-between py-2 hover:bg-muted-100 transition-colors duration-150 px-2 -mx-2">
               <div className="flex items-center gap-2">
                 <span className="text-base">{MODELS.find((m) => m.id === settings.activeModelId)?.icon || "🧠"}</span>
@@ -530,7 +562,7 @@ export function SettingsPage() {
                   const saving = keySaving[prov.id];
                   const visible = keyVisible[prov.id];
                   return (
-                    <div key={prov.id} className="border border-divider p-3">
+                    <div key={prov.id} className="border border-[var(--color-border)] p-3">
                       <div className="flex items-center justify-between mb-2">
                         <div className="flex items-center gap-1.5">
                           <span className="text-sm">{prov.icon}</span>
@@ -551,8 +583,8 @@ export function SettingsPage() {
                             className="w-full bg-transparent border-b border-divider pb-1 pr-6 text-sm font-mono text-ink outline-none focus:border-[var(--color-border)] transition-colors placeholder:text-muted-400"
                             onKeyDown={(e) => e.key === "Enter" && handleSaveKey(prov.id)} />
                           <button onClick={() => setKeyVisible((p) => ({ ...p, [prov.id]: !p[prov.id] }))}
-                            className="absolute right-0 top-0 text-muted-400 hover:text-ink transition-colors">
-                            {visible ? <EyeOff size={10} strokeWidth={1.5} /> : <Eye size={10} strokeWidth={1.5} />}
+                            className="absolute right-2 top-[5px] text-muted-400 hover:text-ink transition-colors">
+                            {visible ? <EyeOff size={16} strokeWidth={1.5} /> : <Eye size={16} strokeWidth={1.5} />}
                           </button>
                         </div>
                         <button disabled={!keyValues[prov.id]?.trim() || saving} onClick={() => handleSaveKey(prov.id)}
@@ -576,11 +608,11 @@ export function SettingsPage() {
               </div>
               <div className="mt-3 p-3 border border-divider">
                 <div className="font-mono text-[11px] text-muted-500 uppercase tracking-widest mb-2 font-bold">Smart Router</div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 font-mono text-sm text-muted-400">
-                  <div><span className="text-ink font-semibold">Short messages</span> → Groq</div>
-                  <div><span className="text-ink font-semibold">Code & programming</span> → Gemini</div>
-                  <div><span className="text-ink font-semibold">Creative & long text</span> → OpenRouter</div>
-                  <div className="sm:col-span-3 pt-2 border-t border-divider"><span className="text-ink font-semibold">Auto-fallback</span> — if a provider fails, it falls back to the next available.</div>
+                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 font-mono text-sm text-muted-400">
+                  <div><span className="text-ink font-semibold">Speedster</span> → Together → Mistral → Groq → OpenRouter</div>
+                  <div><span className="text-ink font-semibold">Specialist</span> → OpenRouter → Together → Mistral → Gemini</div>
+                  <div><span className="text-ink font-semibold">Architect</span> → OpenRouter → Together → Mistral → Gemini</div>
+                  <div><span className="text-ink font-semibold">Auto-fallback</span> — if a provider fails, it falls back to next available.</div>
                 </div>
               </div>
             </div>

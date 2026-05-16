@@ -1,6 +1,8 @@
 import { askGroq } from "./groqClient.js";
 import { askGeminiStream, askGeminiSync } from "./geminiClient.js";
 import { askHuggingFace } from "./huggingfaceClient.js";
+import { askTogether } from "./togetherClient.js";
+import { askMistral } from "./mistralClient.js";
 
 // ─── Model Registry ──────────────────────────────────────────
 // Ordered by preference per task type. A single OpenRouter entry
@@ -8,22 +10,27 @@ import { askHuggingFace } from "./huggingfaceClient.js";
 
 const TASK_MODELS = {
   speedster: [
-    { provider: "groq", model: "llama3-70b-8192" },
+    { provider: "together", model: "meta-llama/Llama-3-70b-chat-hf" },
+    { provider: "mistral", model: "mistral-small-latest" },
+    { provider: "groq", model: "llama-3.3-70b-versatile" },
     { provider: "openrouter", model: "openrouter" },
     { provider: "gemini", model: "gemini-2.0-flash-lite" },
     { provider: "huggingface", model: "mistralai/Mistral-7B-Instruct-v0.3" },
   ],
   specialist: [
     { provider: "openrouter", model: "openrouter" },
+    { provider: "together", model: "meta-llama/Llama-3-70b-chat-hf" },
+    { provider: "mistral", model: "mistral-small-latest" },
     { provider: "gemini", model: "gemini-2.0-flash-lite" },
-    { provider: "groq", model: "llama3-70b-8192" },
+    { provider: "groq", model: "llama-3.3-70b-versatile" },
     { provider: "huggingface", model: "mistralai/Mistral-7B-Instruct-v0.3" },
   ],
   architect: [
     { provider: "openrouter", model: "openrouter" },
+    { provider: "together", model: "meta-llama/Llama-3-70b-chat-hf" },
+    { provider: "mistral", model: "mistral-small-latest" },
     { provider: "gemini", model: "gemini-2.0-flash-lite" },
-    { provider: "groq", model: "llama3-70b-8192" },
-    { provider: "huggingface", model: "mistralai/Mistral-7B-Instruct-v0.3" },
+    { provider: "groq", model: "llama-3.3-70b-versatile" },
   ],
 };
 
@@ -149,7 +156,9 @@ export function detectTaskType(messages) {
 
 // ─── Smart Router ────────────────────────────────────────────
 export async function smartRouter(messages, keys, options = {}) {
-  const taskType = detectTaskType(messages);
+  const taskType = options.smartTaskType && options.smartTaskType !== "auto"
+    ? options.smartTaskType
+    : detectTaskType(messages);
   const routingMode = options.routingMode || "smart";
   const errors = [];
 
@@ -159,10 +168,13 @@ export async function smartRouter(messages, keys, options = {}) {
   } else if (TASK_MODELS[routingMode]) {
     candidates = [...TASK_MODELS[routingMode]];
   } else {
-    candidates = [
-      ...TASK_MODELS.architect.filter(m => m.provider === routingMode),
-      ...TASK_MODELS.architect.filter(m => m.provider !== routingMode),
-    ];
+    // Single provider mode — only the forced provider, no fallback chain
+    const forced = TASK_MODELS.speedster.find(m => m.provider === routingMode)
+      || TASK_MODELS.specialist.find(m => m.provider === routingMode)
+      || TASK_MODELS.architect.find(m => m.provider === routingMode);
+    if (forced) {
+      candidates = [forced];
+    }
   }
 
   const availableProviders = Object.entries(keys).filter(([_, v]) => v).map(([p]) => p);
@@ -189,9 +201,21 @@ export async function smartRouter(messages, keys, options = {}) {
       console.log(`[Router] → ${provider} (${taskType})`);
 
       if (provider === "groq") {
-        const res = await askGroq(messages, key, options);
+        const res = await askGroq(messages, key, { ...options, model });
         resetProvider(provider);
         return { stream: res, provider: "groq", isGenerator: false };
+      }
+
+      if (provider === "together") {
+        const res = await askTogether(messages, key, { ...options, model });
+        resetProvider(provider);
+        return { stream: res, provider: "together", isGenerator: false };
+      }
+
+      if (provider === "mistral") {
+        const res = await askMistral(messages, key, { ...options, model });
+        resetProvider(provider);
+        return { stream: res, provider: "mistral", isGenerator: false };
       }
 
       if (provider === "gemini") {
@@ -202,8 +226,20 @@ export async function smartRouter(messages, keys, options = {}) {
           return { stream: res, provider: "gemini", isGenerator: false };
         }
         const gen = askGeminiStream(messages, key, { ...options, model });
+        // Eagerly validate Gemini — consume first chunk to catch quota/network
+        // errors at router time so fallback to next provider works
+        const first = await gen.next();
+        if (first.done) {
+          // Empty response — skip to next provider
+          continue;
+        }
+        const firstChunk = first.value;
+        const validatedGen = (async function* () {
+          yield firstChunk;
+          yield* gen;
+        })();
         resetProvider(provider);
-        return { stream: gen, provider: "gemini", isGenerator: true };
+        return { stream: validatedGen, provider: "gemini", isGenerator: true };
       }
 
       if (provider === "openrouter") {

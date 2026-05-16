@@ -1,18 +1,7 @@
-// Groq REST API client — streaming, SSE-compatible
-// Default model: llama-3.3-70b-versatile (fast, high quality)
-const GROQ_API_URL = "https://api.groq.com/openai/v1/chat/completions";
-const GROQ_DEFAULT_MODEL = "llama-3.3-70b-versatile";
+const MISTRAL_API_URL = "https://api.mistral.ai/v1/chat/completions";
+const MISTRAL_DEFAULT_MODEL = "mistral-small-latest";
 
-/**
- * Call Groq with streaming. Returns a raw fetch Response whose body
- * streams SSE chunks in the same `data: {...}` format as OpenRouter.
- *
- * @param {Array}  messages   - Array of {role, content} chat messages
- * @param {string} apiKey     - Groq API key
- * @param {Object} options    - { systemPrompt, temperature, max_tokens, top_p }
- * @returns {Response}        - Raw streaming response
- */
-export async function askGroq(messages, apiKey, options = {}) {
+export async function askMistral(messages, apiKey, options = {}) {
     const {
         systemPrompt = "You are a helpful AI assistant.",
         temperature = 0.7,
@@ -32,14 +21,14 @@ export async function askGroq(messages, apiKey, options = {}) {
     const timeout = setTimeout(() => controller.abort(), 30000);
 
     try {
-        const response = await fetch(GROQ_API_URL, {
+        const response = await fetch(MISTRAL_API_URL, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: model || GROQ_DEFAULT_MODEL,
+                model: model || MISTRAL_DEFAULT_MODEL,
                 messages: fullMessages,
                 stream: options.stream !== undefined ? options.stream : true,
                 temperature,
@@ -59,28 +48,23 @@ export async function askGroq(messages, apiKey, options = {}) {
             throw new Error(msg);
         }
 
-        return response; // raw SSE stream — same format as OpenRouter
+        return response;
     } catch (err) {
         clearTimeout(timeout);
         throw err;
     }
 }
 
-/**
- * Quick validation: send a tiny message and confirm a response arrives.
- * @param {string} apiKey
- * @returns {boolean}
- */
-export async function validateGroqKey(apiKey) {
+export async function validateMistralKey(apiKey) {
     try {
-        const res = await fetch(GROQ_API_URL, {
+        const res = await fetch(MISTRAL_API_URL, {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${apiKey}`,
                 "Content-Type": "application/json",
             },
             body: JSON.stringify({
-                model: GROQ_DEFAULT_MODEL,
+                model: MISTRAL_DEFAULT_MODEL,
                 messages: [{ role: "user", content: "Say hi." }],
                 max_tokens: 5,
                 stream: false,

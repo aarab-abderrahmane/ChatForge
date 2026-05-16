@@ -1,12 +1,13 @@
 import cors from "cors";
 import express from "express";
 import rateLimit from "express-rate-limit";
-import { connectDB } from "./db.js";
 import fs from "node:fs";
 import path from "node:path";
 import { validateGroqKey } from "./groqClient.js";
 import { validateGeminiKey } from "./geminiClient.js";
 import { validateHuggingFaceKey } from "./huggingfaceClient.js";
+import { validateTogetherKey } from "./togetherClient.js";
+import { validateMistralKey } from "./mistralClient.js";
 import { smartRouter, detectTaskType, FREE_MODELS, askAI } from "./smartRouter.js";
 
 const app = express();
@@ -34,7 +35,7 @@ const limiter = rateLimit({
 });
 app.use("/api/", limiter);
 
-// In-Memory Fallback Cache (for when MongoDB is down)
+// Persistent key storage: .keys_cache.json (AES-256 encrypted)
 const CACHE_FILE = path.join(process.cwd(), ".keys_cache.json");
 
 function loadMemoryCache() {
@@ -95,49 +96,7 @@ export function decrypt(encoded) {
 }
 
 // ─────────────────────────────────────────────
-// Single-key helpers (legacy — OpenRouter only)
-// ─────────────────────────────────────────────
-export async function saveUserKey(encryptedKey, userId) {
-  const client = await connectDB();
-  const db = client.db(process.env.APP_NAME);
-  await db.collection("apikeys").updateOne(
-    { userId },
-    { $set: { encryptedKey } },
-    { upsert: true }
-  );
-}
-
-export async function getUserKey(userId) {
-  try {
-    const client = await connectDB();
-    const db = client.db(process.env.APP_NAME);
-    const user = await db.collection("apikeys").findOne({ userId });
-    if (user && user.encryptedKey) {
-      return { exists: true, res: decrypt(user.encryptedKey).trim() };
-    }
-    return { exists: false, res: "User not found. Please provide a valid API key ⚠️." };
-  } catch {
-    return { exists: false, res: "Unable to fetch user key. Please try again later ❌." };
-  }
-}
-
-export async function check_key_Exists(userId) {
-  try {
-    const client = await connectDB();
-    if (!client) {
-      return { exists: !!BACKEND_MEMORY_CACHE.apikeys[userId]?.encryptedKey, res: "Memory Check" };
-    }
-    const db = client.db(process.env.APP_NAME);
-    const user = await db.collection("apikeys").findOne({ userId });
-    if (user && user.encryptedKey) return { exists: true, res: "key Exists" };
-    return { exists: false, res: "User not found. Please provide a valid API key ⚠️." };
-  } catch {
-    return { exists: false, res: "Unable to fetch user key. Please try again later ❌." };
-  }
-}
-
-// ─────────────────────────────────────────────
-// Multi-provider key helpers
+// Key storage (encrypted, file-based)
 // ─────────────────────────────────────────────
 export async function saveUserKeys(userId, keys) {
   const update = {};
@@ -145,45 +104,24 @@ export async function saveUserKeys(userId, keys) {
   if (keys.groq !== undefined) update.encryptedGroq = encrypt(keys.groq);
   if (keys.gemini !== undefined) update.encryptedGemini = encrypt(keys.gemini);
   if (keys.huggingface !== undefined) update.encryptedHuggingFace = encrypt(keys.huggingface);
+  if (keys.together !== undefined) update.encryptedTogether = encrypt(keys.together);
+  if (keys.mistral !== undefined) update.encryptedMistral = encrypt(keys.mistral);
 
-  // Fallback to Memory & Local File
   BACKEND_MEMORY_CACHE.apikeys[userId] = { ...BACKEND_MEMORY_CACHE.apikeys[userId], ...update };
   saveMemoryCache();
-
-  try {
-    const client = await connectDB();
-    if (!client) return; // Silent return, memory cache is already updated
-    const db = client.db(process.env.APP_NAME);
-    await db.collection("apikeys").updateOne(
-      { userId },
-      { $set: update },
-      { upsert: true }
-    );
-  } catch (err) {
-    console.warn("Failed to persist keys to MongoDB, using memory fallback.", err.message);
-  }
 }
 
 export async function getUserKeys(userId) {
-  let user = BACKEND_MEMORY_CACHE.apikeys[userId];
+  const user = BACKEND_MEMORY_CACHE.apikeys[userId];
 
-  try {
-    const client = await connectDB();
-    if (client) {
-      const db = client.db(process.env.APP_NAME);
-      const dbUser = await db.collection("apikeys").findOne({ userId });
-      if (dbUser) user = dbUser;
-    }
-  } catch (err) {
-    console.warn("DB fetch failed, using memory cache", err.message);
-  }
-
-  if (!user) return { openrouter: null, groq: null, gemini: null, huggingface: null };
+  if (!user) return { openrouter: null, groq: null, gemini: null, huggingface: null, together: null, mistral: null };
   return {
     openrouter: user.encryptedKey ? decrypt(user.encryptedKey).trim() : null,
     groq: user.encryptedGroq ? decrypt(user.encryptedGroq).trim() : null,
     gemini: user.encryptedGemini ? decrypt(user.encryptedGemini).trim() : null,
     huggingface: user.encryptedHuggingFace ? decrypt(user.encryptedHuggingFace).trim() : null,
+    together: user.encryptedTogether ? decrypt(user.encryptedTogether).trim() : null,
+    mistral: user.encryptedMistral ? decrypt(user.encryptedMistral).trim() : null,
   };
 }
 
@@ -306,42 +244,13 @@ app.post("/api/chat", async (req, res) => {
 
 
 
-// ─────────────────────────────────────────────
-// POST /api/test — validate & save OpenRouter key (legacy)
-// ─────────────────────────────────────────────
-app.post("/api/test", async (req, res) => {
-  const { APIkey, userId } = req.body;
-  const cleanKey = APIkey?.trim();
-  if (!cleanKey) {
-    return res.status(400).json({ type: "error", response: "API Key is required." });
-  }
 
-  try {
-    const aiRes = await askAI(
-      [{ role: "user", content: "Say hello in one sentence." }],
-      cleanKey,
-      { models: FREE_MODELS, systemPrompt: "You are a helpful assistant. Answer concisely." }
-    );
-    const answer = await aiRes.json();
-    if (answer.error || !answer.choices?.[0]?.message?.content) {
-      return res.json({
-        response: `⚠️ AI Service Error: ${answer.error?.message || "Provider rejected the request."}`,
-        type: "error",
-      });
-    }
-    await saveUserKey(encrypt(cleanKey), userId);
-    res.json({ response: "ok", type: "success" });
-  } catch (error) {
-    console.error("API key test error:", error);
-    res.status(500).json({ response: "⚠️ Internal server error while validating key.", type: "error" });
-  }
-});
 
 // ─────────────────────────────────────────────
 // POST /api/keys — save all provider keys
 // ─────────────────────────────────────────────
 app.post("/api/keys", async (req, res) => {
-  const { userId, openrouter, groq, gemini, huggingface } = req.body;
+  const { userId, openrouter, groq, gemini, huggingface, together, mistral } = req.body;
   if (!userId) return res.status(400).json({ type: "error", response: "userId is required." });
 
   const results = {};
@@ -434,6 +343,32 @@ app.post("/api/keys", async (req, res) => {
     }
   }
 
+  // Validate & save together
+  if (together !== undefined) {
+    const key = together.trim();
+    if (key) {
+      const cleanKey = String(key).replace(/[^\x00-\x7F]/g, "").trim();
+      const valid = await validateTogetherKey(cleanKey);
+      toSave.together = cleanKey;
+      results.together = valid
+        ? { ok: true }
+        : { ok: true, warning: "Together AI service is busy. Key saved — you can try chatting." };
+    }
+  }
+
+  // Validate & save mistral
+  if (mistral !== undefined) {
+    const key = mistral.trim();
+    if (key) {
+      const cleanKey = String(key).replace(/[^\x00-\x7F]/g, "").trim();
+      const valid = await validateMistralKey(cleanKey);
+      toSave.mistral = cleanKey;
+      results.mistral = valid
+        ? { ok: true }
+        : { ok: true, warning: "Mistral AI service is busy. Key saved — you can try chatting." };
+    }
+  }
+
   if (Object.keys(toSave).length > 0) {
     await saveUserKeys(userId, toSave);
   }
@@ -454,17 +389,12 @@ app.post("/api/keys-status", async (req, res) => {
     groq: !!keys.groq,
     gemini: !!keys.gemini,
     huggingface: !!keys.huggingface,
+    together: !!keys.together,
+    mistral: !!keys.mistral,
   });
 });
 
-// ─────────────────────────────────────────────
-// POST /api/key-exists — legacy check (OpenRouter)
-// ─────────────────────────────────────────────
-app.post("/api/key-exists", async (req, res) => {
-  const { userId } = req.body;
-  const keystatus = await check_key_Exists(userId);
-  res.json(keystatus);
-});
+
 
 
 // ═══════════════════════════════════════════════
@@ -994,8 +924,6 @@ app.get("/", (_, res) => res.json({ message: "Welcome to ChatForge" }));
 // ─────────────────────────────────────────────
 async function startServer() {
   try {
-    await connectDB();
-    // Start listening regardless of MongoDB status
     app.listen(5000, () => {
       console.log("-----------------------------------------");
       console.log("🚀 Server running on port 5000");
