@@ -9,26 +9,27 @@ import { GuidePage } from "../../pages/guidePage";
 import {
   Settings, Trash2, Plus, SendHorizonal, FileText,
   Search, X as XIcon, Menu, Sparkles,
-  Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil,Wifi,WifiOff, 
+  Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil, Wifi, WifiOff, 
   Briefcase, Bug, Code, BarChart3, TrendingUp, ChevronUp, ChevronDown,
+  RefreshCw, Download, Languages, Check,
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
 
 const COMMANDS = [
-  { cmd: "//>clear", desc: "Clear current chat history", icon: "\uD83D\uDDD1" },
-  { cmd: "//>new", desc: "Start a new chat session", icon: "\u2728" },
-  { cmd: "//>summarize", desc: "Summarize this conversation", icon: "\uD83D\uDCCB" },
-  { cmd: "//>translate", desc: "Translate text", icon: "\uD83C\uDF0D" },
-  { cmd: "//>quiz", desc: "Generate a quiz (e.g. //>quiz React)", icon: "\uD83C\uDFAF" },
-  { cmd: "//>flashcards", desc: "Generate flashcards", icon: "\uD83C\uDCB4" },
-  { cmd: "//>mindmap", desc: "Generate a mindmap", icon: "\uD83E\uDDE0" },
-  { cmd: "//>retry", desc: "Retry the last message", icon: "\uD83D\uDD04" },
-  { cmd: "//>stats", desc: "Show session statistics", icon: "\uD83D\uDCCA" },
-  { cmd: "//>export", desc: "Export as .txt", icon: "\uD83D\uDCE4" },
-  { cmd: "//>help", desc: "Show keyboard shortcuts", icon: "\u2753" },
-  { cmd: "//>skill", desc: "Show current AI skill info", icon: "\uD83E\uDD16" },
-  { cmd: "//>model", desc: "Show current AI model info", icon: "\uD83E\uDDE0" },
+  { cmd: "//>clear", desc: "Clear current chat history", icon: Trash2, color: "#FF3B30" },
+  { cmd: "//>new", desc: "Start a new chat session", icon: Plus, color: "#34C759" },
+  { cmd: "//>summarize", desc: "Summarize this conversation", icon: FileText, color: "#007AFF" },
+  { cmd: "//>translate", desc: "Translate text", icon: Languages, color: "#5856D6" },
+  { cmd: "//>quiz", desc: "Generate a quiz (e.g. //>quiz React)", icon: Lightbulb, color: "#FF9500" },
+  { cmd: "//>flashcards", desc: "Generate flashcards", icon: Layers, color: "#AF52DE" },
+  { cmd: "//>mindmap", desc: "Generate a mindmap", icon: Sparkles, color: "#FF2D55" },
+  { cmd: "//>retry", desc: "Retry the last message", icon: RefreshCw, color: "#34C759" },
+  { cmd: "//>stats", desc: "Show session statistics", icon: BarChart3, color: "#007AFF" },
+  { cmd: "//>export", desc: "Export as .txt", icon: Download, color: "#00C7BE" },
+  { cmd: "//>help", desc: "Show keyboard shortcuts", icon: Search, color: "#8E8E93" },
+  { cmd: "//>skill", desc: "Show current AI skill info", icon: Code, color: "#AF52DE" },
+  { cmd: "//>model", desc: "Show current AI model info", icon: Wifi, color: "#007AFF" },
 ];
 
 const EDITION_DATE = new Date().toLocaleDateString("en-US", {
@@ -53,7 +54,34 @@ export const Terminal = ({
 
   const [showCmdMenu, setShowCmdMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [showScrollDown, setShowScrollDown] = useState(false);
+  const [showDraftMenu, setShowDraftMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const scrollRef = useRef(null);
+  const draftRef = useRef(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+    setShowScrollDown(false);
+  };
+
+  const handleScroll = () => {
+    const el = scrollRef.current;
+    if (!el) return;
+    const dist = el.scrollHeight - el.scrollTop - el.clientHeight;
+    setShowScrollDown(dist > 120);
+  };
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (draftRef.current && !draftRef.current.contains(e.target)) {
+        setShowDraftMenu(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
   const [charCount, setCharCount] = useState(0);
   const [promptHistIdx, setPromptHistIdx] = useState(-1);
   const [showSearch, setShowSearch] = useState(false);
@@ -357,7 +385,16 @@ export const Terminal = ({
         {preferences.currentPage === "chat" ? (
           <div className="flex flex-col flex-1 min-h-0">
             {/* ── Messages ─────────────────────────── */}
-            <div className="flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 py-4 dot-grid-bg">
+            <div ref={scrollRef} onScroll={handleScroll} className="relative flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 py-4 dot-grid-bg">
+              {showScrollDown && (
+                <button
+                  onClick={scrollToBottom}
+                  className="sticky bottom-2 z-10 ml-auto mr-2 w-8 h-8 border border-ink bg-paper flex items-center justify-center hover:bg-ink hover:text-paper transition-colors shadow-sm"
+                  title="Scroll to bottom"
+                >
+                  <ChevronDown size={14} strokeWidth={1.5} />
+                </button>
+              )}
               <div className="mx-auto max-w-3xl">
                 {chats.map((obj, index) => {
                   if (obj.type === "ms") {
@@ -454,16 +491,22 @@ export const Terminal = ({
                     <div className="font-mono text-[10px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b border-ink bg-muted-100">
                       Available Commands
                     </div>
-                    {COMMANDS.filter(c => c.cmd.startsWith(query.toLowerCase())).map(c => (
-                      <button
-                        key={c.cmd}
-                        onClick={() => handleCmdSelect(c.cmd)}
-                        className="w-full flex items-center justify-between px-3 py-2 text-left font-mono text-xs hover:bg-muted-100 transition-colors border-b border-divider last:border-b-0"
-                      >
-                        <span className="font-semibold text-ink">{c.icon} {c.cmd}</span>
-                        <span className="text-muted-500 text-[10px]">{c.desc}</span>
-                      </button>
-                    ))}
+                    {COMMANDS.filter(c => c.cmd.startsWith(query.toLowerCase())).map(c => {
+                      const Icon = c.icon;
+                      return (
+                        <button
+                          key={c.cmd}
+                          onClick={() => handleCmdSelect(c.cmd)}
+                          className="w-full flex items-center justify-between px-3 py-2 text-left font-mono text-xs hover:bg-muted-100 transition-colors border-b border-divider last:border-b-0"
+                        >
+                          <span className="font-semibold text-ink flex items-center gap-2">
+                            <Icon size={14} strokeWidth={1.5} style={{ color: c.color }} />
+                            {c.cmd}
+                          </span>
+                          <span className="text-muted-500 text-[10px]">{c.desc}</span>
+                        </button>
+                      );
+                    })}
                   </div>
                 )}
 
@@ -471,6 +514,7 @@ export const Terminal = ({
                   <div className="flex-1 relative">
                     <textarea
                       ref={textareaRef}
+                      dir="auto"
                       className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink placeholder:text-muted-400 outline-none resize-none min-h-[44px] max-h-[160px]"
                       placeholder="Ask anything\u2026 or type //> for commands"
                       value={query}
@@ -489,15 +533,55 @@ export const Terminal = ({
                     )}
                   </div>
 
-                  <button
-                    type="button"
-                    title={draftCount > 1 ? "Multi-Draft: 3 Variants" : "Single Draft"}
-                    onClick={() => setDraftCount(d => d === 1 ? 3 : 1)}
-                    className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-colors ${draftCount > 1 ? "border-ink bg-ink text-paper" : "border-ink text-ink hover:bg-muted-100"}`}
-                  >
-                    <Layers size={16} strokeWidth={1.5} />
-                    {draftCount > 1 && <span className="ml-1 font-mono text-[10px]">{draftCount}</span>}
-                  </button>
+                  <div ref={draftRef} className="relative">
+                    <button
+                      type="button"
+                      title="Draft variants"
+                      onClick={() => setShowDraftMenu(p => !p)}
+                      className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-all duration-150 ${draftCount > 1 ? "border-ink bg-ink text-paper" : "border-ink text-ink hover:bg-muted-100"}`}
+                    >
+                      <Layers size={16} strokeWidth={1.5} />
+                      {draftCount > 1 && <span className="ml-1 font-mono text-[10px]">{draftCount}</span>}
+                    </button>
+
+                    {showDraftMenu && (
+                      <div className="absolute bottom-full right-0 mb-2 w-44 border border-ink bg-paper shadow-sm">
+                        <div className="font-mono text-[9px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b border-divider bg-muted-100">
+                          Draft Variants
+                        </div>
+                        {[1, 2, 3].map(n => (
+                          <button
+                            key={n}
+                            onClick={() => { setDraftCount(n); setShowDraftMenu(false); }}
+                            className={`w-full flex items-center gap-3 px-3 py-2 font-mono text-xs text-left transition-colors border-b border-divider last:border-b-0 ${
+                              draftCount === n
+                                ? "bg-ink text-paper"
+                                : "text-ink hover:bg-muted-100"
+                            }`}
+                          >
+                            <span className={`w-5 h-5 flex items-center justify-center border text-[10px] font-bold ${
+                              draftCount === n
+                                ? "border-paper text-paper"
+                                : "border-ink text-ink"
+                            }`}>
+                              {n}
+                            </span>
+                            <span className="flex-1">
+                              <span className="block text-[11px] font-semibold">
+                                {n === 1 ? "Single" : n === 2 ? "Double" : "Triple"}
+                              </span>
+                              <span className="block text-[9px] text-muted-500 uppercase tracking-widest">
+                                {n === 1 ? "One response" : n === 2 ? "Two variants" : "Three variants"}
+                              </span>
+                            </span>
+                            {draftCount === n && (
+                              <Check size={12} strokeWidth={2} />
+                            )}
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
 
                   <button
                     onClick={() => {

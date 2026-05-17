@@ -178,6 +178,17 @@ function App() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
+
+      // Preserve existing content for continuation so new output appends
+      if (isContinuation) {
+        const existing = chats.find(c => c.id === id);
+        if (existing) {
+          fullContent = draftIndex >= 0
+            ? (existing.answers?.[draftIndex] || '')
+            : (existing.answer || '');
+        }
+      }
+
       let buffer = '';
 
       while (true) {
@@ -305,11 +316,15 @@ function App() {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     setLoading(false);
-    // Find last message OUTSIDE the setter
     const lastMsg = [...chats].reverse().find(m => m.type === 'ch');
     if (lastMsg) {
-      setQuery(lastMsg.question);
-      setChats(prev => prev.filter(m => m.id !== lastMsg.id));
+      const hasContent = lastMsg.answer || (lastMsg.answers && lastMsg.answers.some(a => a));
+      if (!hasContent) {
+        // Fresh message with no content — remove it entirely
+        setQuery(lastMsg.question);
+        setChats(prev => prev.filter(m => m.id !== lastMsg.id));
+      }
+      // If message has content (partial or continued response), keep it as-is
     }
   }, [chats, setLoading, setChats, setQuery]);
 

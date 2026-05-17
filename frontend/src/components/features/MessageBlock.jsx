@@ -67,6 +67,7 @@ export function MessageBlock({
             <div className="flex flex-col gap-3">
               <textarea
                 ref={editRef}
+                dir="auto"
                 className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink outline-none resize-none min-h-[80px]"
                 value={editValue}
                 onChange={e => setEditValue(e.target.value)}
@@ -83,7 +84,7 @@ export function MessageBlock({
               </div>
             </div>
           ) : (
-            <div className={`font-serif font-bold text-ink ${isFirst ? "drop-cap" : "text-lg"}`}>
+            <div dir="auto" className={`font-serif font-bold text-ink ${isFirst ? "drop-cap" : "text-lg"}`}>
               {obj.question}
             </div>
           )}
@@ -131,8 +132,8 @@ export function MessageBlock({
                         <input type="checkbox" className="w-4 h-4 accent-ink cursor-pointer" checked={selectedDrafts.includes(idx)} onChange={e => { if (e.target.checked) setSelectedDrafts(p => [...p, idx]); else setSelectedDrafts(p => p.filter(x => x !== idx)); }} />
                       </div>
                     </div>
-                    <div className="font-body text-sm overflow-y-auto pr-1 leading-relaxed flex-1 [&_p]:text-justify">
-                      {ans ? <Response>{ans}</Response> : (
+                    <div dir="auto" className="font-body text-sm overflow-y-auto pr-1 leading-relaxed flex-1 [&_p]:text-justify">
+                      {ans ? <Response dir="auto">{ans}</Response> : (
                         <div className="space-y-2 pt-1">
                           <div className="h-2.5 bg-muted-200 w-full" />
                           <div className="h-2.5 bg-muted-200 w-[90%]" />
@@ -157,13 +158,13 @@ export function MessageBlock({
               )}
             </div>
           ) : (
-            <div className="font-body text-base leading-relaxed [&_p]:text-justify">
+            <div dir="auto" className="font-body text-base leading-relaxed [&_p]:text-justify">
               {showRaw ? (
                 <pre className="font-mono text-xs whitespace-pre-wrap break-words text-muted-600">{obj.answer}</pre>
               ) : isQuiz ? <QuizBlock code={obj.answer} /> :
                 isFlashcards ? <FlashcardBlock code={obj.answer} /> :
                   isMindmap ? <MindmapBlock code={obj.answer} /> :
-                    <Response>{obj.answer}</Response>}
+                    <Response dir="auto">{obj.answer}</Response>}
             </div>
           )}
 

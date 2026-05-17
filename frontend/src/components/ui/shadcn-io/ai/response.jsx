@@ -391,10 +391,11 @@ const components = {
   code: ({ node, className, ...props }) => {
     const inline = node?.position?.start.line === node?.position?.end.line;
     if (!inline) {
-      return <code className={className} {...props} />;
+      return <code dir="ltr" className={className} {...props} />;
     }
     return (
       <code
+        dir="ltr"
         className={cn('rounded px-1.5 py-0.5 font-mono text-sm bg-muted-100 text-ink border border-divider', className)}
         {...props}
       />
@@ -443,7 +444,7 @@ const components = {
     }
 
     return (
-      <CodeBlock code={code} language={language}>
+      <CodeBlock code={code} language={language} dir="ltr">
         <CodeBlockCopyButton
           onCopy={() => { }}
           onError={() => { }}
