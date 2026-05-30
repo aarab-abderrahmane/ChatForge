@@ -7,7 +7,7 @@ import {
 } from "lucide-react";
 import { chatsContext, SKILLS, MODELS } from "../context/chatsContext";
 import { api } from "../services/api";
-import { StorageService } from "../services/db";
+import { KeysService, StorageService } from "../services/db";
 
 const EMOJI_OPTIONS = [
   "⭐", "🎯", "🔥", "💡", "🧩", "🎨", "🚀", "⚙️", "🌟", "🎤",
@@ -37,7 +37,7 @@ const PARAMS = [
   { key: "topP", label: "Top P", min: 0, max: 10, step: 1, display: (v) => (v / 10).toFixed(1), defaultVal: 10 },
   { key: "frequencyPenalty", label: "Freq Penalty", min: -20, max: 20, step: 1, display: (v) => (v / 10).toFixed(1), defaultVal: 0 },
   { key: "presencePenalty", label: "Pres Penalty", min: -20, max: 20, step: 1, display: (v) => (v / 10).toFixed(1), defaultVal: 0 },
-  { key: "maxTokens", label: "Max Tokens", min: 256, max: 8192, step: 256, display: (v) => v, defaultVal: 2048 },
+  { key: "maxTokens", label: "Max Tokens", min: 256, max: 4096, step: 256, display: (v) => v, defaultVal: 2048 },
 ];
 
 const RESPONSE_PRESETS = {
@@ -120,7 +120,11 @@ export function SettingsPage() {
 
   const toggle = (key) => setSettings({ ...settings, [key]: !settings[key] });
 
-  const goBack = () => setPreferences((prev) => ({ ...prev, currentPage: "chat" }));
+  const goBack = async () => {
+    const status = await KeysService.getStatus();
+    const hasAnyKey = status.openrouter || status.groq || status.gemini || status.huggingface || status.together || status.mistral;
+    setPreferences((prev) => ({ ...prev, currentPage: hasAnyKey ? "chat" : "guide" }));
+  };
   const resetAPIKey = () => setPreferences((prev) => ({ ...prev, currentPage: "guide" }));
 
   const exportChats = () => {
@@ -190,10 +194,7 @@ export function SettingsPage() {
             <Settings2 size={14} className="text-ink" strokeWidth={1.5} />
             <h1 className="font-serif text-lg font-black uppercase tracking-tight">Settings</h1>
           </div>
-          <div className="flex items-center gap-2 text-green">
-            <Wifi size={11} strokeWidth={1.5} />
-            <span className="font-mono text-xs uppercase tracking-wider">{preferences.userId?.slice(0, 8) || "offline"}</span>
-          </div>
+        
         </div>
       </header>
 
@@ -551,7 +552,7 @@ export function SettingsPage() {
             </div>
             <div className="p-4">
               <p className="font-body text-sm text-muted-400 mb-3 leading-relaxed">
-                You provide your own API keys — they are encrypted and stored securely.
+                You provide your own API keys — they are encrypted and stored locally in your browser.
                 <span className="text-ink font-semibold"> OpenRouter</span> is <span className="text-ink">required</span>.
                 Groq and Gemini are optional but enable smarter routing.
               </p>
@@ -606,15 +607,7 @@ export function SettingsPage() {
                   );
                 })}
               </div>
-              <div className="mt-3 p-3 border border-divider">
-                <div className="font-mono text-[11px] text-muted-500 uppercase tracking-widest mb-2 font-bold">Smart Router</div>
-                <div className="grid grid-cols-1 sm:grid-cols-4 gap-2 font-mono text-sm text-muted-400">
-                  <div><span className="text-ink font-semibold">Speedster</span> → Together → Mistral → Groq → OpenRouter</div>
-                  <div><span className="text-ink font-semibold">Specialist</span> → OpenRouter → Together → Mistral → Gemini</div>
-                  <div><span className="text-ink font-semibold">Architect</span> → OpenRouter → Together → Mistral → Gemini</div>
-                  <div><span className="text-ink font-semibold">Auto-fallback</span> — if a provider fails, it falls back to next available.</div>
-                </div>
-              </div>
+            
             </div>
           </div>
 

@@ -4,9 +4,13 @@ import { ConversationsService, KeysService } from "../services/db";
 export const chatsContext = createContext();
 
 const check_key_exists = async (setPreferences) => {
-  const status = await KeysService.getStatus();
-  const hasAnyKey = status.openrouter || status.groq || status.gemini || status.huggingface;
-  setPreferences((prev) => ({ ...prev, currentPage: hasAnyKey ? "chat" : "guide" }));
+  try {
+    const status = await KeysService.getStatus();
+    const hasAnyKey = status.openrouter || status.groq || status.gemini || status.huggingface || status.together || status.mistral;
+    setPreferences((prev) => ({ ...prev, currentPage: hasAnyKey ? "chat" : "guide" }));
+  } catch {
+    setPreferences((prev) => ({ ...prev, currentPage: "guide" }));
+  }
 };
 
 function uuid() {
@@ -223,6 +227,7 @@ const defaultSettings = {
 
 export function ChatsProvider({ children }) {
   const [loading, setLoading] = useState(false);
+  const [isReady, setIsReady] = useState(false);
 
   // ── Provider status (which AI providers are configured) ─────────────
   const [providerStatus, setProviderStatus] = useState({ openrouter: false, groq: false, gemini: false, huggingface: false, together: false, mistral: false });
@@ -464,6 +469,18 @@ export function ChatsProvider({ children }) {
     return () => clearTimeout(timer);
   }, [sessions]);
 
+  // Save immediately on tab close
+  useEffect(() => {
+    function handleBeforeUnload() {
+      if (sessions.length > 0) {
+        sessions.forEach(s => ConversationsService.saveConversation(s));
+      }
+      localStorage.setItem("ChatForge_Sessions", JSON.stringify(sessions));
+    }
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    return () => window.removeEventListener("beforeunload", handleBeforeUnload);
+  }, [sessions]);
+
   // Sync activeSessionId to localStorage (still useful for UI state across tabs/reloads)
   useEffect(() => {
     if (activeSessionId) {
@@ -587,7 +604,7 @@ export function ChatsProvider({ children }) {
       const status = await KeysService.getStatus();
       setProviderStatus(status);
     };
-    run();
+    run().finally(() => setIsReady(true));
   }, []);
 
   // Re-sync providerStatus any time the user navigates to the chat page
@@ -651,6 +668,8 @@ export function ChatsProvider({ children }) {
         // provider status
         providerStatus,
         setProviderStatus,
+        // ready state
+        isReady,
       }}
     >
       {children}

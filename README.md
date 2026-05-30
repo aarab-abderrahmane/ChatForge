@@ -8,7 +8,6 @@
 
 [![License: CC BY-NC 4.0](https://img.shields.io/badge/License-CC_BY--NC_4.0-lightgrey.svg)](https://creativecommons.org/licenses/by-nc/4.0/)
 [![Node.js](https://img.shields.io/badge/Node.js-18+-43853d.svg?style=flat-square&logo=node.js)](https://nodejs.org/)
-[![MongoDB](https://img.shields.io/badge/MongoDB-Atlas-47A248.svg?style=flat-square&logo=mongodb)](https://www.mongodb.com/)
 [![React](https://img.shields.io/badge/React-19.2-61dafb.svg?style=flat-square&logo=react)](https://reactjs.org/)
 
 [Demo](#-demo) • [Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Tech Stack](#-tech-stack)
@@ -36,16 +35,15 @@ ChatForge is a sleek, terminal-inspired AI chat interface that brings the nostal
 - Markdown rendering with syntax highlighting
 
 ### 🔐 **Secure & Private**
-- Encrypted API key storage in MongoDB
-- User-specific sessions with UUID
-- Secure key validation system
-- No client-side key exposure
+- Encrypted API key storage in your browser (IndexedDB)
+- Keys sent to server only during chat requests, never logged
+- Secure key validation before saving
 
 ### 💻 **Developer-Friendly**
 - Clean, modular codebase
 - React 19 with hooks
 - Express.js backend
-- MongoDB Atlas integration
+- Client-side IndexedDB storage
 - Responsive design for all devices
 
 ### 🎯 **User Experience**
@@ -78,7 +76,7 @@ root@chatforge-terminal:~# ./start_chatforge.sh
 ### Backend
 - **Node.js** - Runtime environment
 - **Express** - Web framework
-- **MongoDB Atlas** - Database
+- **IndexedDB** - Client-side storage
 - **OpenRouter API** - AI model access
 
 ### Key Libraries
@@ -91,8 +89,7 @@ root@chatforge-terminal:~# ./start_chatforge.sh
 
 ### Prerequisites
 - Node.js 18+ installed
-- MongoDB Atlas account
-- OpenRouter API account
+- OpenRouter API account (or any supported provider key)
 
 ### Clone the Repository
 ```bash
@@ -111,10 +108,7 @@ touch .env
 
 Add to `.env`:
 ```env
-USER_NAME_MONGO=your_mongodb_username
-DB_PASSWORD=your_mongodb_password
-CLUSTER=your_cluster_url
-APP_NAME=ChatForge
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
 ### Frontend Setup
@@ -204,10 +198,7 @@ chatforge/
 
 ### Backend (.env)
 ```env
-USER_NAME_MONGO=your_mongodb_username
-DB_PASSWORD=your_mongodb_password
-CLUSTER=your_cluster_name
-APP_NAME=ChatForge
+ALLOWED_ORIGINS=http://localhost:5173,http://localhost:3000
 ```
 
 ## 🌐 API Endpoints
@@ -216,26 +207,22 @@ APP_NAME=ChatForge
 Send a message to the AI
 ```json
 {
-  "question": "Your question here",
-  "history": "Previous conversation context",
-  "userId": "user-uuid"
+  "userId": "user-uuid",
+  "messages": [{ "role": "user", "content": "Hello" }],
+  "skillPrompt": "Optional system prompt",
+  "model": "Optional model override",
+  "parameters": {},
+  "clientKeys": { "openrouter": "sk-or-v1-..." }
 }
 ```
 
-### POST `/api/test`
-Validate an API key
+### POST `/api/keys`
+Validate one or more provider API keys
 ```json
 {
-  "APIkey": "your-openrouter-key",
-  "userId": "user-uuid"
-}
-```
-
-### POST `/api/key-exists`
-Check if user has a stored key
-```json
-{
-  "userId": "user-uuid"
+  "userId": "user-uuid",
+  "openrouter": "sk-or-v1-...",
+  "groq": "gsk_..."
 }
 ```
 

@@ -3,11 +3,14 @@ import { createRoot } from 'react-dom/client'
 import App from './App.jsx'
 
 import { ChatsProvider } from './context/chatsContext.jsx'
+import ErrorBoundary from './components/ErrorBoundary.jsx'
 
 createRoot(document.getElementById('root')).render(
   <StrictMode>
-    <ChatsProvider>
-      <App />
-    </ChatsProvider>
+    <ErrorBoundary>
+      <ChatsProvider>
+        <App />
+      </ChatsProvider>
+    </ErrorBoundary>
   </StrictMode>,
 )

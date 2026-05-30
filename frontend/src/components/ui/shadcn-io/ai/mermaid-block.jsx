@@ -1,7 +1,7 @@
-import { useEffect, useState, useRef } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import mermaid from 'mermaid';
+import { Copy, Check } from 'lucide-react';
 
-// ── Mermaid initialization (once) ──
 let _initialized = false;
 
 function initMermaid() {
@@ -21,7 +21,7 @@ function initMermaid() {
       secondaryColor: '#F5F5F5',
       tertiaryColor: '#F9F9F7',
       edgeLabelBackground: '#F5F5F5',
-      clusterBkg: '#F5F5F5',
+      clusterBkg: '#F9F9F7',
       titleColor: '#111111',
       nodeBorder: '#111111',
       mainBkg: '#F5F5F5',
@@ -40,23 +40,28 @@ function initMermaid() {
     },
     flowchart: {
       curve: 'basis',
-      htmlLabels: false,
+      htmlLabels: true,
       nodeSpacing: 15,
       rankSpacing: 15,
       padding: 5,
       useMaxWidth: false,
     },
-    sequence: { actorMargin: 30 },
-    fontFamily: "'Fira Code', monospace",
-    fontSize: 8,
+    sequence: { actorMargin: 30, boxMargin: 10, boxTextMargin: 5, noteMargin: 10, messageMargin: 35, mirrorActors: false, bottomMarginAdj: 10, useMaxWidth: false },
+    gantt: { barHeight: 20, barGap: 4, topPadding: 20, leftPadding: 50, gridLineStartPadding: 35, fontSize: 10, useMaxWidth: false },
+    class: { useMaxWidth: false },
+    git: { useMaxWidth: false },
+    pie: { useMaxWidth: false },
+    requirement: { useMaxWidth: false },
+    journey: { useMaxWidth: false },
+    timeline: { useMaxWidth: false },
+    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+    fontSize: 9,
     securityLevel: 'strict',
   });
 }
 
-// ── Stable ID counter (never resets) ──
 let _uid = 0;
 
-// ── Helper: clean mermaid code ──
 function cleanMermaidCode(raw) {
   return raw
     .trim()
@@ -66,7 +71,47 @@ function cleanMermaidCode(raw) {
     .trim();
 }
 
-// ── Helper: patch SVG for responsive display ──
+function escapeMermaidLabel(label) {
+  return label
+    .replace(/&/g, '&amp;')
+    .replace(/"/g, '&quot;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;');
+}
+
+function preprocessMermaidCode(raw) {
+  let code = raw;
+
+  // Wrap node labels containing special characters in double quotes
+  // e.g. B[setCount(count + 1)] -> B["setCount(count + 1)"]
+  // Only targets labels NOT already quoted
+  code = code.replace(
+    /\[([^\]"\n]*[(){}<>;:+|=][^\]"\n]*)\]/g,
+    (_, label) => `["${escapeMermaidLabel(label)}"]`
+  );
+
+  // Escape parentheses inside quoted labels
+  code = code.replace(
+    /\["([^"]*)"\]/g,
+    (_, label) => {
+      const escaped = escapeMermaidLabel(label);
+      return `["${escaped}"]`;
+    }
+  );
+
+  return code;
+}
+
+function tryFix(code, attempt) {
+  switch (attempt) {
+    case 0: return code;
+    case 1: return preprocessMermaidCode(code);
+    case 2: return code.replace(/\(/g, '#40;').replace(/\)/g, '#41;').replace(/\[/g, '#91;').replace(/\]/g, '#93;').replace(/\{/g, '#123;').replace(/\}/g, '#125;').replace(/</g, '#60;').replace(/>/g, '#62;');
+    case 3: return `flowchart TB\n    A["Diagram Error"] --> B["Could not render this diagram"]`;
+    default: return code;
+  }
+}
+
 function patchSvg(svg) {
   return svg
     .replace(/width="[^"]*"/, '')
@@ -74,7 +119,7 @@ function patchSvg(svg) {
     .replace(/font-size: \d+px/g, 'font-size: 9px')
     .replace(
       '<svg ',
-      '<svg style="max-width:100%; width:100%; height:auto; display:block; margin:0 auto; filter:drop-shadow(0 0 4px rgba(57,255,20,0.08))" '
+      '<svg style="max-width:100%; width:100%; height:auto; display:block; margin:0 auto;" '
     );
 }
 
@@ -82,7 +127,16 @@ export function MermaidBlock({ code }) {
   const [svgHtml, setSvgHtml] = useState('');
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [copied, setCopied] = useState(false);
   const containerRef = useRef(null);
+
+  const handleCopy = useCallback(async () => {
+    try {
+      await navigator.clipboard.writeText(code);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    } catch {}
+  }, [code]);
 
   useEffect(() => {
     initMermaid();
@@ -94,24 +148,31 @@ export function MermaidBlock({ code }) {
     setLoading(true);
 
     const id = `mermaid-cf-${++_uid}`;
-    const cleanCode = cleanMermaidCode(code);
-
-    if (!cleanCode) {
-      setLoading(false);
-      setError('Empty diagram code');
-      return;
-    }
 
     const render = async () => {
-      try {
-        const { svg } = await mermaid.render(id, cleanCode);
+      const cleanCode = cleanMermaidCode(code);
+      if (!cleanCode) {
+        if (!cancelled) { setLoading(false); setError('Empty diagram code'); }
+        return;
+      }
+
+      for (let attempt = 0; attempt < 4; attempt++) {
         if (cancelled) return;
-        setSvgHtml(patchSvg(svg));
-      } catch (err) {
-        if (cancelled) return;
-        setError(err?.message || String(err) || 'Render failed');
-      } finally {
-        if (!cancelled) setLoading(false);
+        const candidate = tryFix(cleanCode, attempt);
+        try {
+          const { svg } = await mermaid.render(id, candidate);
+          if (cancelled) return;
+          setSvgHtml(patchSvg(svg));
+          setLoading(false);
+          return;
+        } catch (err) {
+          if (attempt === 3) {
+            if (!cancelled) {
+              setError(err?.message || String(err) || 'Render failed');
+              setLoading(false);
+            }
+          }
+        }
       }
     };
 
@@ -119,7 +180,6 @@ export function MermaidBlock({ code }) {
 
     return () => {
       cancelled = true;
-      // Clean up mermaid's rendered DOM element
       const el = document.getElementById('d' + id);
       if (el) el.remove();
     };
@@ -128,36 +188,40 @@ export function MermaidBlock({ code }) {
   return (
     <div
       ref={containerRef}
-      className="my-4 mermaid-container rounded-xl overflow-x-auto"
+      className="my-4 border border-divider overflow-hidden"
       style={{
-        background: '#050f08',
-        border: '1px solid rgba(57, 255, 20, 0.2)',
-        boxShadow: '0 0 24px rgba(57, 255, 20, 0.04)',
+        background: '#F9F9F7',
       }}
     >
-      {/* ── Header ── */}
       <div
-        className="mermaid-header flex items-center gap-2 px-4 py-2"
+        className="flex items-center justify-between px-4 py-2"
         style={{
-          borderBottom: '1px solid rgba(57, 255, 20, 0.12)',
-          background: 'rgba(57, 255, 20, 0.03)',
+          borderBottom: '1px solid #E5E5E0',
+          background: '#F5F5F5',
         }}
       >
         <span
-          className="text-[10px] tracking-[0.12em] uppercase font-semibold"
-          style={{ color: 'rgba(0, 245, 255, 0.55)' }}
+          className="text-[10px] tracking-[0.12em] uppercase font-semibold font-mono"
+          style={{ color: '#737373' }}
         >
           ⬡ Mermaid Diagram
         </span>
+        <button
+          onClick={handleCopy}
+          className="flex items-center gap-1 text-[10px] font-mono transition-colors"
+          style={{ color: copied ? '#111111' : '#A3A3A3' }}
+          title="Copy diagram code"
+        >
+          {copied ? <Check size={11} /> : <Copy size={11} />}
+          <span>{copied ? 'copied' : 'copy'}</span>
+        </button>
       </div>
 
-      {/* ── Body ── */}
       <div className="p-4 flex justify-center min-h-16 relative">
-        {/* Loading */}
         {loading && !error && (
           <div
             className="absolute inset-0 flex items-center justify-center gap-1"
-            style={{ color: 'rgba(200, 255, 192, 0.3)' }}
+            style={{ color: '#A3A3A3' }}
           >
             <span className="text-xs font-mono">rendering</span>
             <span className="loading-dots">
@@ -168,25 +232,28 @@ export function MermaidBlock({ code }) {
           </div>
         )}
 
-        {/* Error */}
         {error && (
-          <div className="w-full mermaid-error">
-            <p className="text-xs font-mono mb-2 flex items-center gap-1.5" style={{ color: 'rgba(255, 45, 120, 0.8)' }}>
-              <span>✗</span> Diagram error
+          <div className="w-full">
+            <p className="text-xs font-mono mb-2 flex items-center gap-1.5" style={{ color: '#CC0000' }}>
+              ✗ Diagram error
             </p>
-            <pre className="text-xs whitespace-pre-wrap mb-3 font-mono" style={{ color: 'rgba(255, 45, 120, 0.55)' }}>
+            <pre className="text-xs whitespace-pre-wrap mb-3 font-mono leading-relaxed" style={{ color: '#737373' }}>
               {error}
             </pre>
-            <pre className="text-xs whitespace-pre-wrap font-mono" style={{ color: 'rgba(200, 255, 192, 0.2)' }}>
-              {code}
-            </pre>
+            <div className="text-xs font-mono" style={{ color: '#A3A3A3' }}>
+              <div className="flex items-center gap-2 mb-1">
+                <span style={{ color: '#737373' }}>raw mermaid code:</span>
+              </div>
+              <pre className="whitespace-pre-wrap leading-relaxed">
+                {code}
+              </pre>
+            </div>
           </div>
         )}
 
-        {/* SVG */}
         {svgHtml && (
           <div
-            className="w-full flex justify-center mermaid-svg"
+            className="w-full flex justify-center"
             dangerouslySetInnerHTML={{ __html: svgHtml }}
           />
         )}

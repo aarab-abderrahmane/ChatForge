@@ -294,7 +294,6 @@ export const Terminal = ({
             </div>
 
             <div className="hidden md:flex items-center gap-4">
-              <span className="font-mono text-[10px] text-muted-500 uppercase tracking-widest">Vol. 1 | {EDITION_DATE}</span>
               <div className={`flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest ${isOnline ? "text-ink" : "text-red"}`}>
                 {isOnline ? <Wifi size={12} strokeWidth={1.5} /> : <WifiOff size={12} strokeWidth={1.5} />}
                 <span>{isOnline ? "Connected" : "Offline"}</span>
@@ -330,33 +329,6 @@ export const Terminal = ({
             </div>
           </div>
 
-          {/* ── Marquee Ticker ──────────────────── */}
-          <div className="marquee-track">
-            <div className="marquee-content">
-              <span className="inline-flex items-center gap-6 mx-4">
-                <span className="inline-flex items-center gap-2"><span className="bg-red text-paper text-[9px] font-bold px-1 py-0.5">LIVE</span> ChatForge Digital Edition — May 2026</span>
-                <span className="text-muted-400">|</span>
-                <span className="inline-flex items-center gap-1"><Wifi size={10} strokeWidth={1.5} /> System: {isOnline ? "Online" : "Offline"}</span>
-                <span className="text-muted-400">|</span>
-                <span className="inline-flex items-center gap-1">Messages: {msgCount}</span>
-                <span className="text-muted-400">|</span>
-                <span className="inline-flex items-center gap-1">Skill: {activeSkill.icon} {activeSkill.name}</span>
-                <span className="text-muted-400">|</span>
-                <span className="inline-flex items-center gap-1">Model: {activeModel.name}</span>
-              </span>
-              <span className="inline-flex items-center gap-6 mx-4">
-                <span className="inline-flex items-center gap-2"><span className="bg-red text-paper text-[9px] font-bold px-1 py-0.5">LIVE</span> ChatForge Digital Edition — May 2026</span>
-                <span className="text-muted-400">|</span>
-                <span className="inline-flex items-center gap-1"><Wifi size={10} strokeWidth={1.5} /> System: {isOnline ? "Online" : "Offline"}</span>
-                <span className="text-muted-400">|</span>
-                <span className="inline-flex items-center gap-1">Messages: {msgCount}</span>
-                <span className="text-muted-400">|</span>
-                <span className="inline-flex items-center gap-1">Skill: {activeSkill.icon} {activeSkill.name}</span>
-                <span className="text-muted-400">|</span>
-                <span className="inline-flex items-center gap-1">Model: {activeModel.name}</span>
-              </span>
-            </div>
-          </div>
         </header>
 
         {/* ── Search Bar ──────────────────────────── */}

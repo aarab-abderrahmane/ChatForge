@@ -269,7 +269,7 @@ export function DocsPage() {
                         <div className="docs-steps">
                             {[
                                 { n: "01", title: "Get your API key", desc: <>Visit <a href="https://openrouter.ai" target="_blank" rel="noreferrer" className="docs-link">openrouter.ai</a> and create a free account. Copy your API key from the dashboard.</> },
-                                { n: "02", title: "Paste & authenticate", desc: "On the ChatForge guide page, paste your key in the terminal input and press Enter. Your key is encrypted and stored securely in MongoDB — it never appears in the browser." },
+                                { n: "02", title: "Paste & authenticate", desc: "On the ChatForge guide page, paste your key in the terminal input and press Enter. Your key is encrypted and stored securely in your browser — it is sent to our server only during chat requests and is never logged." },
                                 { n: "03", title: "Start chatting", desc: "Once authenticated, the full terminal interface loads. Type any question and press Enter to send. Use //> commands for advanced interactions." },
                             ].map(({ n, title, desc }) => (
                                 <div key={n} className="docs-step">

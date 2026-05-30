@@ -43,6 +43,7 @@ function App() {
     updateSessionFacts,
     activeSessionId,
     providerStatus,
+    isReady,
   } = useContext(chatsContext) || {};
 
   const messagesEndRef = useRef(null);
@@ -544,6 +545,14 @@ function App() {
   );
 
   // ── Render ──
+  if (!isReady) {
+    return (
+      <div className="w-screen h-screen flex items-center justify-center bg-dark text-muted-400 font-mono text-sm">
+        <span>Loading...</span>
+      </div>
+    );
+  }
+
   return (
     <div className="w-screen h-screen flex flex-col">
       {preferences.currentPage === 'settings' ? (

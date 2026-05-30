@@ -263,7 +263,7 @@ export const GuidePage = () => {
 
             <p className="text-muted-400/50 text-[10px] font-sans mt-3 ml-[50px] leading-relaxed">
               Press <kbd className="border border-ink/10 text-muted-500 font-mono text-[10px] px-1.5 py-0.5">Enter</kbd> to
-              authenticate · Your key is encrypted and stored securely
+              authenticate · Your key is encrypted and stored securely in your browser
             </p>
           </div>
         )}
