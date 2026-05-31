@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-'use client';;
+'use client';
 import { cn } from '../../../../lib/utils';
 import { isValidElement, memo } from 'react';
 import ReactMarkdown from 'react-markdown';
@@ -36,336 +36,244 @@ import hardenReactMarkdown from 'harden-react-markdown';
  * of links, images, bold, and italic formatting during streaming.
  */
 function parseIncompleteMarkdown(text) {
-  if (!text || typeof text !== 'string') {
-    return text;
-  }
+  if (!text || typeof text !== 'string') return text;
 
   let result = text;
 
-  // Handle incomplete links and images
-  // Pattern: [...] or ![...] where the closing ] is missing
   const linkImagePattern = /(!?\[)([^\]]*?)$/;
   const linkMatch = result.match(linkImagePattern);
   if (linkMatch) {
-    // If we have an unterminated [ or ![, remove it and everything after
     const startIndex = result.lastIndexOf(linkMatch[1]);
     result = result.substring(0, startIndex);
   }
 
-  // Handle incomplete bold formatting (**)
   const boldPattern = /(\*\*)([^*]*?)$/;
   const boldMatch = result.match(boldPattern);
   if (boldMatch) {
-    // Count the number of ** in the entire string
     const asteriskPairs = (result.match(/\*\*/g) || []).length;
-    // If odd number of **, we have an incomplete bold - complete it
-    if (asteriskPairs % 2 === 1) {
-      result = `${result}**`;
-    }
+    if (asteriskPairs % 2 === 1) result = `${result}**`;
   }
 
-  // Handle incomplete italic formatting (__)
   const italicPattern = /(__)([^_]*?)$/;
   const italicMatch = result.match(italicPattern);
   if (italicMatch) {
-    // Count the number of __ in the entire string
     const underscorePairs = (result.match(/__/g) || []).length;
-    // If odd number of __, we have an incomplete italic - complete it
-    if (underscorePairs % 2 === 1) {
-      result = `${result}__`;
-    }
+    if (underscorePairs % 2 === 1) result = `${result}__`;
   }
 
-  // Handle incomplete single asterisk italic (*)
   const singleAsteriskPattern = /(\*)([^*]*?)$/;
   const singleAsteriskMatch = result.match(singleAsteriskPattern);
   if (singleAsteriskMatch) {
-    // Count single asterisks that aren't part of **
     const singleAsterisks = result.split('').reduce((acc, char, index) => {
       if (char === '*') {
-        // Check if it's part of a ** pair
         const prevChar = result[index - 1];
         const nextChar = result[index + 1];
-        if (prevChar !== '*' && nextChar !== '*') {
-          return acc + 1;
-        }
+        if (prevChar !== '*' && nextChar !== '*') return acc + 1;
       }
       return acc;
     }, 0);
-
-    // If odd number of single *, we have an incomplete italic - complete it
-    if (singleAsterisks % 2 === 1) {
-      result = `${result}*`;
-    }
+    if (singleAsterisks % 2 === 1) result = `${result}*`;
   }
 
-  // Handle incomplete single underscore italic (_)
   const singleUnderscorePattern = /(_)([^_]*?)$/;
   const singleUnderscoreMatch = result.match(singleUnderscorePattern);
   if (singleUnderscoreMatch) {
-    // Count single underscores that aren't part of __
     const singleUnderscores = result.split('').reduce((acc, char, index) => {
       if (char === '_') {
-        // Check if it's part of a __ pair
         const prevChar = result[index - 1];
         const nextChar = result[index + 1];
-        if (prevChar !== '_' && nextChar !== '_') {
-          return acc + 1;
-        }
+        if (prevChar !== '_' && nextChar !== '_') return acc + 1;
       }
       return acc;
     }, 0);
-
-    // If odd number of single _, we have an incomplete italic - complete it
-    if (singleUnderscores % 2 === 1) {
-      result = `${result}_`;
-    }
+    if (singleUnderscores % 2 === 1) result = `${result}_`;
   }
 
-  // Handle incomplete inline code blocks (`) - but avoid code blocks (```)
   const inlineCodePattern = /(`)([^`]*?)$/;
   const inlineCodeMatch = result.match(inlineCodePattern);
   if (inlineCodeMatch) {
-    // Check if we're dealing with a code block (triple backticks)
-    const hasCodeBlockStart = result.includes('```');
-    const codeBlockPattern = /```[\s\S]*?```/g;
-    const completeCodeBlocks = (result.match(codeBlockPattern) || []).length;
     const allTripleBackticks = (result.match(/```/g) || []).length;
-
-    // If we have an odd number of ``` sequences, we're inside an incomplete code block
-    // In this case, don't complete inline code
     const insideIncompleteCodeBlock = allTripleBackticks % 2 === 1;
-
     if (!insideIncompleteCodeBlock) {
-      // Count the number of single backticks that are NOT part of triple backticks
       let singleBacktickCount = 0;
       for (let i = 0; i < result.length; i++) {
         if (result[i] === '`') {
-          // Check if this backtick is part of a triple backtick sequence
           const isTripleStart = result.substring(i, i + 3) === '```';
-          const isTripleMiddle =
-            i > 0 && result.substring(i - 1, i + 2) === '```';
+          const isTripleMiddle = i > 0 && result.substring(i - 1, i + 2) === '```';
           const isTripleEnd = i > 1 && result.substring(i - 2, i + 1) === '```';
-
-          if (!(isTripleStart || isTripleMiddle || isTripleEnd)) {
-            singleBacktickCount++;
-          }
+          if (!(isTripleStart || isTripleMiddle || isTripleEnd)) singleBacktickCount++;
         }
       }
-
-      // If odd number of single backticks, we have an incomplete inline code - complete it
-      if (singleBacktickCount % 2 === 1) {
-        result = `${result}\``;
-      }
+      if (singleBacktickCount % 2 === 1) result = `${result}\``;
     }
   }
 
-  // Handle incomplete strikethrough formatting (~~)
   const strikethroughPattern = /(~~)([^~]*?)$/;
   const strikethroughMatch = result.match(strikethroughPattern);
   if (strikethroughMatch) {
-    // Count the number of ~~ in the entire string
     const tildePairs = (result.match(/~~/g) || []).length;
-    // If odd number of ~~, we have an incomplete strikethrough - complete it
-    if (tildePairs % 2 === 1) {
-      result = `${result}~~`;
-    }
+    if (tildePairs % 2 === 1) result = `${result}~~`;
   }
 
   return result;
 }
 
-// Create a hardened version of ReactMarkdown
+// ─── Auto-file wrapping ────────────────────────────────────────────────────────
+/**
+ * Maps common code fence languages to sensible filenames.
+ * Used when the AI forgot to use file: prefix but the output is clearly a standalone file.
+ */
+const LANGUAGE_TO_FILENAME = {
+  python: "script.py",
+  py: "script.py",
+  javascript: "script.js",
+  js: "script.js",
+  typescript: "script.ts",
+  ts: "script.ts",
+  jsx: "Component.jsx",
+  tsx: "Component.tsx",
+  html: "index.html",
+  css: "styles.css",
+  sql: "query.sql",
+  bash: "script.sh",
+  sh: "script.sh",
+  shell: "script.sh",
+  dockerfile: "Dockerfile",
+  yaml: "config.yaml",
+  yml: "config.yml",
+  json: "data.json",
+  markdown: "README.md",
+  md: "README.md",
+  env: ".env.example",
+};
+
+/**
+ * Determines whether a plain code block should be auto-promoted to a FileBlock.
+ *
+ * Rules (all must be true):
+ * 1. The language maps to a known filename.
+ * 2. The code is long enough to be a real file (> 10 lines).
+ * 3. The code looks complete (has proper structure like imports/exports/functions).
+ *
+ * This is intentionally conservative — we only auto-promote when confident,
+ * to avoid turning every short snippet into a download card.
+ */
+const shouldAutoPromoteToFile = (language, code) => {
+  if (!language || !code) return { promote: false, filename: null };
+
+  const lang = language.toLowerCase();
+  const filename = LANGUAGE_TO_FILENAME[lang];
+  if (!filename) return { promote: false, filename: null };
+
+  const lines = code.trim().split('\n').length;
+  if (lines < 10) return { promote: false, filename: null };
+
+  // Structural completeness heuristics per language
+  const structuralChecks = {
+    python: () => /^(import |from |def |class )/m.test(code),
+    javascript: () => /(import |export |function |const |class )/m.test(code),
+    typescript: () => /(import |export |function |const |class |interface |type )/m.test(code),
+    jsx: () => /(import React|import {|export default|export function|const \w+ = \()/m.test(code),
+    tsx: () => /(import React|import {|export default|export function|const \w+: React)/m.test(code),
+    html: () => /<html|<!DOCTYPE|<body|<head/i.test(code),
+    css: () => /[a-z-]+\s*:\s*[^;]+;/m.test(code) && lines > 5,
+    sql: () => /(CREATE TABLE|SELECT|INSERT|ALTER TABLE)/i.test(code),
+
+    yaml: () => /^[\w-]+:/m.test(code),
+    yml: () => /^[\w-]+:/m.test(code),
+    json: () => { try { JSON.parse(code); return true; } catch { return false; } },
+  };
+
+    //   bash: () => /(#!/|echo |if \[|for |while )/m.test(code),
+    // sh: () => /(#!/|echo |if \[|for |while )/m.test(code),
+
+  const check = structuralChecks[lang];
+  if (check && !check()) return { promote: false, filename: null };
+
+  return { promote: true, filename };
+};
+
+// ─── Markdown components ───────────────────────────────────────────────────────
 const HardenedMarkdown = hardenReactMarkdown(ReactMarkdown);
 
 const components = {
-  // Lists
   ol: ({ node, children, className, ...props }) => (
-    <ol
-      className={cn('ml-5 list-outside list-decimal space-y-1 my-2 text-ink', className)}
-      {...props}
-    >
+    <ol className={cn('ml-5 list-outside list-decimal space-y-1 my-2 text-ink', className)} {...props}>
       {children}
     </ol>
   ),
   li: ({ node, children, className, ...props }) => (
-    <li className={cn('py-0.5 leading-relaxed', className)} {...props}>
-      {children}
-    </li>
+    <li className={cn('py-0.5 leading-relaxed', className)} {...props}>{children}</li>
   ),
   ul: ({ node, children, className, ...props }) => (
-    <ul
-      className={cn('ml-5 list-outside list-disc space-y-1 my-2 text-ink', className)}
-      {...props}
-    >
+    <ul className={cn('ml-5 list-outside list-disc space-y-1 my-2 text-ink', className)} {...props}>
       {children}
     </ul>
   ),
-
-  // Horizontal rule
   hr: ({ node, className, ...props }) => (
-    <hr
-      className={cn('my-5 border-divider', className)}
-      {...props}
-    />
+    <hr className={cn('my-5 border-divider', className)} {...props} />
   ),
-
-  // Bold
   strong: ({ node, children, className, ...props }) => (
-    <span
-      className={cn('font-bold text-ink', className)}
-      {...props}
-    >
-      {children}
-    </span>
+    <span className={cn('font-bold text-ink', className)} {...props}>{children}</span>
   ),
-
-  // Italic
   em: ({ node, children, className, ...props }) => (
-    <em
-      className={cn('italic', className)}
-      {...props}
-    >
-      {children}
-    </em>
+    <em className={cn('italic', className)} {...props}>{children}</em>
   ),
-
-  // Strikethrough
   del: ({ node, children, className, ...props }) => (
-    <del
-      className={cn('line-through text-muted-500', className)}
-      {...props}
-    >
-      {children}
-    </del>
+    <del className={cn('line-through text-muted-500', className)} {...props}>{children}</del>
   ),
-
-  // Links
   a: ({ node, children, className, ...props }) => (
-    <a
-      className={cn('underline text-ink hover:text-red underline-offset-2', className)}
-      rel="noreferrer"
-      target="_blank"
-      {...props}
-    >
+    <a className={cn('underline text-ink hover:text-red underline-offset-2', className)} rel="noreferrer" target="_blank" {...props}>
       {children}
     </a>
   ),
-
-  // Headings
   h1: ({ node, children, className, ...props }) => (
-    <h1
-      className={cn('mt-6 mb-3 font-serif text-2xl font-black', className)}
-      {...props}
-    >
-      {children}
-    </h1>
+    <h1 className={cn('mt-6 mb-3 font-serif text-2xl font-black', className)} {...props}>{children}</h1>
   ),
   h2: ({ node, children, className, ...props }) => (
-    <h2
-      className={cn('mt-5 mb-2 font-serif text-xl font-bold', className)}
-      {...props}
-    >
-      # {children}
-    </h2>
+    <h2 className={cn('mt-5 mb-2 font-serif text-xl font-bold', className)} {...props}># {children}</h2>
   ),
   h3: ({ node, children, className, ...props }) => (
-    <h3
-      className={cn('mt-4 mb-2 font-serif text-lg font-semibold', className)}
-      {...props}
-    >
-      ## {children}
-    </h3>
+    <h3 className={cn('mt-4 mb-2 font-serif text-lg font-semibold', className)} {...props}>## {children}</h3>
   ),
   h4: ({ node, children, className, ...props }) => (
-    <h4
-      className={cn('mt-4 mb-1 font-serif text-base font-semibold', className)}
-      {...props}
-    >
-      ### {children}
-    </h4>
+    <h4 className={cn('mt-4 mb-1 font-serif text-base font-semibold', className)} {...props}>### {children}</h4>
   ),
   h5: ({ node, children, className, ...props }) => (
-    <h5
-      className={cn('mt-3 mb-1 font-serif font-semibold', className)}
-      {...props}
-    >
-      {children}
-    </h5>
+    <h5 className={cn('mt-3 mb-1 font-serif font-semibold', className)} {...props}>{children}</h5>
   ),
   h6: ({ node, children, className, ...props }) => (
-    <h6
-      className={cn('mt-3 mb-1 font-serif text-sm font-semibold', className)}
-      {...props}
-    >
-      {children}
-    </h6>
+    <h6 className={cn('mt-3 mb-1 font-serif text-sm font-semibold', className)} {...props}>{children}</h6>
   ),
-
-  // Tables
   table: ({ node, children, className, ...props }) => (
     <div className="my-4 overflow-x-auto rounded-lg border border-ink">
-      <table
-        className={cn('w-full border-collapse', className)}
-        {...props}
-      >
-        {children}
-      </table>
+      <table className={cn('w-full border-collapse', className)} {...props}>{children}</table>
     </div>
   ),
   thead: ({ node, children, className, ...props }) => (
-    <thead
-      className={cn('bg-muted-100', className)}
-      {...props}
-    >
-      {children}
-    </thead>
+    <thead className={cn('bg-muted-100', className)} {...props}>{children}</thead>
   ),
   tbody: ({ node, children, className, ...props }) => (
-    <tbody className={cn('', className)} {...props}>
-      {children}
-    </tbody>
+    <tbody className={cn('', className)} {...props}>{children}</tbody>
   ),
   tr: ({ node, children, className, ...props }) => (
-    <tr
-      className={cn('', className)}
-      {...props}
-    >
-      {children}
-    </tr>
+    <tr className={cn('', className)} {...props}>{children}</tr>
   ),
   th: ({ node, children, className, ...props }) => (
-    <th
-      className={cn('px-4 py-2 text-left font-mono text-xs tracking-widest uppercase text-ink', className)}
-      {...props}
-    >
+    <th className={cn('px-4 py-2 text-left font-mono text-xs tracking-widest uppercase text-ink', className)} {...props}>
       {children}
     </th>
   ),
   td: ({ node, children, className, ...props }) => (
-    <td
-      className={cn('px-4 py-2 text-sm font-body', className)}
-      {...props}
-    >
-      {children}
-    </td>
+    <td className={cn('px-4 py-2 text-sm font-body', className)} {...props}>{children}</td>
   ),
-
-  // Blockquote
   blockquote: ({ node, children, className, ...props }) => (
-    <blockquote
-      className={cn('my-4 pl-4 italic border-l-2 border-ink bg-paper', className)}
-      {...props}
-    >
+    <blockquote className={cn('my-4 pl-4 italic border-l-2 border-ink bg-paper', className)} {...props}>
       {children}
     </blockquote>
   ),
-
-  // Task list checkbox
   input: ({ node, type, checked, className, ...props }) => {
-    if (type !== 'checkbox') {
-      return <input type={type} checked={checked} className={className} {...props} />;
-    }
+    if (type !== 'checkbox') return <input type={type} checked={checked} className={className} {...props} />;
     return (
       <span
         className={cn(
@@ -373,11 +281,7 @@ const components = {
           checked ? 'border-ink' : 'border-divider',
           className
         )}
-        style={{
-          cursor: 'default',
-          position: 'relative',
-          top: '-1px',
-        }}
+        style={{ cursor: 'default', position: 'relative', top: '-1px' }}
       >
         {checked && (
           <svg width="9" height="7" viewBox="0 0 9 7" fill="none">
@@ -387,13 +291,9 @@ const components = {
       </span>
     );
   },
-
-  // Inline code
   code: ({ node, className, ...props }) => {
     const inline = node?.position?.start.line === node?.position?.end.line;
-    if (!inline) {
-      return <code dir="ltr" className={className} {...props} />;
-    }
+    if (!inline) return <code dir="ltr" className={className} {...props} />;
     return (
       <code
         dir="ltr"
@@ -403,7 +303,7 @@ const components = {
     );
   },
 
-  // Code block via <pre> — with mermaid detection
+  // ── Code / pre block ────────────────────────────────────────────────────────
   pre: ({ node, className, children }) => {
     // Detect language from child code element
     let language = 'text';
@@ -416,50 +316,42 @@ const components = {
 
     // Extract code string
     let code = '';
-    if (
-      isValidElement(children) &&
-      children.props &&
-      typeof children.props.children === 'string'
-    ) {
+    if (isValidElement(children) && children.props && typeof children.props.children === 'string') {
       code = children.props.children;
     } else if (typeof children === 'string') {
       code = children;
     }
 
-    // Render mermaid diagrams inline
-    if (language === 'mermaid') {
-      return <MermaidBlock code={code} />;
-    }
+    // ── Special language handlers ────────────────────────────────────────────
 
-    // Render quiz blocks inline
-    if (language === 'quiz') {
-      return <QuizBlock code={code} />;
-    }
+    if (language === 'mermaid') return <MermaidBlock code={code} />;
+    if (language === 'quiz') return <QuizBlock code={code} />;
+    if (language === 'flashcards') return <FlashcardBlock code={code} />;
+    if (language === 'mindmap') return <MindmapBlock code={code} />;
 
-    if (language === 'flashcards') {
-      return <FlashcardBlock code={code} />;
-    }
-
-    if (language === 'mindmap') {
-      return <MindmapBlock code={code} />;
-    }
-
+    // ── file:filename.ext — explicit file download card ──────────────────────
     if (language?.startsWith('file:')) {
       const filename = language.replace('file:', '').trim() || 'untitled.txt';
       return <FileBlock code={code} filename={filename} />;
     }
 
+    // ── Auto-promote large, complete code blocks to FileBlock ────────────────
+    // This handles cases where the AI generated a full file but forgot the file: prefix.
+    const { promote, filename: autoFilename } = shouldAutoPromoteToFile(language, code);
+    if (promote && autoFilename) {
+      return <FileBlock code={code} filename={autoFilename} autoPromoted />;
+    }
+
+    // ── Default: syntax-highlighted code block ───────────────────────────────
     return (
       <CodeBlock code={code} language={language} dir="ltr">
-        <CodeBlockCopyButton
-          onCopy={() => { }}
-          onError={() => { }}
-        />
+        <CodeBlockCopyButton onCopy={() => {}} onError={() => {}} />
       </CodeBlock>
     );
   },
 };
 
+// ─── Response component ────────────────────────────────────────────────────────
 export const Response = memo(({
   className,
   options,
@@ -470,16 +362,13 @@ export const Response = memo(({
   parseIncompleteMarkdown: shouldParseIncompleteMarkdown = true,
   ...props
 }) => {
-  // Parse the children to remove incomplete markdown tokens if enabled
   const parsedChildren =
     typeof children === 'string' && shouldParseIncompleteMarkdown
       ? parseIncompleteMarkdown(children)
       : children;
 
   return (
-    <div
-      className={cn('text-wrap', className)}
-      {...props}>
+    <div className={cn('text-wrap', className)} {...props}>
       <HardenedMarkdown
         allowedImagePrefixes={allowedImagePrefixes ?? ['*']}
         allowedLinkPrefixes={allowedLinkPrefixes ?? ['*']}
@@ -487,7 +376,8 @@ export const Response = memo(({
         defaultOrigin={defaultOrigin}
         rehypePlugins={[rehypeKatex]}
         remarkPlugins={[remarkGfm, remarkMath]}
-        {...options}>
+        {...options}
+      >
         {parsedChildren}
       </HardenedMarkdown>
     </div>
