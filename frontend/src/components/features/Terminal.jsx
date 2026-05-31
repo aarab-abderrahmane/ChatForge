@@ -15,21 +15,18 @@ import {
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
+import { ArtifactProvider, useArtifacts } from "../../context/artifactContext";
+import { ArtifactPanel } from "./ArtifactPanel";
 
 const COMMANDS = [
-  { cmd: "//>clear", desc: "Clear current chat history", icon: Trash2, color: "#FF3B30" },
-  { cmd: "//>new", desc: "Start a new chat session", icon: Plus, color: "#34C759" },
-  { cmd: "//>summarize", desc: "Summarize this conversation", icon: FileText, color: "#007AFF" },
-  { cmd: "//>translate", desc: "Translate text", icon: Languages, color: "#5856D6" },
-  { cmd: "//>quiz", desc: "Generate a quiz (e.g. //>quiz React)", icon: Lightbulb, color: "#FF9500" },
-  { cmd: "//>flashcards", desc: "Generate flashcards", icon: Layers, color: "#AF52DE" },
-  { cmd: "//>mindmap", desc: "Generate a mindmap", icon: Sparkles, color: "#FF2D55" },
-  { cmd: "//>retry", desc: "Retry the last message", icon: RefreshCw, color: "#34C759" },
-  { cmd: "//>stats", desc: "Show session statistics", icon: BarChart3, color: "#007AFF" },
-  { cmd: "//>export", desc: "Export as .txt", icon: Download, color: "#00C7BE" },
-  { cmd: "//>help", desc: "Show keyboard shortcuts", icon: Search, color: "#8E8E93" },
-  { cmd: "//>skill", desc: "Show current AI skill info", icon: Code, color: "#AF52DE" },
-  { cmd: "//>model", desc: "Show current AI model info", icon: Wifi, color: "#007AFF" },
+  { cmd: "/summarize", desc: "Summarize this conversation", icon: FileText, color: "#007AFF" },
+  { cmd: "/translate", desc: "Translate text (e.g. /translate French: hello)", icon: Languages, color: "#5856D6" },
+  { cmd: "/quiz", desc: "Generate a quiz (e.g. /quiz React)", icon: Lightbulb, color: "#FF9500" },
+  { cmd: "/flashcards", desc: "Generate flashcards", icon: Layers, color: "#AF52DE" },
+  { cmd: "/mindmap", desc: "Generate a mindmap", icon: Sparkles, color: "#FF2D55" },
+  { cmd: "/help", desc: "Show keyboard shortcuts", icon: Search, color: "#8E8E93" },
+  { cmd: "/skill", desc: "Show current AI skill info", icon: Code, color: "#AF52DE" },
+  { cmd: "/model", desc: "Show current AI model info", icon: Wifi, color: "#007AFF" },
 ];
 
 const EDITION_DATE = new Date().toLocaleDateString("en-US", {
@@ -42,7 +39,7 @@ export const Terminal = ({
   onEditSubmit, onStopAI, onMergeDrafts, onSummarizeDrafts,
   onKeepDraft, onContinue,
 }) => {
-  const COMMAND_PREFIX = "//>";
+  const COMMAND_PREFIX = "/";
   const {
     preferences, setPreferences, settings, clearCurrentChat,
     createNewSession, customSkills, promptHistory, addToPromptHistory, aiTools,
@@ -90,6 +87,7 @@ export const Terminal = ({
   const [isOnline, setIsOnline] = useState(navigator?.onLine ?? true);
   const [draftCount, setDraftCount] = useState(1);
   const [toolbarOpen, setToolbarOpen] = useState(false);
+  const [artifactPanelOpen, setArtifactPanelOpen] = useState(false);
 
   const textareaRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -151,7 +149,7 @@ export const Terminal = ({
       return;
     }
     if (e.key === "Escape") { setShowCmdMenu(false); setShowSearch(false); }
-    if (e.key === "/") { setTimeout(() => { if (textareaRef.current?.value.startsWith("//>")) setShowCmdMenu(true); }, 10); }
+    if (e.key === "/") { setTimeout(() => { if (textareaRef.current?.value.startsWith("/")) setShowCmdMenu(true); }, 10); }
   };
 
   const handleToolClick = (tool) => {
@@ -186,31 +184,78 @@ export const Terminal = ({
   const executeCommand = (val) => {
     const trimmed = val.trim();
     if (!trimmed.startsWith(COMMAND_PREFIX)) return false;
-    const cmd = trimmed.toLowerCase();
 
-    if (cmd === "//>clear" || cmd === "//> clear") { setShowClearConfirm(true); setQuery(""); setShowCmdMenu(false); return true; }
-    if (cmd === "//>new") { createNewSession(); setQuery(""); setShowCmdMenu(false); return true; }
-    if (cmd === "//>export") { exportTxt(); setQuery(""); setShowCmdMenu(false); return true; }
-    if (cmd === "//>retry") {
-      const lastChat = [...chats].reverse().find(c => c.type === "ch" && c.question);
-      if (lastChat && onRetry) onRetry(lastChat.question, lastChat.id);
-      setQuery(""); setShowCmdMenu(false); return true;
-    }
-    if (cmd === "//>stats") {
-      const msgCount = chats.filter(c => c.type === "ch").length;
-      const wordCount = chats.filter(c => c.type === "ch").reduce((acc, c) => acc + ((c.question || "") + " " + (c.answer || "")).split(" ").length, 0);
-      window.dispatchEvent(new CustomEvent("chatforge:stats", {
-        detail: { statsMsg: [
-          "\uD83D\uDCCA Session Statistics",
-          `\u251C Messages : ${msgCount}`,
-          `\u251C Est. tokens used : ~${Math.round(wordCount * 1.3).toLocaleString()}`,
-          `\u251C Active skill : ${activeSkill.icon} ${activeSkill.name}`,
-          `\u2514 Active model : ${activeModel.icon} ${activeModel.name}`,
-        ]},
-      }));
-      setQuery(""); setShowCmdMenu(false); return true;
-    }
-    setQuery(""); setShowCmdMenu(false); return false;
+    const normalized = trimmed.replace(/^\/\/>\s*/, '/');
+    const rest = normalized.replace(/^\//, '').trim();
+    const spaceIdx = rest.indexOf(' ');
+    const cmd = spaceIdx === -1 ? rest.toLowerCase() : rest.slice(0, spaceIdx).toLowerCase();
+    const args = spaceIdx === -1 ? '' : rest.slice(spaceIdx + 1).trim();
+
+    const send = (prompt) => {
+      handleSend({ target: { value: prompt } }, draftCount);
+      setQuery(''); setShowCmdMenu(false);
+      return true;
+    };
+
+    const info = (lines) => {
+      window.dispatchEvent(new CustomEvent('chatforge:stats', { detail: { statsMsg: lines } }));
+      setQuery(''); setShowCmdMenu(false);
+      return true;
+    };
+
+    const HANDLERS = {
+      '/summarize': () => send('Please provide a concise summary of our conversation so far, highlighting the key points, decisions, and any action items discussed.'),
+      '/translate': () => {
+        const ci = args.indexOf(':');
+        if (ci === -1) {
+          return send(args.length > 30
+            ? `Please translate the following text:\n\n${args}`
+            : `Please translate this to ${args || 'English'}`);
+        }
+        const lang = args.slice(0, ci).trim();
+        const text = args.slice(ci + 1).trim();
+        return send(lang ? `Please translate the following text to ${lang}:\n\n${text}` : `Please translate this:\n\n${text}`);
+      },
+      '/quiz': () => send(`Generate a quiz${args ? ` about ${args}` : ''} with 5 multiple-choice questions. Format as JSON with fields: question, options (array of 4), answer (0-based index).`),
+      '/flashcards': () => send(`Create a set of flashcards${args ? ` about ${args}` : ''} for studying. Format as JSON array with fields: front, back.`),
+      '/mindmap': () => send(`Create a mindmap${args ? ` about ${args}` : ''} with a hierarchical structure. Format as JSON with fields: label (string), children (array of child nodes).`),
+      '/help': () => info([
+        '⌨  Keyboard Shortcuts',
+        '├ Enter       : Send message',
+        '├ Shift+Enter : New line',
+        '├ ↑ / ↓       : Prompt history',
+        '├ Ctrl+F      : Search chat',
+        '├ Esc         : Close menus',
+        '└ /command    : Run a command (/help for this list)',
+      ]),
+      '/skill': () => info([
+        '🎯 Active Skill',
+        `├ Name  : ${activeSkill.name}`,
+        `├ Icon  : ${activeSkill.icon}`,
+        `├ ID    : ${activeSkill.id}`,
+        `└ Model : ${activeModel.icon} ${activeModel.name}`,
+      ]),
+      '/model': () => info([
+        '🤖 Active Model',
+        `├ Name    : ${activeModel.name}`,
+        `├ Icon    : ${activeModel.icon}`,
+        `├ ID      : ${activeModel.id}`,
+        `└ Provider: ${activeModel.provider || 'N/A'}`,
+      ]),
+    };
+
+    const key = `/${cmd}`;
+    const handler = HANDLERS[key];
+    if (handler) return handler();
+
+    setQuery(''); setShowCmdMenu(false);
+    window.dispatchEvent(new CustomEvent('chatforge:stats', {
+      detail: { statsMsg: [
+        '⚠ Unknown Command',
+        `└ "/${cmd}" is not recognized. Type /help for available commands.`,
+      ]},
+    }));
+    return true;
   };
 
   const exportTxt = () => {
@@ -270,66 +315,71 @@ export const Terminal = ({
   };
 
   return (
-    <div className={cn("flex flex-row h-full w-full border-b border-ink", className)} style={fontSizeStyle}>
-      {isMobile && sidebarOpen && (
-        <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setSidebarOpen(false)} />
-      )}
-      <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(p => !p)} />
+    <ArtifactProvider>
+      <div className={cn("flex flex-row h-full w-full border-b border-ink", className)} style={fontSizeStyle}>
+        {isMobile && sidebarOpen && (
+          <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setSidebarOpen(false)} />
+        )}
+        <Sidebar isOpen={sidebarOpen} onToggle={() => setSidebarOpen(p => !p)} />
 
-      <div className="flex flex-col flex-1 min-w-0 h-full">
+        <div className="flex flex-col flex-1 min-w-0 h-full">
 
-        {/* ── Masthead ─────────────────────────────── */}
-        <header className="border-b border-ink bg-paper shrink-0">
-          <div className="flex items-center justify-between px-4 py-3 border-b border-ink">
-            <div className="flex items-center gap-3">
-              {!sidebarOpen && (
-                <button onClick={() => setSidebarOpen(true)} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors">
-                  <Menu size={18} className="text-ink" strokeWidth={1.5} />
+          {/* ── Masthead ─────────────────────────────── */}
+          <header className="border-b border-ink bg-paper shrink-0">
+            <div className="flex items-center justify-between px-4 py-3 border-b border-ink">
+              <div className="flex items-center gap-3">
+                {!sidebarOpen && (
+                  <button onClick={() => setSidebarOpen(true)} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors">
+                    <Menu size={18} className="text-ink" strokeWidth={1.5} />
+                  </button>
+                )}
+                <div>
+                  <h1 className="font-serif text-lg font-black uppercase tracking-tight leading-none">ChatForge</h1>
+                  <p className="font-mono text-[10px] text-muted-500 uppercase tracking-widest">Digital Edition</p>
+                </div>
+              </div>
+
+              <div className="hidden md:flex items-center gap-4">
+                <div className={`flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest ${isOnline ? "text-ink" : "text-red"}`}>
+                  {isOnline ? <Wifi size={12} strokeWidth={1.5} /> : <WifiOff size={12} strokeWidth={1.5} />}
+                  <span>{isOnline ? "Connected" : "Offline"}</span>
+                </div>
+                <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4">
+                  {activeSkill.icon} {activeSkill.name}
+                </span>
+                <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4">
+                  {activeModel.icon} {activeModel.name.replace(" Instruct", "").replace(" instruct", "")}
+                </span>
+              </div>
+
+              <div className="flex items-center gap-1">
+                {preferences.currentPage === "chat" && (
+                  <>
+                    <button onClick={createNewSession} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="New chat">
+                      <Plus size={16} strokeWidth={1.5} />
+                    </button>
+                    <button onClick={() => setShowClearConfirm(true)} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Clear chat">
+                      <Trash2 size={16} strokeWidth={1.5} />
+                    </button>
+                    <button onClick={() => { setShowSearch(p => !p); if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Search (Ctrl+F)">
+                      <Search size={16} strokeWidth={1.5} />
+                    </button>
+                    <button onClick={exportTxt} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Export as .txt">
+                      <Download size={16} strokeWidth={1.5} />
+                    </button>
+                  </>
+                )}
+                <ArtifactCountButton isOpen={artifactPanelOpen} onToggle={() => setArtifactPanelOpen(p => !p)} />
+                <button onClick={() => setPreferences(prev => ({ ...prev, currentPage: "docs" }))} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Documentation">
+                  <FileText size={16} strokeWidth={1.5} />
                 </button>
-              )}
-              <div>
-                <h1 className="font-serif text-lg font-black uppercase tracking-tight leading-none">ChatForge</h1>
-                <p className="font-mono text-[10px] text-muted-500 uppercase tracking-widest">Digital Edition</p>
+                <button onClick={() => setPreferences(prev => ({ ...prev, currentPage: "settings" }))} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Settings">
+                  <Settings size={16} strokeWidth={1.5} />
+                </button>
               </div>
             </div>
 
-            <div className="hidden md:flex items-center gap-4">
-              <div className={`flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest ${isOnline ? "text-ink" : "text-red"}`}>
-                {isOnline ? <Wifi size={12} strokeWidth={1.5} /> : <WifiOff size={12} strokeWidth={1.5} />}
-                <span>{isOnline ? "Connected" : "Offline"}</span>
-              </div>
-              <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4">
-                {activeSkill.icon} {activeSkill.name}
-              </span>
-              <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4">
-                {activeModel.icon} {activeModel.name.replace(" Instruct", "").replace(" instruct", "")}
-              </span>
-            </div>
-
-            <div className="flex items-center gap-1">
-              {preferences.currentPage === "chat" && (
-                <>
-                  <button onClick={createNewSession} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="New chat">
-                    <Plus size={16} strokeWidth={1.5} />
-                  </button>
-                  <button onClick={() => setShowClearConfirm(true)} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Clear chat">
-                    <Trash2 size={16} strokeWidth={1.5} />
-                  </button>
-                  <button onClick={() => { setShowSearch(p => !p); if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Search (Ctrl+F)">
-                    <Search size={16} strokeWidth={1.5} />
-                  </button>
-                </>
-              )}
-              <button onClick={() => setPreferences(prev => ({ ...prev, currentPage: "docs" }))} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Documentation">
-                <FileText size={16} strokeWidth={1.5} />
-              </button>
-              <button onClick={() => setPreferences(prev => ({ ...prev, currentPage: "settings" }))} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Settings">
-                <Settings size={16} strokeWidth={1.5} />
-              </button>
-            </div>
-          </div>
-
-        </header>
+          </header>
 
         {/* ── Search Bar ──────────────────────────── */}
         {showSearch && (
@@ -463,22 +513,34 @@ export const Terminal = ({
                     <div className="font-mono text-[10px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b border-ink bg-muted-100">
                       Available Commands
                     </div>
-                    {COMMANDS.filter(c => c.cmd.startsWith(query.toLowerCase())).map(c => {
-                      const Icon = c.icon;
-                      return (
-                        <button
-                          key={c.cmd}
-                          onClick={() => handleCmdSelect(c.cmd)}
-                          className="w-full flex items-center justify-between px-3 py-2 text-left font-mono text-xs hover:bg-muted-100 transition-colors border-b border-divider last:border-b-0"
-                        >
-                          <span className="font-semibold text-ink flex items-center gap-2">
-                            <Icon size={14} strokeWidth={1.5} style={{ color: c.color }} />
-                            {c.cmd}
-                          </span>
-                          <span className="text-muted-500 text-[10px]">{c.desc}</span>
-                        </button>
-                      );
-                    })}
+                    {(() => {
+                      const matched = COMMANDS.filter(c => c.cmd.startsWith(query.toLowerCase()));
+                      if (matched.length === 0) {
+                        return (
+                          <div className="px-3 py-4 text-center font-mono text-[10px] text-muted-500">
+                            {query === '/'
+                              ? 'Type a command name e.g. /help'
+                              : `No command matches "${query}"`}
+                          </div>
+                        );
+                      }
+                      return matched.map(c => {
+                        const Icon = c.icon;
+                        return (
+                          <button
+                            key={c.cmd}
+                            onClick={() => handleCmdSelect(c.cmd)}
+                            className="w-full flex items-center justify-between px-3 py-2 text-left font-mono text-xs hover:bg-muted-100 transition-colors border-b border-divider last:border-b-0"
+                          >
+                            <span className="font-semibold text-ink flex items-center gap-2">
+                              <Icon size={14} strokeWidth={1.5} style={{ color: c.color }} />
+                              {c.cmd}
+                            </span>
+                            <span className="text-muted-500 text-[10px]">{c.desc}</span>
+                          </button>
+                        );
+                      });
+                    })()}
                   </div>
                 )}
 
@@ -488,7 +550,7 @@ export const Terminal = ({
                       ref={textareaRef}
                       dir="auto"
                       className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink placeholder:text-muted-400 outline-none resize-none min-h-[44px] max-h-[160px]"
-                      placeholder="Ask anything\u2026 or type //> for commands"
+                      placeholder="Ask anything\u2026 or type / for commands"
                       value={query}
                       onChange={handleInputChange}
                       onKeyDown={handleKeyDown}
@@ -573,7 +635,7 @@ export const Terminal = ({
                   <div className="flex items-center gap-4 mt-2 font-mono text-[9px] text-muted-500 uppercase tracking-widest">
                     <span><kbd className="border border-ink px-1">Enter</kbd> send</span>
                     <span><kbd className="border border-ink px-1">Shift+Enter</kbd> newline</span>
-                    <span><kbd className="border border-ink px-1">/&gt;</kbd> commands</span>
+                    <span><kbd className="border border-ink px-1">/</kbd> commands</span>
                   </div>
                 )}
               </div>
@@ -583,6 +645,8 @@ export const Terminal = ({
           <GuidePage />
         )}
       </div>
+
+        <ArtifactPanel isOpen={artifactPanelOpen} onClose={() => setArtifactPanelOpen(false)} />
 
       {/* ── Clear Confirm Dialog ─────────────────── */}
       {showClearConfirm && (
@@ -598,5 +662,24 @@ export const Terminal = ({
         </div>
       )}
     </div>
+    </ArtifactProvider>
   );
 };
+
+function ArtifactCountButton({ isOpen, onToggle }) {
+  const { files } = useArtifacts();
+  return (
+    <button
+      onClick={onToggle}
+      className={`relative min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors ${isOpen ? "bg-muted-100" : "hover:bg-muted-100"}`}
+      title={`Files (${files.length})`}
+    >
+      <FileText size={16} strokeWidth={1.5} />
+      {files.length > 0 && (
+        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center bg-ink text-paper font-mono text-[8px] font-bold leading-none px-1">
+          {files.length > 9 ? "9+" : files.length}
+        </span>
+      )}
+    </button>
+  );
+}

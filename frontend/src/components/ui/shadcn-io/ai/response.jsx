@@ -26,6 +26,7 @@ import { MermaidBlock } from './mermaid-block';
 import { QuizBlock } from './quiz-block';
 import { FlashcardBlock } from './flashcard-block';
 import { MindmapBlock } from './mindmap-block';
+import { FileBlock } from './file-block';
 import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
 
@@ -441,6 +442,11 @@ const components = {
 
     if (language === 'mindmap') {
       return <MindmapBlock code={code} />;
+    }
+
+    if (language?.startsWith('file:')) {
+      const filename = language.replace('file:', '').trim() || 'untitled.txt';
+      return <FileBlock code={code} filename={filename} />;
     }
 
     return (

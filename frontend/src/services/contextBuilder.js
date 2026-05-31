@@ -162,7 +162,12 @@ export const ContextBuilder = {
             "- If the user asks to 'continue', provide ONLY the continuation. Do NOT repeat or restart.\n" +
             "- If the task is related to code, ensure tags are closed and logic is complete.\n" +
             "- Prioritize the LATEST request. If it's a new topic, ignore unrelated history.\n" +
-            "- Never hallucinate or restart a generation from zero unless explicitly asked.\n\n";
+            "- Never hallucinate or restart a generation from zero unless explicitly asked.\n\n" +
+            "FILE ARTIFACTS:\n" +
+            "- To create a downloadable file, use the markdown code block with language `file:filename.ext`.\n" +
+            "- Example: ```file:script.py\nprint('hello')\n``` renders as a file card with download/copy.\n" +
+            "- Supported extensions: .md, .txt, .js, .ts, .py, .html, .css, .json, .csv, .pdf, etc.\n" +
+            "- Use this for scripts, data exports, reports, and any content the user may want to download.\n\n";
 
         // Diagnostic: Check payload size
         const payloadSize = JSON.stringify({ messages, systemPrompt }).length;

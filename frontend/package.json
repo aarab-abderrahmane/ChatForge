@@ -23,6 +23,8 @@
     "clsx": "^2.1.1",
     "gsap": "^3.13.0",
     "harden-react-markdown": "^1.1.5",
+    "jspdf": "^4.2.1",
+    "jspdf-autotable": "^5.0.8",
     "katex": "^0.16.25",
     "lucide-react": "^0.554.0",
     "mermaid": "^11.13.0",
