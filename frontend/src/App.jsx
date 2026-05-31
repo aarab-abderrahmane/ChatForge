@@ -414,8 +414,8 @@ function App() {
       }
 
       // Mindmap command
-      if (cmd.startsWith('//> mindmap ') || cmd.startsWith('//>mindmap ')) {
-        const topic = text.substring(text.indexOf('mindmap') + 7).trim();
+      if (cmd === '//> mindmap' || cmd === '//>mindmap' || cmd.startsWith('//> mindmap ') || cmd.startsWith('//>mindmap ')) {
+        const topic = text.substring(text.indexOf('mindmap') + 7).trim() || 'general knowledge';
         return {
           question: `Create a structured mindmap for the topic "${topic}".\nOutput ONLY a valid JSON object wrapped in \`\`\`mindmap code blocks.\nStructure:\n{\n  "label": "Topic Name",\n  "children": [\n    { "label": "Subtopic 1", "children": [...] },\n    { "label": "Subtopic 2", "children": [] }\n  ]\n}\nNo preamble, no extra text.`,
           skillId: 'general',

@@ -414,7 +414,7 @@ export const Terminal = ({
       },
       '/quiz': () => send(`Generate a quiz${args ? ` about ${args}` : ''} with 5 multiple-choice questions. Format as JSON with fields: question, options (array of 4), answer (0-based index).`),
       '/flashcards': () => send(`Create a set of flashcards${args ? ` about ${args}` : ''} for studying. Format as JSON array with fields: front, back.`),
-      '/mindmap': () => send(`Create a mindmap${args ? ` about ${args}` : ''} with a hierarchical structure. Format as JSON with fields: label (string), children (array of child nodes).`),
+      '/mindmap': () => send(`//> mindmap ${args}`),
       '/help': () => info([
         '⌨  Keyboard Shortcuts',
         '├ Enter       : Send message',
