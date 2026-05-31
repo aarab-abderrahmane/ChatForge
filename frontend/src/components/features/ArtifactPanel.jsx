@@ -29,7 +29,8 @@ const EXT_MIME = {
 };
 
 export function ArtifactPanel({ isOpen, onClose }) {
-  const { files, getFiles } = useArtifacts();
+  const { getFiles, sessionId } = useArtifacts();
+  const files = getFiles(sessionId);
   const [copiedId, setCopiedId] = useState(null);
 
   const handleDownload = (file) => {

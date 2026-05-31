@@ -3,27 +3,43 @@ import { createContext, useContext, useState, useCallback, useRef } from "react"
 
 const ArtifactContext = createContext(null);
 
-export function ArtifactProvider({ children }) {
+export function ArtifactProvider({ children, sessionId }) {
   const [files, setFiles] = useState([]);
   const fileIdCounter = useRef(0);
 
-  const addFile = useCallback((sessionId, { filename, content, mime, size, messageId }) => {
+  const upsertFile = useCallback((_sessionId, { filename, content, mime, size, messageId }) => {
     const id = `artifact-${++fileIdCounter.current}`;
-    const file = { id, sessionId, filename, content, mime, size, messageId, timestamp: Date.now() };
-    setFiles(prev => [...prev, file]);
+    const sid = _sessionId ?? sessionId;
+    const file = { id, sessionId: sid, filename, content, mime, size, messageId, timestamp: Date.now() };
+    setFiles(prev => {
+      const dupIdx = prev.findIndex(f =>
+        f.filename === filename && f.messageId === messageId
+      );
+      if (dupIdx !== -1) {
+        const next = [...prev];
+        next[dupIdx] = file;
+        return next;
+      }
+      return [...prev, file];
+    });
     return id;
+  }, [sessionId]);
+
+  const removeFile = useCallback((id) => {
+    setFiles(prev => prev.filter(f => f.id !== id));
   }, []);
 
-  const clearFiles = useCallback((sessionId) => {
-    setFiles(prev => sessionId ? prev.filter(f => f.sessionId !== sessionId) : []);
+  const clearFiles = useCallback((clearSessionId) => {
+    setFiles(prev => clearSessionId ? prev.filter(f => f.sessionId !== clearSessionId) : []);
   }, []);
 
-  const getFiles = useCallback((sessionId) => {
-    return sessionId ? files.filter(f => f.sessionId === sessionId) : files;
-  }, [files]);
+  const getFiles = useCallback((sid) => {
+    const targetId = sid ?? sessionId;
+    return targetId ? files.filter(f => f.sessionId === targetId) : files;
+  }, [files, sessionId]);
 
   return (
-    <ArtifactContext.Provider value={{ files, addFile, clearFiles, getFiles }}>
+    <ArtifactContext.Provider value={{ files, sessionId, upsertFile, removeFile, clearFiles, getFiles }}>
       {children}
     </ArtifactContext.Provider>
   );

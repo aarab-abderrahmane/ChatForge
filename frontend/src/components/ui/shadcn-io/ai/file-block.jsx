@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { FileText, FileCode, FileImage, Table, Copy, Download, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { useArtifacts } from "../../../../context/artifactContext";
 import { jsPDF } from "jspdf";
@@ -55,19 +55,22 @@ function generatePDF(filename, content) {
 }
 
 export function FileBlock({ code, filename, messageId }) {
-  const { addFile } = useArtifacts();
+  const { upsertFile, sessionId } = useArtifacts();
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const ext = getExt(filename);
-  const Icon = EXT_ICON[ext] || FileText;
   const mime = EXT_MIME[ext] || "text/plain";
   const size = code ? new Blob([code]).size : 0;
+  const Icon = EXT_ICON[ext] || FileText;
+  const registeredRef = useRef(null);
 
   useEffect(() => {
-    if (filename && code) {
-      addFile(null, { filename, content: code, mime, size, messageId });
-    }
-  }, []);
+    if (!filename || !code) return;
+    const key = `${filename}::${messageId}`;
+    if (registeredRef.current === key && registeredRef.current !== null) return;
+    registeredRef.current = key;
+    upsertFile(null, { filename, content: code, mime, size, messageId });
+  }, [code, filename, messageId]);
 
   const handleDownload = useCallback(() => {
     if (ext === "pdf") {

@@ -143,6 +143,7 @@ export const Terminal = ({
   const {
     preferences, setPreferences, settings, clearCurrentChat,
     createNewSession, customSkills, promptHistory, addToPromptHistory, aiTools,
+    activeSessionId,
   } = useContext(chatsContext);
 
   const allSkills = [...SKILLS, ...(customSkills || [])];
@@ -497,7 +498,7 @@ export const Terminal = ({
   };
 
   return (
-    <ArtifactProvider>
+    <ArtifactProvider sessionId={activeSessionId}>
       <div className={cn("flex flex-row h-full w-full border-b border-ink", className)} style={fontSizeStyle}>
         {isMobile && sidebarOpen && (
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setSidebarOpen(false)} />
@@ -536,20 +537,12 @@ export const Terminal = ({
 
               <div className="flex items-center gap-1">
                 {preferences.currentPage === "chat" && (
-                  <>
-                    <button onClick={createNewSession} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="New chat">
-                      <Plus size={16} strokeWidth={1.5} />
-                    </button>
-                    <button onClick={() => setShowClearConfirm(true)} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Clear chat">
-                      <Trash2 size={16} strokeWidth={1.5} />
-                    </button>
-                    <button onClick={() => { setShowSearch(p => !p); if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Search (Ctrl+F)">
-                      <Search size={16} strokeWidth={1.5} />
-                    </button>
-                    <button onClick={exportTxt} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Export as .txt">
-                      <Download size={16} strokeWidth={1.5} />
-                    </button>
-                  </>
+                  <ChatActions
+                    createNewSession={createNewSession}
+                    onClear={() => setShowClearConfirm(true)}
+                    onSearch={() => { setShowSearch(p => !p); if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50); }}
+                    onExport={exportTxt}
+                  />
                 )}
                 <ArtifactCountButton isOpen={artifactPanelOpen} onToggle={() => setArtifactPanelOpen(p => !p)} />
                 <button onClick={() => setPreferences(prev => ({ ...prev, currentPage: "docs" }))} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Documentation">
@@ -904,18 +897,39 @@ export const Terminal = ({
   );
 };
 
+function ChatActions({ createNewSession, onClear, onSearch, onExport }) {
+  const { clearFiles } = useArtifacts();
+  return (
+    <>
+      <button onClick={() => { clearFiles(); createNewSession(); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="New chat">
+        <Plus size={16} strokeWidth={1.5} />
+      </button>
+      <button onClick={() => { clearFiles(); onClear(); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Clear chat">
+        <Trash2 size={16} strokeWidth={1.5} />
+      </button>
+      <button onClick={onSearch} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Search (Ctrl+F)">
+        <Search size={16} strokeWidth={1.5} />
+      </button>
+      <button onClick={onExport} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Export as .txt">
+        <Download size={16} strokeWidth={1.5} />
+      </button>
+    </>
+  );
+}
+
 function ArtifactCountButton({ isOpen, onToggle }) {
-  const { files } = useArtifacts();
+  const { getFiles, sessionId } = useArtifacts();
+  const sessionFiles = getFiles(sessionId);
   return (
     <button
       onClick={onToggle}
       className={`relative min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors ${isOpen ? "bg-muted-100" : "hover:bg-muted-100"}`}
-      title={`Files (${files.length})`}
+      title={`Files (${sessionFiles.length})`}
     >
       <FileText size={16} strokeWidth={1.5} />
-      {files.length > 0 && (
+      {sessionFiles.length > 0 && (
         <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center bg-ink text-paper font-mono text-[8px] font-bold leading-none px-1">
-          {files.length > 9 ? "9+" : files.length}
+          {sessionFiles.length > 9 ? "9+" : sessionFiles.length}
         </span>
       )}
     </button>
