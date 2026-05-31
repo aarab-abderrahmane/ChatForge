@@ -141,7 +141,7 @@ export const Terminal = ({
 }) => {
   const COMMAND_PREFIX = "/";
   const {
-    preferences, setPreferences, settings, clearCurrentChat,
+    preferences, setPreferences, settings, setSettings, clearCurrentChat,
     createNewSession, customSkills, promptHistory, addToPromptHistory, aiTools,
     activeSessionId,
   } = useContext(chatsContext);
@@ -155,6 +155,10 @@ export const Terminal = ({
   const [showScrollDown, setShowScrollDown] = useState(false);
   const [showDraftMenu, setShowDraftMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
+  const [showSkillDropdown, setShowSkillDropdown] = useState(false);
+  const [showModelDropdown, setShowModelDropdown] = useState(false);
+  const skillRef = useRef(null);
+  const modelRef = useRef(null);
   const scrollRef = useRef(null);
   const draftRef = useRef(null);
 
@@ -232,6 +236,15 @@ export const Terminal = ({
     window.addEventListener('keydown', show);
     return () => window.removeEventListener('keydown', show);
   }, [isMobile]);
+
+  useEffect(() => {
+    const handleClick = (e) => {
+      if (skillRef.current && !skillRef.current.contains(e.target)) setShowSkillDropdown(false);
+      if (modelRef.current && !modelRef.current.contains(e.target)) setShowModelDropdown(false);
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, []);
 
   useEffect(() => {
     if (inputVisible) textareaRef.current?.focus();
@@ -527,12 +540,48 @@ export const Terminal = ({
                   {isOnline ? <Wifi size={12} strokeWidth={1.5} /> : <WifiOff size={12} strokeWidth={1.5} />}
                   <span>{isOnline ? "Connected" : "Offline"}</span>
                 </div>
-                <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4">
-                  {activeSkill.icon} {activeSkill.name}
-                </span>
-                <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4">
-                  {activeModel.icon} {activeModel.name.replace(" Instruct", "").replace(" instruct", "")}
-                </span>
+                <div ref={skillRef} className="relative">
+                  <button
+                    onClick={() => { setShowSkillDropdown(p => !p); setShowModelDropdown(false); }}
+                    className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4 hover:text-ink transition-colors"
+                  >
+                    {activeSkill.icon} {activeSkill.name}
+                  </button>
+                  {showSkillDropdown && (
+                    <div className="absolute top-full left-4 mt-1 min-w-[180px] bg-paper border border-ink shadow-lg z-50">
+                      {allSkills.map(skill => (
+                        <button
+                          key={skill.id}
+                          onClick={() => { setSettings({ ...settings, activeSkillId: skill.id }); setShowSkillDropdown(false); }}
+                          className={`w-full text-left px-3 py-2 font-mono text-[10px] flex items-center gap-2 hover:bg-muted-100 transition-colors ${skill.id === settings.activeSkillId ? 'bg-muted-100 font-bold' : ''}`}
+                        >
+                          {skill.icon} {skill.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+                <div ref={modelRef} className="relative">
+                  <button
+                    onClick={() => { setShowModelDropdown(p => !p); setShowSkillDropdown(false); }}
+                    className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4 hover:text-ink transition-colors"
+                  >
+                    {activeModel.icon} {activeModel.name.replace(" Instruct", "").replace(" instruct", "")}
+                  </button>
+                  {showModelDropdown && (
+                    <div className="absolute top-full left-4 mt-1 min-w-[200px] bg-paper border border-ink shadow-lg z-50 max-h-[300px] overflow-y-auto">
+                      {MODELS.map(model => (
+                        <button
+                          key={model.id}
+                          onClick={() => { setSettings({ ...settings, activeModelId: model.id }); setShowModelDropdown(false); }}
+                          className={`w-full text-left px-3 py-2 font-mono text-[10px] flex items-center gap-2 hover:bg-muted-100 transition-colors ${model.id === settings.activeModelId ? 'bg-muted-100 font-bold' : ''}`}
+                        >
+                          {model.icon} {model.name}
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
 
               <div className="flex items-center gap-1">
