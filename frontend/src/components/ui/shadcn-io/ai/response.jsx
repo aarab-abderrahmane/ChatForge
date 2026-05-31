@@ -21,6 +21,7 @@ import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
 import remarkMath from 'remark-math';
+import { remarkHighlightMark } from 'remark-highlight-mark';
 import { CodeBlock, CodeBlockCopyButton } from './code-block';
 import { MermaidBlock } from './mermaid-block';
 import { QuizBlock } from './quiz-block';
@@ -222,6 +223,9 @@ const components = {
   del: ({ node, children, className, ...props }) => (
     <del className={cn('line-through text-muted-500', className)} {...props}>{children}</del>
   ),
+  highlight: ({ node, children, className, ...props }) => (
+    <mark className={cn('bg-yellow-200 text-ink px-1 rounded', className)} {...props}>{children}</mark>
+  ),
   a: ({ node, children, className, ...props }) => (
     <a className={cn('underline text-ink hover:text-red underline-offset-2', className)} rel="noreferrer" target="_blank" {...props}>
       {children}
@@ -375,7 +379,7 @@ export const Response = memo(({
         components={components}
         defaultOrigin={defaultOrigin}
         rehypePlugins={[rehypeKatex]}
-        remarkPlugins={[remarkGfm, remarkMath]}
+        remarkPlugins={[remarkGfm, remarkMath, remarkHighlightMark]}
         {...options}
       >
         {parsedChildren}
