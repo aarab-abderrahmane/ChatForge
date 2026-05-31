@@ -1,7 +1,7 @@
 import { useState, useContext, useRef } from "react";
 import {
-  CopyIcon, ThumbsUpIcon, ThumbsDownIcon, RefreshCcwIcon,
-  AlertTriangleIcon, Pencil, Star, Eye, EyeOff, X, Check,
+  CopyIcon, RefreshCcwIcon,
+  AlertTriangleIcon, Pencil, Eye, EyeOff, X, Check,
   Wand2, AlignLeft, Layers, ChevronDown,
 } from "lucide-react";
 import { Response } from "../ui/shadcn-io/ai/response";
@@ -17,25 +17,21 @@ function formatTime(isoString) {
 
 const btnGhost = "inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-500 hover:text-green transition-colors";
 const btnActiveUp = `${btnGhost} text-green`;
-const btnActiveDown = `${btnGhost} text-red`;
-const btnActiveStar = `${btnGhost} text-green`;
 
 export function MessageBlock({
   obj, index, isLast, isCopied, copyToClipboard, onRetry,
   onEditSubmit, onMergeDrafts, onSummarizeDrafts, onKeepDraft, onContinue,
 }) {
-  const [reaction, setReaction] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
   const [showRaw, setShowRaw] = useState(false);
   const [selectedDrafts, setSelectedDrafts] = useState([]);
   const editRef = useRef(null);
 
-  const { settings, starredMessages, toggleStarMessage, editMessage } = useContext(chatsContext);
+  const { settings, editMessage } = useContext(chatsContext);
 
   const isError = obj.type === "error";
   const hasAnswer = !!obj.answer;
-  const isStarred = starredMessages?.has(obj.id);
   const qLower = obj.question?.trim().toLowerCase() || "";
   const isQuiz = qLower.startsWith("//> quiz") || qLower.startsWith("//>quiz");
   const isFlashcards = qLower.startsWith("//> flashcards") || qLower.startsWith("//>flashcards");
@@ -59,7 +55,7 @@ export function MessageBlock({
   const cancelEdit = () => { setIsEditing(false); setEditValue(""); };
 
   return (
-    <article className={`border-b border-divider py-5 ${isStarred ? "bg-muted-100" : ""} ${isFirst ? "first-message" : ""}`}>
+    <article className={`border-b border-divider py-5 ${isFirst ? "first-message" : ""}`}>
       {/* Question — as a serif subheading */}
       <header className="flex items-start gap-4 mb-3">
         <div className="flex-1 min-w-0">
@@ -96,7 +92,6 @@ export function MessageBlock({
               {obj.provider === "groq" ? "GROQ" : obj.provider === "gemini" ? "GEMINI" : obj.provider === "huggingface" ? "HUGGINGFACE" : obj.provider === "together" ? "TOGETHER" : obj.provider === "mistral" ? "MISTRAL" : "OPENROUTER"}
             </span>
           )}
-          {isStarred && <span className="text-ink" title="Starred">&#9733;</span>}
           {obj.timestamp && settings?.showTimestamps && (
             <time className="font-mono text-[9px] text-muted-500 tabular-nums">{formatTime(obj.timestamp)}</time>
           )}
@@ -184,19 +179,6 @@ export function MessageBlock({
             )}
             {!isEditing && (
               <button className={btnGhost} onClick={startEdit} title="Edit & re-send"><Pencil size={11} strokeWidth={1.5} /> edit</button>
-            )}
-            <button className={isStarred ? btnActiveStar : btnGhost} onClick={() => toggleStarMessage(obj.id)} title={isStarred ? "Unstar" : "Star"}>
-              <Star size={11} strokeWidth={1.5} /> {isStarred ? "starred" : "star"}
-            </button>
-            {!isError && (
-              <button className={reaction === "up" ? btnActiveUp : btnGhost} onClick={() => setReaction(reaction === "up" ? null : "up")} title="Good response">
-                <ThumbsUpIcon size={11} strokeWidth={1.5} />
-              </button>
-            )}
-            {!isError && (
-              <button className={reaction === "down" ? btnActiveDown : btnGhost} onClick={() => setReaction(reaction === "down" ? null : "down")} title="Bad response">
-                <ThumbsDownIcon size={11} strokeWidth={1.5} />
-              </button>
             )}
             {obj.isTruncated && onContinue && (
               <button className="font-mono text-[10px] uppercase tracking-widest text-red underline underline-offset-4 hover:text-ink transition-colors" onClick={() => onContinue(obj.id)} title="Continue generating">
