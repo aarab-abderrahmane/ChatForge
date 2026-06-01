@@ -130,7 +130,7 @@ export const api = {
       const keys = await KeysService.getKeys();
       const safeParams = {
         ...parameters,
-        max_tokens: Math.min(parameters.max_tokens || 2048, 4096)
+        max_tokens: Math.min(parameters.max_tokens || 4096, 8192)
       };
 
       const clientKeys = {

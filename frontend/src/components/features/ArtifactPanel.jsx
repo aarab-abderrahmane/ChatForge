@@ -1,7 +1,7 @@
 "use client";
 import { useArtifacts } from "../../context/artifactContext";
 import { motion, AnimatePresence } from "motion/react";
-import { FileText, Download, Copy, Check, X } from "lucide-react";
+import { FileText, Download, Copy, Check, X, Archive } from "lucide-react";
 import { useState } from "react";
 import { FilePreviewDialog } from "./FilePreviewDialog";
 
@@ -34,6 +34,10 @@ export function ArtifactPanel({ isOpen, onClose }) {
   const files = getFiles(sessionId);
   const [copiedId, setCopiedId] = useState(null);
   const [previewFile, setPreviewFile] = useState(null);
+
+  const handleDownloadAll = () => {
+    files.forEach(handleDownload);
+  };
 
   const handleDownload = (file) => {
     const blob = new Blob([file.content], { type: EXT_MIME[getExt(file.filename)] || "text/plain" });
@@ -70,12 +74,23 @@ export function ArtifactPanel({ isOpen, onClose }) {
               <h2 className="font-serif text-sm font-bold uppercase tracking-wider">
                 Files ({files.length})
               </h2>
-              <button
-                onClick={onClose}
-                className="min-h-[28px] min-w-[28px] flex items-center justify-center hover:bg-muted-200 transition-colors"
-              >
-                <X size={14} strokeWidth={1.5} />
-              </button>
+              <div className="flex items-center gap-1">
+                {files.length > 1 && (
+                  <button
+                    onClick={handleDownloadAll}
+                    className="min-h-[28px] min-w-[28px] flex items-center justify-center hover:bg-muted-200 transition-colors"
+                    title="Download all files"
+                  >
+                    <Archive size={14} strokeWidth={1.5} />
+                  </button>
+                )}
+                <button
+                  onClick={onClose}
+                  className="min-h-[28px] min-w-[28px] flex items-center justify-center hover:bg-muted-200 transition-colors"
+                >
+                  <X size={14} strokeWidth={1.5} />
+                </button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto">
               {files.length === 0 ? (

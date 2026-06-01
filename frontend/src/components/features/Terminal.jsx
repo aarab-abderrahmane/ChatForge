@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
-import { ArtifactProvider, useArtifacts } from "../../context/artifactContext";
+import { useArtifacts } from "../../context/artifactContext";
 import { ArtifactPanel } from "./ArtifactPanel";
 
 const COMMANDS = [
@@ -511,7 +511,6 @@ export const Terminal = ({
   };
 
   return (
-    <ArtifactProvider sessionId={activeSessionId}>
       <div className={cn("flex flex-row h-full w-full border-b border-ink", className)} style={fontSizeStyle}>
         {isMobile && sidebarOpen && (
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setSidebarOpen(false)} />
@@ -942,7 +941,6 @@ export const Terminal = ({
           </div>
         )}
       </div>
-    </ArtifactProvider>
   );
 };
 

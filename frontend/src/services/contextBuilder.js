@@ -290,12 +290,48 @@ const buildFileBlock = (attachedFiles = []) => {
 };
 
 /**
+ * Builds an artifact injection block from previously-generated files in the session.
+ * This helps the AI modify existing files in-place instead of regenerating them.
+ */
+const buildArtifactBlock = (artifactFiles = []) => {
+    if (!artifactFiles.length) return "";
+
+    const MAX_ARTIFACT_FILE_CHARS = 4000;
+    const MAX_TOTAL_ARTIFACT_CHARS = 12000;
+    let totalChars = 0;
+    let block = "=== PREVIOUSLY GENERATED FILES (Modify these if asked) ===\n";
+    block += "The following files were generated in this session. When the user asks to modify or improve one of these, output ONLY the changed file block with the SAME filename. Do NOT regenerate unrelated files.\n\n";
+
+    for (const file of artifactFiles) {
+        if (totalChars >= MAX_TOTAL_ARTIFACT_CHARS) {
+            block += `[File "${file.filename}" omitted — total file content limit reached]\n\n`;
+            continue;
+        }
+        const remaining = MAX_TOTAL_ARTIFACT_CHARS - totalChars;
+        const content = truncate(file.content, Math.min(MAX_ARTIFACT_FILE_CHARS, remaining));
+        totalChars += content.length;
+
+        block += `--- File: ${file.filename} ---\n`;
+        block += content;
+        block += "\n--- End of file ---\n\n";
+    }
+
+    block += "INSTRUCTIONS:\n" +
+        "- If the user asks to modify, improve, or fix one of these files, output ONLY the changed file as a new ```file:filename.ext block.\n" +
+        "- Keep the SAME filename. Do NOT create duplicate files with version suffixes (v2, _final, etc).\n" +
+        "- Do NOT regenerate files the user didn't ask about.\n\n";
+
+    return block;
+};
+
+/**
  * Context Builder Logic:
  * 1. Takes current chats and active project (if any).
  * 2. Applies 10-message rule.
  * 3. Injects attached file content into the system prompt.
- * 4. Detects if the AI should auto-generate a downloadable file.
- * 5. Optimized for Payload Size.
+ * 4. Injects previously-generated artifact files for modify-in-place.
+ * 5. Detects if the AI should auto-generate a downloadable file.
+ * 6. Optimized for Payload Size.
  */
 export const ContextBuilder = {
 
@@ -306,9 +342,10 @@ export const ContextBuilder = {
      * @param {String} currentQuestion - The fresh question being sent.
      * @param {Object} userFacts - Known user facts.
      * @param {Array} attachedFiles - Files attached to this message: [{ name, type, content, isImage, sizeKB }]
+     * @param {Array} artifactFiles - Previously-generated files in the current session: [{ filename, content }]
      * @returns {Object} { messages, systemPrompt, summaryUpdateNeeded, updatedFacts }
      */
-    build: async (chats, currentSummary = "", currentQuestion = "", userFacts = {}, attachedFiles = []) => {
+    build: async (chats, currentSummary = "", currentQuestion = "", userFacts = {}, attachedFiles = [], artifactFiles = []) => {
         // 1. FILTER: Exclude welcome/FAQ messages
         const chatHistory = chats.filter(c =>
             c.type === "ch" &&
@@ -383,6 +420,12 @@ export const ContextBuilder = {
             systemPrompt += fileTextBlock;
         }
 
+        // Inject previously-generated artifact files (for modify-in-place)
+        const artifactBlock = buildArtifactBlock(artifactFiles);
+        if (artifactBlock) {
+            systemPrompt += artifactBlock;
+        }
+
         if (summary) {
             systemPrompt += `Below is a brief summary of the conversation so far for context. HOWEVER, prioritize the LATEST user request above all else.\nSummary: [${summary}]\n\n`;
         }
@@ -392,14 +435,17 @@ export const ContextBuilder = {
             "- If the user asks to 'continue', provide ONLY the continuation. Do NOT repeat or restart.\n" +
             "- If the task is related to code, ensure tags are closed and logic is complete.\n" +
             "- Prioritize the LATEST request. If it's a new topic, ignore unrelated history.\n" +
-            "- Never hallucinate or restart a generation from zero unless explicitly asked.\n\n";
+            "- Never hallucinate or restart a generation from zero unless explicitly asked.\n" +
+            "- When generating code files, be CONCISE. Code block first, then brief notes only if relevant.\n" +
+            "- When requirements are ambiguous (e.g. unspecified design style, color scheme, layout, technology stack), ask 1-2 brief clarifying questions before generating. Do NOT assume defaults for vague requests.\n\n";
 
         // File artifact rules
         systemPrompt += "FILE ARTIFACTS:\n" +
             "- To create a downloadable file, use the markdown code block with language `file:filename.ext`.\n" +
             "- Example: ```file:script.py\nprint('hello')\n``` renders as a file card with download/copy.\n" +
             "- Supported extensions: .md, .txt, .js, .ts, .jsx, .tsx, .py, .html, .css, .json, .csv, .sql, .sh, .yaml, .env, etc.\n" +
-            "- Use this for scripts, data exports, reports, and any content the user may want to download.\n\n";
+            "- Use this for scripts, data exports, reports, and any content the user may want to download.\n" +
+            "- IMPORTANT: For ALL code generation, wrap the complete code in a ```file:filename.ext block. This is MANDATORY for code responses. Without this, the user cannot download the file.\n\n";
 
         // Auto-file instruction: prompt the AI to output a file block automatically
         if (autoFileName) {

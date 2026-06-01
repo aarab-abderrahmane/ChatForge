@@ -7,6 +7,18 @@ import { SettingsPage } from './pages/SettingsPage';
 import { chatsContext, SKILLS, MODELS } from './context/chatsContext';
 import { api } from './services/api';
 import { ContextBuilder } from './services/contextBuilder';
+import { ArtifactProvider, useArtifacts } from './context/artifactContext';
+
+const MAX_AUTO_CONTINUATIONS = 3;
+
+function App() {
+  const { activeSessionId } = useContext(chatsContext) || {};
+  return (
+    <ArtifactProvider sessionId={activeSessionId}>
+      <AppInner />
+    </ArtifactProvider>
+  );
+}
 
 // ── Commands map (separated for clarity) ──
 const COMMANDS = {
@@ -26,7 +38,7 @@ const COMMANDS = {
   },
 };
 
-function App() {
+function AppInner() {
   const [query, setQuery] = useState('');
 
   const {
@@ -45,6 +57,8 @@ function App() {
     providerStatus,
     isReady,
   } = useContext(chatsContext) || {};
+
+  const { getFiles } = useArtifacts();
 
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
@@ -85,7 +99,7 @@ function App() {
   // ════════════════════════════════════════════
   //  CORE AI STREAM
   // ════════════════════════════════════════════
-  async function startStream(question, id, skillId, draftIndex, signal) {
+  async function startStream(question, id, skillId, draftIndex, signal, autoContinueCount = 0, seedContent = '') {
     streamCountRef.current += 1;
     setLoading(true);
 
@@ -104,8 +118,11 @@ function App() {
 
     const session = sessions.find((s) => s.id === activeSessionId) || { messages: chats, summary: '' };
 
+    const sessionFiles = getFiles(activeSessionId);
+    const artifactFiles = sessionFiles.map(f => ({ filename: f.filename, content: f.content }));
+
     const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded, updatedFacts } =
-      await ContextBuilder.build(chats, session.summary, question, session.userFacts || {});
+      await ContextBuilder.build(chats, session.summary, question, session.userFacts || {}, [], artifactFiles);
 
     if (updatedFacts && JSON.stringify(updatedFacts) !== JSON.stringify(session.userFacts || {})) {
       updateSessionFacts(activeSessionId, updatedFacts);
@@ -131,7 +148,7 @@ function App() {
     }
 
     const isCodeTask = finalRoutingMode === 'openrouter' || finalRoutingMode === 'gemini';
-    const maxTokens = isCodeTask ? 4096 : settings.maxTokens || 1024;
+    const maxTokens = isCodeTask ? 8192 : settings.maxTokens || 1024;
 
     // When Smart Router is the global setting, send 'smart' to the backend
     // so it uses the full TASK_MODELS fallback chain (not single-provider mode)
@@ -149,7 +166,7 @@ function App() {
 
     if (isContinuation) {
       finalSystemPrompt +=
-        '\n\nCRITICAL: The user wants you to CONTINUE exactly from where you stopped. Do NOT repeat anything you already wrote. Do NOT start from the beginning. Simply provide the next part of the code or text.';
+        '\n\nCRITICAL: The user wants you to CONTINUE exactly from where you stopped. Do NOT repeat anything you already wrote. Do NOT start from the beginning. Complete the current file or response without interruption. If you need more output, just keep going.';
     }
 
     const rawTemp = (settings.temperature ?? 7) / 10;
@@ -221,11 +238,15 @@ function App() {
       let isTruncated = false;
 
       if (isContinuation) {
-        const existing = chats.find(c => c.id === id);
-        if (existing) {
-          fullContent = draftIndex >= 0
-            ? (existing.answers?.[draftIndex] || '')
-            : (existing.answer || '');
+        if (seedContent) {
+          fullContent = seedContent;
+        } else {
+          const existing = chats.find(c => c.id === id);
+          if (existing) {
+            fullContent = draftIndex >= 0
+              ? (existing.answers?.[draftIndex] || '')
+              : (existing.answer || '');
+          }
         }
       }
 
@@ -326,6 +347,20 @@ function App() {
             updateSessionSummary(activeSessionId, newSummary);
           }
         });
+      }
+
+      // Auto-continuation: if response was truncated, automatically continue
+      if (isTruncated && autoContinueCount < MAX_AUTO_CONTINUATIONS) {
+        await new Promise(r => setTimeout(r, 500));
+        return startStream(
+          'Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.',
+          id,
+          skillId,
+          draftIndex,
+          signal,
+          autoContinueCount + 1,
+          fullContent
+        );
       }
     } catch (error) {
       if (error.name === 'AbortError') return;
