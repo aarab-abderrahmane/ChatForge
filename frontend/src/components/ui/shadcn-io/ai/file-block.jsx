@@ -2,8 +2,16 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { FileText, FileCode, FileImage, Table, Copy, Download, Check, ChevronDown, ChevronUp } from "lucide-react";
 import { useArtifacts } from "../../../../context/artifactContext";
-import { jsPDF } from "jspdf";
-import "jspdf-autotable";
+let _jspdfPromise = null;
+function getJspdf() {
+  if (!_jspdfPromise) {
+    _jspdfPromise = import("jspdf").then(async (mod) => {
+      await import("jspdf-autotable");
+      return mod;
+    });
+  }
+  return _jspdfPromise;
+}
 
 const EXT_ICON = {
   md: FileText, txt: FileText, pdf: FileText,
@@ -38,7 +46,8 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
-function generatePDF(filename, content) {
+async function generatePDF(filename, content) {
+  const { jsPDF } = await getJspdf();
   const doc = new jsPDF({ unit: "mm", format: "a4" });
   const lines = doc.splitTextToSize(content, 180);
   let y = 20;
@@ -72,9 +81,9 @@ export function FileBlock({ code, filename, messageId }) {
     upsertFile(null, { filename, content: code, mime, size, messageId });
   }, [code, filename, messageId]);
 
-  const handleDownload = useCallback(() => {
+  const handleDownload = useCallback(async () => {
     if (ext === "pdf") {
-      generatePDF(filename, code);
+      await generatePDF(filename, code);
       return;
     }
     const blob = new Blob([code], { type: mime });

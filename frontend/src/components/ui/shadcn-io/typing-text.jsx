@@ -7,7 +7,6 @@ import {
   useCallback,
   forwardRef,
 } from 'react';
-import { gsap } from 'gsap';
 
 const TypingText = forwardRef(function TypingText(
   {
@@ -88,22 +87,14 @@ const TypingText = forwardRef(function TypingText(
     return () => observer.disconnect();
   }, [startOnVisible]);
 
-  // ── Cursor blink animation (GSAP) ──
+  // ── Cursor blink animation (CSS) ──
   useEffect(() => {
     if (!showCursor || !cursorRef.current) return;
-
-    const ctx = gsap.context(() => {
-      gsap.set(cursorRef.current, { opacity: 1 });
-      gsap.to(cursorRef.current, {
-        opacity: 0,
-        duration: cursorBlinkDuration,
-        repeat: -1,
-        yoyo: true,
-        ease: 'power2.inOut',
-      });
-    });
-
-    return () => ctx.revert();
+    const el = cursorRef.current;
+    el.style.animation = `typing-blink ${cursorBlinkDuration}s ease-in-out infinite alternate`;
+    return () => {
+      el.style.animation = '';
+    };
   }, [showCursor, cursorBlinkDuration]);
 
   // ── Core typing/deleting loop ──

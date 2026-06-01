@@ -1,4 +1,4 @@
-import { createContext, useState, useEffect, useCallback } from "react";
+import { createContext, useState, useEffect, useCallback, useRef } from "react";
 import { ConversationsService, KeysService } from "../services/db";
 
 export const chatsContext = createContext();
@@ -260,6 +260,12 @@ export function ChatsProvider({ children }) {
     localStorage.setItem("Preferences", JSON.stringify(preferences));
   }, [preferences]);
 
+  const persistAllState = useCallback((snapshot) => {
+    try {
+      localStorage.setItem("ChatForge_State", JSON.stringify(snapshot));
+    } catch { /* localStorage full — ignore */ }
+  }, []);
+
   // ── Settings ────────────────────────────────────────────────────────
   const [settings, setSettings] = useState(() => {
     try {
@@ -267,7 +273,6 @@ export function ChatsProvider({ children }) {
       if (stored) {
         const parsed = JSON.parse(stored);
         if (parsed._settingsVersion !== SETTINGS_VERSION) {
-          // Migrate v1 decimal values → v2 slider integer values
           if (typeof parsed.temperature === 'number' && parsed.temperature < 2) parsed.temperature = Math.round(parsed.temperature * 10);
           if (typeof parsed.topP === 'number' && parsed.topP < 2) parsed.topP = Math.round(parsed.topP * 10);
           if (typeof parsed.frequencyPenalty === 'number' && Math.abs(parsed.frequencyPenalty) < 5) parsed.frequencyPenalty = Math.round(parsed.frequencyPenalty * 10);
@@ -283,14 +288,12 @@ export function ChatsProvider({ children }) {
   });
 
   useEffect(() => {
-    localStorage.setItem("ChatForge_Settings", JSON.stringify(settings));
-
     // Auto-migrate any defunct model IDs to the default
     const liveModelIds = MODELS.map((m) => m.id);
     if (!liveModelIds.includes(settings.activeModelId)) {
       setSettings((prev) => ({ ...prev, activeModelId: DEFAULT_MODEL_ID }));
     }
-  }, [settings]);
+  }, [settings.activeModelId]);
 
   // ── Custom Skills ────────────────────────────────────────────────────
   const [customSkills, setCustomSkills] = useState(() => {
@@ -301,10 +304,6 @@ export function ChatsProvider({ children }) {
       return [];
     }
   });
-
-  useEffect(() => {
-    localStorage.setItem("ChatForge_CustomSkills", JSON.stringify(customSkills));
-  }, [customSkills]);
 
   const addCustomSkill = useCallback((skill) => {
     const newSkill = {
@@ -333,10 +332,6 @@ export function ChatsProvider({ children }) {
       return stored ? JSON.parse(stored) : DEFAULT_AI_TOOLS;
     } catch { return DEFAULT_AI_TOOLS; }
   });
-
-  useEffect(() => {
-    localStorage.setItem("ChatForge_AITools", JSON.stringify(aiTools));
-  }, [aiTools]);
 
   const addAITool = useCallback((tool) => {
     const newTool = {
@@ -367,10 +362,6 @@ export function ChatsProvider({ children }) {
     } catch { return new Set(); }
   });
 
-  useEffect(() => {
-    localStorage.setItem("ChatForge_Pinned", JSON.stringify([...pinnedSessions]));
-  }, [pinnedSessions]);
-
   const pinSession = useCallback((id) => {
     setPinnedSessions((prev) => {
       const next = new Set(prev);
@@ -386,10 +377,6 @@ export function ChatsProvider({ children }) {
       return stored ? new Set(JSON.parse(stored)) : new Set();
     } catch { return new Set(); }
   });
-
-  useEffect(() => {
-    localStorage.setItem("ChatForge_Starred", JSON.stringify([...starredMessages]));
-  }, [starredMessages]);
 
   const toggleStarMessage = useCallback((msgId) => {
     setStarredMessages((prev) => {
@@ -418,7 +405,7 @@ export function ChatsProvider({ children }) {
     createdAt: new Date().toISOString(),
     summary: overrides.summary || "",
     userFacts: overrides.userFacts || {},
-    routingMode: overrides.routingMode || null, // Locked routing mode for this session
+    routingMode: overrides.routingMode || null,
     ...overrides,
   });
 
@@ -442,7 +429,36 @@ export function ChatsProvider({ children }) {
     }
   });
 
-  // Ensure activeSessionId always points to a valid session
+  const sessionsHashRef = useRef("");
+  const sessionsTimerRef = useRef(null);
+
+  function getSessionsHash(s) {
+    let hash = 0;
+    for (const session of s) {
+      for (const c of (session.id + (session.messages?.length || 0))) {
+        hash = ((hash << 5) - hash) + c.charCodeAt(0);
+        hash |= 0;
+      }
+    }
+    return String(hash);
+  }
+
+  function persistSessions(s) {
+    const hash = getSessionsHash(s);
+    if (hash === sessionsHashRef.current) return;
+    sessionsHashRef.current = hash;
+
+    // IndexedDB: only write each session (fire-and-forget)
+    for (const session of s) {
+      ConversationsService.saveConversation(session);
+    }
+
+    // localStorage: write sessions list (titles/ids only for fast load)
+    try {
+      localStorage.setItem("ChatForge_Sessions", JSON.stringify(s));
+    } catch { /* quota exceeded — persist to IDB only */ }
+  }
+
   // Load sessions from IndexedDB on mount
   useEffect(() => {
     ConversationsService.getAllConversations().then(saved => {
@@ -458,35 +474,56 @@ export function ChatsProvider({ children }) {
     });
   }, []);
 
-  // Sync sessions to IndexedDB (debounced)
+  // Sync sessions (debounced) — only writes if content actually changed
   useEffect(() => {
-    const timer = setTimeout(() => {
-      if (sessions.length > 0) {
-        sessions.forEach(s => ConversationsService.saveConversation(s));
-      }
-      localStorage.setItem("ChatForge_Sessions", JSON.stringify(sessions));
+    if (sessionsTimerRef.current) {
+      clearTimeout(sessionsTimerRef.current);
+    }
+    sessionsTimerRef.current = setTimeout(() => {
+      persistSessions(sessions);
     }, 5000);
-    return () => clearTimeout(timer);
+    return () => {
+      if (sessionsTimerRef.current) clearTimeout(sessionsTimerRef.current);
+    };
   }, [sessions]);
 
-  // Save immediately on tab close
+  // Save on tab close
   useEffect(() => {
     function handleBeforeUnload() {
-      if (sessions.length > 0) {
-        sessions.forEach(s => ConversationsService.saveConversation(s));
-      }
-      localStorage.setItem("ChatForge_Sessions", JSON.stringify(sessions));
+      persistSessions(sessions);
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);
   }, [sessions]);
 
-  // Sync activeSessionId to localStorage (still useful for UI state across tabs/reloads)
+  // Sync activeSessionId to localStorage
   useEffect(() => {
     if (activeSessionId) {
       localStorage.setItem("ChatForge_ActiveSession", activeSessionId);
     }
   }, [activeSessionId]);
+
+  // ── Consolidated state persistence (debounced) ──────────────────────
+  // Merges settings, customSkills, aiTools, pinned, starred into ChatForge_State
+  const statePersistTimerRef = useRef(null);
+
+  useEffect(() => {
+    if (statePersistTimerRef.current) {
+      clearTimeout(statePersistTimerRef.current);
+    }
+    statePersistTimerRef.current = setTimeout(() => {
+      persistAllState({
+        settings,
+        customSkills,
+        aiTools,
+        pinned: [...pinnedSessions],
+        starred: [...starredMessages],
+      });
+    }, 2000);
+    return () => {
+      if (statePersistTimerRef.current) clearTimeout(statePersistTimerRef.current);
+    };
+  }, [settings, customSkills, aiTools, pinnedSessions, starredMessages, persistAllState]);
 
   // ── Current session's chats ─────────────────────────────────────────
   const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0];

@@ -18,76 +18,17 @@
 import { Button } from '../../button';
 import { cn } from '../../../../lib/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
-import { createContext, useContext, useState } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
+import { createContext, useContext, useState, lazy, Suspense } from 'react';
 
-// VS Code Light+ inspired theme
-const codeTheme = {
-  'code[class*="language-"]': {
-    color: '#111111',
-    background: 'none',
-    fontFamily: "'JetBrains Mono', 'Courier New', monospace",
-    fontSize: '0.85rem',
-    textAlign: 'left',
-    whiteSpace: 'pre',
-    wordSpacing: 'normal',
-    wordBreak: 'normal',
-    wordWrap: 'normal',
-    lineHeight: '1.6',
-    tabSize: 2,
-    hyphens: 'none',
-  },
-  'pre[class*="language-"]': {
-    color: '#111111',
-    background: '#F5F5F5',
-    fontFamily: "'JetBrains Mono', 'Courier New', monospace",
-    fontSize: '0.85rem',
-    textAlign: 'left',
-    whiteSpace: 'pre',
-    wordSpacing: 'normal',
-    wordBreak: 'normal',
-    wordWrap: 'normal',
-    lineHeight: '1.6',
-    tabSize: 2,
-    hyphens: 'none',
-    padding: '1rem',
-    margin: 0,
-    overflow: 'auto',
-  },
-  comment: { color: '#6A9955', fontStyle: 'italic' },
-  prolog: { color: '#6A9955' },
-  doctype: { color: '#6A9955' },
-  cdata: { color: '#6A9955' },
-  punctuation: { color: '#111111' },
-  property: { color: '#EC5243' },
-  tag: { color: '#800000' },
-  boolean: { color: '#0000FF' },
-  number: { color: '#098658' },
-  constant: { color: '#098658' },
-  symbol: { color: '#098658' },
-  deleted: { color: '#A31515' },
-  selector: { color: '#800000' },
-  'attr-name': { color: '#FF0000' },
-  string: { color: '#A31515' },
-  char: { color: '#A31515' },
-  builtin: { color: '#0000FF' },
-  inserted: { color: '#098658' },
-  operator: { color: '#111111' },
-  entity: { color: '#A31515', cursor: 'help' },
-  url: { color: '#111111' },
-  'language-css .token.string': { color: '#A31515' },
-  'style .token.string': { color: '#A31515' },
-  variable: { color: '#001080' },
-  atrule: { color: '#795E26' },
-  'attr-value': { color: '#A31515' },
-  function: { color: '#795E26' },
-  'class-name': { color: '#267F99' },
-  keyword: { color: '#0000FF' },
-  regex: { color: '#A31515' },
-  important: { color: '#0000FF', fontWeight: 'bold' },
-  bold: { fontWeight: 'bold' },
-  italic: { fontStyle: 'italic' },
-};
+const LazySyntaxHighlighter = lazy(() => import('./syntax-highlighter').then(m => ({ default: m.default })));
+
+function SyntaxHighlighterFallback({ code }) {
+  return (
+    <pre className="font-mono text-xs p-4 overflow-x-auto whitespace-pre-wrap" style={{ background: '#F5F5F5', margin: 0 }}>
+      <code>{code}</code>
+    </pre>
+  );
+}
 
 
 
@@ -135,27 +76,9 @@ export const CodeBlock = ({
 
       {/* Code */}
       <div className="overflow-x-auto">
-        <SyntaxHighlighter
-          codeTagProps={{ className: 'font-mono' }}
-          customStyle={{
-            margin: 0,
-            padding: '1rem',
-            background: 'transparent',
-            fontSize: '0.82rem',
-            lineHeight: '1.6',
-          }}
-          language={language || 'text'}
-          lineNumberStyle={{
-            color: '#A3A3A3',
-            paddingRight: '1.2rem',
-            minWidth: '2.5rem',
-            userSelect: 'none',
-          }}
-          showLineNumbers={showLineNumbers}
-          style={codeTheme}
-        >
-          {code}
-        </SyntaxHighlighter>
+        <Suspense fallback={<SyntaxHighlighterFallback code={code} />}>
+          <LazySyntaxHighlighter code={code} language={language || 'text'} showLineNumbers={showLineNumbers} />
+        </Suspense>
       </div>
     </div>
   </CodeBlockContext.Provider>

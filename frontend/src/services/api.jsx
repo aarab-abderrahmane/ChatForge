@@ -142,6 +142,9 @@ export const api = {
         mistral: keys.mistral,
       };
 
+      // Free decrypted keys immediately after building clientKeys
+      for (const k of Object.keys(keys)) keys[k] = null;
+
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -155,6 +158,10 @@ export const api = {
         }),
         signal,
       });
+
+      // Free the clientKeys reference after the request is sent
+      for (const k of Object.keys(clientKeys)) clientKeys[k] = null;
+
       return res;
     } catch (error) {
       console.error("API Chat error:", error);

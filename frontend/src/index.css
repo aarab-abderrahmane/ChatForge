@@ -211,6 +211,12 @@ a:hover {
   color: #CC0000;
 }
 
+/* ── Typing cursor blink animation (replaces GSAP) ── */
+@keyframes typing-blink {
+  0% { opacity: 1; }
+  100% { opacity: 0; }
+}
+
 /* ── Responsive ── */
 @media (max-width: 767px) {
   .grid-border-collapse > * {

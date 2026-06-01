@@ -51,6 +51,9 @@ function App() {
   const streamCountRef = useRef(0);
   const askAIRef = useRef(null);
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
+  const pendingContentRef = useRef(null);
+  const flushRafRef = useRef(null);
+  const batchCacheRef = useRef({});
 
   // All skills (built-in + custom)
   const allSkills = useMemo(() => [...SKILLS, ...(customSkills || [])], [customSkills]);
@@ -179,6 +182,7 @@ function App() {
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
+      let isTruncated = false;
 
       // Preserve existing content for continuation so new output appends
       if (isContinuation) {
@@ -191,6 +195,36 @@ function App() {
       }
 
       let buffer = '';
+      const batchKey = `${id}_${draftIndex}`;
+
+      function flushContent() {
+        const prevContent = batchCacheRef.current[batchKey];
+        if (prevContent === fullContent && !isTruncated) return;
+        batchCacheRef.current[batchKey] = fullContent;
+        setChats((prev) =>
+          prev.map((obj) => {
+            if (obj.id !== id) return obj;
+            if (draftIndex >= 0) {
+              const newAnsws = [...(obj.answers || [])];
+              newAnsws[draftIndex] = fullContent;
+              let updated = { ...obj, answers: newAnsws, isMulti: true };
+              if (isTruncated) updated = { ...updated, isTruncated: true };
+              return updated;
+            }
+            let updated = { ...obj, answer: fullContent };
+            if (isTruncated) updated = { ...updated, isTruncated: true };
+            return updated;
+          })
+        );
+      }
+
+      function scheduleFlush() {
+        if (flushRafRef.current) return;
+        flushRafRef.current = requestAnimationFrame(() => {
+          flushRafRef.current = null;
+          flushContent();
+        });
+      }
 
       while (true) {
         const { done, value } = await reader.read();
@@ -225,29 +259,30 @@ function App() {
 
             if (content) {
               fullContent += content;
-              setChats((prev) =>
-                prev.map((obj) => {
-                  if (obj.id !== id) return obj;
-                  if (draftIndex >= 0) {
-                    const newAnsws = [...(obj.answers || [])];
-                    newAnsws[draftIndex] = fullContent;
-                    return { ...obj, answers: newAnsws, isMulti: true };
-                  }
-                  return { ...obj, answer: fullContent };
-                })
-              );
+              scheduleFlush();
             }
 
-            if (finishReason === 'length' || finishReason === 'MAX_TOKENS') {
-              setChats((prev) =>
-                prev.map((obj) => (obj.id === id ? { ...obj, isTruncated: true } : obj))
-              );
+            if ((finishReason === 'length' || finishReason === 'MAX_TOKENS') && !isTruncated) {
+              isTruncated = true;
+              if (flushRafRef.current) {
+                cancelAnimationFrame(flushRafRef.current);
+                flushRafRef.current = null;
+              }
+              flushContent();
             }
           } catch {
             // Ignore parse errors from non-JSON or partial lines
           }
         }
       }
+
+      // Final flush — ensure last content is rendered
+      if (flushRafRef.current) {
+        cancelAnimationFrame(flushRafRef.current);
+        flushRafRef.current = null;
+      }
+      flushContent();
+      delete batchCacheRef.current[batchKey];
 
       // Summarize if needed
       if (summaryUpdateNeeded && !draftIndex) {

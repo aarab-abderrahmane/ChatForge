@@ -1,14 +1,24 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
-import mermaid from 'mermaid';
 import { Copy, Check } from 'lucide-react';
 
+let _mermaidPromise = null;
 let _initialized = false;
 
-function initMermaid() {
+function getMermaid() {
+  if (!_mermaidPromise) {
+    _mermaidPromise = import('mermaid');
+  }
+  return _mermaidPromise;
+}
+
+async function initMermaid() {
   if (_initialized) return;
   _initialized = true;
 
-  mermaid.initialize({
+  const mermaid = await getMermaid();
+  const m = mermaid.default || mermaid;
+
+  m.initialize({
     startOnLoad: false,
     suppressErrorRendering: true,
     theme: 'base',
@@ -58,6 +68,8 @@ function initMermaid() {
     fontSize: 9,
     securityLevel: 'strict',
   });
+
+  return m;
 }
 
 let _uid = 0;
@@ -139,8 +151,6 @@ export function MermaidBlock({ code }) {
   }, [code]);
 
   useEffect(() => {
-    initMermaid();
-
     let cancelled = false;
 
     setSvgHtml('');
@@ -150,6 +160,9 @@ export function MermaidBlock({ code }) {
     const id = `mermaid-cf-${++_uid}`;
 
     const render = async () => {
+      const m = await initMermaid();
+      if (cancelled) return;
+
       const cleanCode = cleanMermaidCode(code);
       if (!cleanCode) {
         if (!cancelled) { setLoading(false); setError('Empty diagram code'); }
@@ -160,7 +173,7 @@ export function MermaidBlock({ code }) {
         if (cancelled) return;
         const candidate = tryFix(cleanCode, attempt);
         try {
-          const { svg } = await mermaid.render(id, candidate);
+          const { svg } = await m.render(id, candidate);
           if (cancelled) return;
           setSvgHtml(patchSvg(svg));
           setLoading(false);
