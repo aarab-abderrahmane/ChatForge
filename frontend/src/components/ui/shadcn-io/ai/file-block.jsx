@@ -1,6 +1,6 @@
 "use client";
-import { useState, useEffect, useCallback, useRef } from "react";
-import { FileText, FileCode, FileImage, Table, Copy, Download, Check, ChevronDown, ChevronUp } from "lucide-react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { FileText, FileCode, FileImage, Table, Copy, Download, Check, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useArtifacts } from "../../../../context/artifactContext";
 let _jspdfPromise = null;
 function getJspdf() {
@@ -46,6 +46,27 @@ function formatSize(bytes) {
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
 }
 
+function GeneratingAnimation({ filename }) {
+  const ext = getExt(filename);
+  const Icon = EXT_ICON[ext] || FileText;
+  return (
+    <div className="border border-ink my-3 overflow-hidden">
+      <div className="flex items-center gap-3 px-4 py-3 bg-muted-100">
+        <Icon size={16} strokeWidth={1.5} className="shrink-0 text-muted-500" />
+        <div className="flex-1 min-w-0">
+          <div className="font-mono text-xs font-semibold text-muted-500 truncate">{filename}</div>
+          <div className="flex items-center gap-2 mt-1">
+            <Loader2 size={12} strokeWidth={1.5} className="shrink-0 text-muted-400 animate-spin" />
+            <span className="font-mono text-[10px] text-muted-400 uppercase tracking-widest animate-pulse">
+              Generating file...
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 async function generatePDF(filename, content) {
   const { jsPDF } = await getJspdf();
   const doc = new jsPDF({ unit: "mm", format: "a4" });
@@ -64,22 +85,34 @@ async function generatePDF(filename, content) {
 }
 
 export function FileBlock({ code, filename, messageId }) {
-  const { upsertFile, sessionId } = useArtifacts();
+  const { upsertFile } = useArtifacts();
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [ready, setReady] = useState(false);
+  const codeVersionRef = useRef(0);
+  const readyTimerRef = useRef(null);
   const ext = getExt(filename);
   const mime = EXT_MIME[ext] || "text/plain";
-  const size = code ? new Blob([code]).size : 0;
+  const size = useMemo(() => code ? new Blob([code]).size : 0, [code]);
   const Icon = EXT_ICON[ext] || FileText;
-  const registeredRef = useRef(null);
 
+  // Streaming detection: bump version on every code change, mark ready after 2s of stability
+  useEffect(() => {
+    codeVersionRef.current += 1;
+    const thisVersion = codeVersionRef.current;
+    const id = setTimeout(() => {
+      if (codeVersionRef.current === thisVersion) {
+        setReady(true);
+      }
+    }, 2000);
+    return () => clearTimeout(id);
+  }, [code]);
+
+  // Update artifact context whenever code changes (keeps sidebar preview in sync)
   useEffect(() => {
     if (!filename || !code) return;
-    const key = `${filename}::${messageId}`;
-    if (registeredRef.current === key && registeredRef.current !== null) return;
-    registeredRef.current = key;
     upsertFile(null, { filename, content: code, mime, size, messageId });
-  }, [code, filename, messageId]);
+  }, [code, filename, messageId, size]);
 
   const handleDownload = useCallback(async () => {
     if (ext === "pdf") {
@@ -104,6 +137,10 @@ export function FileBlock({ code, filename, messageId }) {
       setTimeout(() => setCopied(false), 2000);
     } catch { }
   }, [code]);
+
+  if (!ready) {
+    return <GeneratingAnimation filename={filename} />;
+  }
 
   return (
     <div className="border border-ink my-3 overflow-hidden">

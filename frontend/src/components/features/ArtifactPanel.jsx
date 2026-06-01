@@ -3,6 +3,7 @@ import { useArtifacts } from "../../context/artifactContext";
 import { motion, AnimatePresence } from "motion/react";
 import { FileText, Download, Copy, Check, X } from "lucide-react";
 import { useState } from "react";
+import { FilePreviewDialog } from "./FilePreviewDialog";
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -32,6 +33,7 @@ export function ArtifactPanel({ isOpen, onClose }) {
   const { getFiles, sessionId } = useArtifacts();
   const files = getFiles(sessionId);
   const [copiedId, setCopiedId] = useState(null);
+  const [previewFile, setPreviewFile] = useState(null);
 
   const handleDownload = (file) => {
     const blob = new Blob([file.content], { type: EXT_MIME[getExt(file.filename)] || "text/plain" });
@@ -84,7 +86,8 @@ export function ArtifactPanel({ isOpen, onClose }) {
                 files.map(file => (
                   <div
                     key={file.id}
-                    className="flex items-center gap-2 px-4 py-2.5 border-b border-divider hover:bg-muted-100 transition-colors group"
+                    className="flex items-center gap-2 px-4 py-2.5 border-b border-divider hover:bg-muted-100 transition-colors group cursor-pointer"
+                    onClick={() => setPreviewFile(file)}
                   >
                     <FileText size={14} strokeWidth={1.5} className="shrink-0 text-ink" />
                     <div className="flex-1 min-w-0">
@@ -96,14 +99,14 @@ export function ArtifactPanel({ isOpen, onClose }) {
                       </div>
                     </div>
                     <button
-                      onClick={() => handleCopy(file)}
+                      onClick={(e) => { e.stopPropagation(); handleCopy(file); }}
                       className="min-h-[28px] min-w-[28px] flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-muted-200 transition-all"
                       title="Copy content"
                     >
                       {copiedId === file.id ? <Check size={12} strokeWidth={1.5} /> : <Copy size={12} strokeWidth={1.5} />}
                     </button>
                     <button
-                      onClick={() => handleDownload(file)}
+                      onClick={(e) => { e.stopPropagation(); handleDownload(file); }}
                       className="min-h-[28px] min-w-[28px] flex items-center justify-center opacity-0 group-hover:opacity-100 hover:bg-muted-200 transition-all"
                       title="Download"
                     >
@@ -114,6 +117,7 @@ export function ArtifactPanel({ isOpen, onClose }) {
               )}
             </div>
           </div>
+          <FilePreviewDialog file={previewFile} onClose={() => setPreviewFile(null)} />
         </motion.div>
       )}
     </AnimatePresence>
