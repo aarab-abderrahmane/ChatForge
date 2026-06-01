@@ -4,19 +4,19 @@ import { api } from './api';
 /**
  * Limits to prevent Payload Too Large (413) errors
  */
-const MAX_MESSAGE_CONTENT = 1000;
-const MAX_SUMMARY_CONTENT = 1000;
+const MAX_MESSAGE_CONTENT = 1500;
+const MAX_SUMMARY_CONTENT = 1500;
 const MAX_HISTORY_FOR_SUMMARY = 10;
-const MAX_TOTAL_PAYLOAD_SIZE = 150000; // ~150KB threshold for warning
+const MAX_TOTAL_PAYLOAD_SIZE = 200000; // ~200KB threshold for warning
 
 // Context cache: keyed by sessionId + messageCount, invalidated on new messages
 const contextCache = new Map();
 const CACHE_TTL = 30_000; // 30 seconds
 
 // Max characters of file text content to inject per file
-const MAX_FILE_CONTENT_CHARS = 8000;
+const MAX_FILE_CONTENT_CHARS = 12000;
 // Max characters of total injected file content across all files
-const MAX_TOTAL_FILE_CHARS = 20000;
+const MAX_TOTAL_FILE_CHARS = 30000;
 
 const truncate = (text, max = MAX_MESSAGE_CONTENT, isCode = false) => {
     if (!text) return "";
@@ -296,11 +296,17 @@ const buildFileBlock = (attachedFiles = []) => {
 const buildArtifactBlock = (artifactFiles = []) => {
     if (!artifactFiles.length) return "";
 
-    const MAX_ARTIFACT_FILE_CHARS = 4000;
-    const MAX_TOTAL_ARTIFACT_CHARS = 12000;
+    const MAX_ARTIFACT_FILE_CHARS = 8000;
+    const MAX_TOTAL_ARTIFACT_CHARS = 24000;
     let totalChars = 0;
     let block = "=== PREVIOUSLY GENERATED FILES (Modify these if asked) ===\n";
     block += "The following files were generated in this session. When the user asks to modify or improve one of these, output ONLY the changed file block with the SAME filename. Do NOT regenerate unrelated files.\n\n";
+
+    // File manifest: always list filenames even if content is omitted
+    const fileNames = artifactFiles.map(f => f.filename);
+    if (fileNames.length > 0) {
+        block += `Available files: ${fileNames.join(", ")}\n\n`;
+    }
 
     for (const file of artifactFiles) {
         if (totalChars >= MAX_TOTAL_ARTIFACT_CHARS) {
@@ -539,7 +545,7 @@ export const ContextBuilder = {
     /**
      * Summarizes the conversation if needed.
      */
-    summarize: async (userId, chats, oldSummary = "") => {
+    summarize: async (userId, chats, oldSummary = "", artifactFiles = []) => {
         const relevantHistory = chats
             .filter(c => c.type === "ch")
             .slice(-MAX_HISTORY_FOR_SUMMARY);
@@ -550,10 +556,13 @@ export const ContextBuilder = {
 
         const trimmedOldSummary = truncate(oldSummary, MAX_SUMMARY_CONTENT);
 
-        const prompt = `Summarize the following conversation in EXACTLY FIVE structured sentences covering: 1) Key topics discussed, 2) Decisions made, 3) User preferences or facts learned, 4) Action items or open questions, 5) Current status or conclusion. \n\nExisting Summary: ${trimmedOldSummary}\n\nNew Conversation:\n${historyText}`;
+        const fileNames = artifactFiles.map(f => f.filename);
+        const fileContext = fileNames.length ? `\n\nFiles generated in this session: ${fileNames.join(", ")}.` : "";
+
+        const prompt = `Summarize the following conversation in EXACTLY FIVE structured sentences covering: 1) Key topics discussed, 2) Decisions made, 3) User preferences or facts learned, 4) Action items or open questions, 5) Current status or conclusion.${fileContext}\n\nExisting Summary: ${trimmedOldSummary}\n\nNew Conversation:\n${historyText}`;
 
         try {
-            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer. Output exactly 5 sentences in a single paragraph.", "llama-3.3-70b-versatile", { routingMode: "groq", max_tokens: 300 });
+            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer. Output exactly 5 sentences in a single paragraph.", "llama-3.3-70b-versatile", { routingMode: "groq", max_tokens: 500 });
             if (!res.ok) return oldSummary;
 
             const reader = res.body.getReader();

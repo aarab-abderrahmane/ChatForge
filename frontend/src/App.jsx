@@ -9,7 +9,7 @@ import { api } from './services/api';
 import { ContextBuilder } from './services/contextBuilder';
 import { ArtifactProvider, useArtifacts } from './context/artifactContext';
 
-const MAX_AUTO_CONTINUATIONS = 3;
+const MAX_AUTO_CONTINUATIONS = 5;
 
 function App() {
   const { activeSessionId } = useContext(chatsContext) || {};
@@ -148,7 +148,12 @@ function AppInner() {
     }
 
     const isCodeTask = finalRoutingMode === 'openrouter' || finalRoutingMode === 'gemini';
-    const maxTokens = isCodeTask ? 8192 : settings.maxTokens || 1024;
+    const isComplexTask = isCodeTask && (
+      /\b(debug|error|bug\b|fix|issue|explain|analyze|why\b|how\b|architecture|large\s+(codebase|project|app)|full\s+project|codebase|refactor|optimize|performance|memory\s+leak)\b/i.test(question) ||
+      artifactFiles.length > 3 ||
+      chats.filter(c => c.type === 'ch').length > 20
+    );
+    const maxTokens = isCodeTask ? (isComplexTask ? 16384 : 8192) : settings.maxTokens || 1024;
 
     // When Smart Router is the global setting, send 'smart' to the backend
     // so it uses the full TASK_MODELS fallback chain (not single-provider mode)
@@ -342,7 +347,7 @@ function AppInner() {
 
       // Summarize if needed
       if (summaryUpdateNeeded && !draftIndex) {
-        ContextBuilder.summarize(preferences.userId, chats, session.summary).then((newSummary) => {
+        ContextBuilder.summarize(preferences.userId, chats, session.summary, artifactFiles).then((newSummary) => {
           if (newSummary && newSummary !== session.summary) {
             updateSessionSummary(activeSessionId, newSummary);
           }
