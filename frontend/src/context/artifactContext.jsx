@@ -13,7 +13,7 @@ export function ArtifactProvider({ children, sessionId }) {
     const file = { id, sessionId: sid, filename, content, mime, size, messageId, timestamp: Date.now() };
     setFiles(prev => {
       const dupIdx = prev.findIndex(f =>
-        f.filename === filename && f.messageId === messageId
+        f.sessionId === sid && f.filename === filename
       );
       if (dupIdx !== -1) {
         const next = [...prev];

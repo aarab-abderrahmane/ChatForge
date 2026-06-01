@@ -325,7 +325,8 @@ const buildArtifactBlock = (artifactFiles = []) => {
     block += "INSTRUCTIONS:\n" +
         "- If the user asks to modify, improve, or fix one of these files, output ONLY the changed file as a new ```file:filename.ext block.\n" +
         "- Keep the SAME filename. Do NOT create duplicate files with version suffixes (v2, _final, etc).\n" +
-        "- Do NOT regenerate files the user didn't ask about.\n\n";
+        "- Do NOT regenerate files the user didn't ask about.\n" +
+        "- When generating multiple files, verify that exports, imports, function signatures, and type definitions match across all files. Cross-file references must be consistent.\n\n";
 
     return block;
 };
@@ -360,11 +361,10 @@ const buildModeBlock = (mode) => {
         case MODES.MODIFY:
             return "MODE: Modify\n" +
                 "You are editing existing files in this session.\n" +
-                "- Output ONLY the specific code blocks that changed.\n" +
-                "- Include a context marker: --- FILE: filename.ext → region ---\n" +
-                "- Do NOT output unchanged code.\n" +
-                "- Only output the full file if more than ~30% of the content changed.\n" +
-                "- Keep the SAME filename. Do not create version suffixes.\n\n";
+                "- Start your response with a CHANGES: section listing exactly what you modified (bullet points).\n" +
+                "- Then output the COMPLETE updated file in a ```file: block. Do NOT try to output only fragments.\n" +
+                "- Keep the SAME filename. Do NOT create version suffixes (v2, _final, etc).\n" +
+                "- Only regenerate files the user explicitly asked about.\n\n";
 
         case MODES.FIX:
             return "MODE: Fix\n" +
@@ -499,11 +499,11 @@ export const ContextBuilder = {
         // Control layer rules
         systemPrompt += "CONTROL LAYER RULES:\n" +
             "- If the user asks to 'continue', provide ONLY the continuation. Do NOT repeat or restart.\n" +
+            "- If requirements are ambiguous (e.g. unspecified design style, color scheme, layout, technology stack), ask 1-2 brief clarifying questions before generating. Do NOT assume defaults for vague requests.\n" +
             "- If the task is related to code, ensure tags are closed and logic is complete.\n" +
             "- Prioritize the LATEST request. If it's a new topic, ignore unrelated history.\n" +
             "- Never hallucinate or restart a generation from zero unless explicitly asked.\n" +
-            "- When generating code files, be CONCISE. Code block first, then brief notes only if relevant.\n" +
-            "- When requirements are ambiguous (e.g. unspecified design style, color scheme, layout, technology stack), ask 1-2 brief clarifying questions before generating. Do NOT assume defaults for vague requests.\n\n";
+            "- When generating code files, be CONCISE. Code block first, then brief notes only if relevant.\n\n";
 
         // Mode-specific instructions
         const modeBlock = buildModeBlock(mode);
@@ -517,7 +517,8 @@ export const ContextBuilder = {
             "- Example: ```file:script.py\nprint('hello')\n``` renders as a file card with download/copy.\n" +
             "- Supported extensions: .md, .txt, .js, .ts, .jsx, .tsx, .py, .html, .css, .json, .csv, .sql, .sh, .yaml, .env, etc.\n" +
             "- Use this for scripts, data exports, reports, and any content the user may want to download.\n" +
-            "- IMPORTANT: For ALL code generation, wrap the complete code in a ```file:filename.ext block. This is MANDATORY for code responses. Without this, the user cannot download the file.\n\n";
+            "- IMPORTANT: For ALL code generation, wrap the complete code in a ```file:filename.ext block. This is MANDATORY for code responses. Without this, the user cannot download the file.\n" +
+            "- When generating multiple files, verify that exports, imports, function signatures, and type definitions match across all files. Cross-file references must be consistent.\n\n";
 
         // Auto-file instruction: prompt the AI to output a file block automatically
         if (autoFileName) {
