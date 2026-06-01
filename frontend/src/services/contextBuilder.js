@@ -9,6 +9,10 @@ const MAX_SUMMARY_CONTENT = 1000;
 const MAX_HISTORY_FOR_SUMMARY = 10;
 const MAX_TOTAL_PAYLOAD_SIZE = 150000; // ~150KB threshold for warning
 
+// Context cache: keyed by sessionId + messageCount, invalidated on new messages
+const contextCache = new Map();
+const CACHE_TTL = 30_000; // 30 seconds
+
 // Max characters of file text content to inject per file
 const MAX_FILE_CONTENT_CHARS = 8000;
 // Max characters of total injected file content across all files
@@ -17,7 +21,29 @@ const MAX_TOTAL_FILE_CHARS = 20000;
 const truncate = (text, max = MAX_MESSAGE_CONTENT, isCode = false) => {
     if (!text) return "";
     const effectiveMax = isCode ? max * 5 : max;
-    return text.length > effectiveMax ? text.slice(0, effectiveMax) + "..." : text;
+    if (text.length <= effectiveMax) return text;
+
+    if (isCode) {
+        const cut = text.slice(0, effectiveMax);
+        const lastNewline = cut.lastIndexOf('\n');
+        if (lastNewline > effectiveMax * 0.5) {
+            return cut.slice(0, lastNewline) + "\n...";
+        }
+        return cut + "...";
+    }
+
+    const cut = text.slice(0, effectiveMax);
+    const sentenceEnd = Math.max(
+        cut.lastIndexOf('. '),
+        cut.lastIndexOf('.\n'),
+        cut.lastIndexOf('! '),
+        cut.lastIndexOf('? '),
+        cut.lastIndexOf('\n\n')
+    );
+    if (sentenceEnd > effectiveMax * 0.3) {
+        return cut.slice(0, sentenceEnd + 1) + "...";
+    }
+    return cut + "...";
 };
 
 /**
@@ -46,11 +72,27 @@ const hasCodeHighDensity = (text) => {
 
 const FACT_PATTERNS = [
     { key: "name", label: "Name", patterns: [
-        /my name is (\w+)/i, /call me (\w+)/i,
-        /you can call me (\w+)/i, /i(?:'m| am) called (\w+)/i,
+        /my name is (\w+(?:\s+\w+){0,2})/i, /call me (\w+(?:\s+\w+){0,2})/i,
+        /you can call me (\w+(?:\s+\w+){0,2})/i, /i(?:'m| am) called (\w+(?:\s+\w+){0,2})/i,
     ]},
     { key: "location", label: "Location", patterns: [
-        /i live in (\w+(?:\s+\w+)?)/i, /i(?:'m| am) from (\w+(?:\s+\w+)?)/i,
+        /i live in (\w+(?:\s+\w+){0,3})/i, /i(?:'m| am) from (\w+(?:\s+\w+){0,3})/i,
+        /i(?:'m| am) based in (\w+(?:\s+\w+){0,3})/i,
+    ]},
+    { key: "profession", label: "Profession", patterns: [
+        /i(?:'m| am) (?:a|an) (\w+(?:\s+\w+){0,3})/i,
+        /i work as (?:a|an) (\w+(?:\s+\w+){0,3})/i,
+        /my job is (\w+(?:\s+\w+){0,3})/i,
+        /i(?:'m| am) (?:an?\s+)?(?:aspiring|beginner|experienced|senior|junior)\s+(\w+(?:\s+\w+){0,3})/i,
+    ]},
+    { key: "language", label: "Language", patterns: [
+        /i speak (\w+(?:\s+\w+)?)/i, /my native language is (\w+(?:\s+\w+)?)/i,
+        /i(?:'m| am) fluent in (\w+(?:\s+\w+)?)/i,
+    ]},
+    { key: "preference", label: "Preference", patterns: [
+        /i (?:like|love|prefer) (\w+(?:\s+\w+){0,3})/i,
+        /my favorite (\w+) is (\w+(?:\s+\w+){0,3})/i,
+        /i enjoy (\w+(?:\s+\w+){0,3})/i,
     ]},
 ];
 
@@ -58,12 +100,12 @@ const extractFacts = (text, existingFacts = {}) => {
     if (!text) return existingFacts;
     const newFacts = { ...existingFacts };
     for (const { key, patterns } of FACT_PATTERNS) {
-        if (newFacts[key]) continue;
         for (const regex of patterns) {
             const match = text.match(regex);
             if (match) {
-                const val = match[1].charAt(0).toUpperCase() + match[1].slice(1);
-                if (val.length > 2 && val.length < 50) {
+                const raw = match[match.length - 1];
+                const val = raw.charAt(0).toUpperCase() + raw.slice(1);
+                if (val.length > 2 && val.length < 60) {
                     newFacts[key] = val;
                 }
                 break;
@@ -274,6 +316,12 @@ export const ContextBuilder = {
             typeof c.id === "string" && !c.id.startsWith("welcome-")
         );
 
+        const cacheKey = `${chatHistory.length}_${currentSummary?.length || 0}_${currentQuestion?.length || 0}_${Object.keys(userFacts).join(",")}`;
+        const cached = contextCache.get(cacheKey);
+        if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
+            return cached.result;
+        }
+
         let messages = [];
         let summary = truncate(currentSummary, MAX_SUMMARY_CONTENT);
 
@@ -317,13 +365,11 @@ export const ContextBuilder = {
             }
         }
 
-        // 3. Extract user facts
+        // 3. Extract user facts — always scan full history for facts, newest wins
         let mergedFacts = extractFacts(currentQuestion, { ...userFacts });
-        if (!userFacts || !Object.keys(userFacts).length) {
-            for (const c of chatHistory) {
-                mergedFacts = extractFacts(c.question, mergedFacts);
-                mergedFacts = extractFacts(c.answer, mergedFacts);
-            }
+        for (const c of chatHistory) {
+            mergedFacts = extractFacts(c.question, mergedFacts);
+            mergedFacts = extractFacts(c.answer, mergedFacts);
         }
 
         // 4. Auto-file detection: should the AI wrap its output in a file block?
@@ -372,13 +418,17 @@ export const ContextBuilder = {
             console.warn(`[ContextBuilder] Large payload detected (${payloadSize} bytes). Consider further truncation.`);
         }
 
-        return {
+        const result = {
             messages,
             systemPrompt,
             summaryUpdateNeeded: chatHistory.length > 10,
             updatedFacts: mergedFacts,
-            autoFileName, // expose for caller if needed
+            autoFileName,
         };
+
+        contextCache.set(cacheKey, { result, ts: Date.now() });
+
+        return result;
     },
 
     /**
@@ -454,10 +504,10 @@ export const ContextBuilder = {
 
         const trimmedOldSummary = truncate(oldSummary, MAX_SUMMARY_CONTENT);
 
-        const prompt = `Summarize the following conversation in EXACTLY TWO SENTENCES. Keep the most important project details and decisions. \n\nExisting Summary: ${trimmedOldSummary}\n\nNew Conversation:\n${historyText}`;
+        const prompt = `Summarize the following conversation in EXACTLY FIVE structured sentences covering: 1) Key topics discussed, 2) Decisions made, 3) User preferences or facts learned, 4) Action items or open questions, 5) Current status or conclusion. \n\nExisting Summary: ${trimmedOldSummary}\n\nNew Conversation:\n${historyText}`;
 
         try {
-            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer.", "llama-3.3-70b-versatile", { routingMode: "groq", max_tokens: 150 });
+            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer. Output exactly 5 sentences in a single paragraph.", "llama-3.3-70b-versatile", { routingMode: "groq", max_tokens: 300 });
             if (!res.ok) return oldSummary;
 
             const reader = res.body.getReader();

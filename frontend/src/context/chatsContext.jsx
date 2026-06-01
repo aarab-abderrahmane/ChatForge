@@ -448,7 +448,7 @@ export function ChatsProvider({ children }) {
     if (hash === sessionsHashRef.current) return;
     sessionsHashRef.current = hash;
 
-    // IndexedDB: only write each session (fire-and-forget)
+    // IndexedDB: queue each session via batch queue (flushed every 30s)
     for (const session of s) {
       ConversationsService.saveConversation(session);
     }
@@ -487,10 +487,11 @@ export function ChatsProvider({ children }) {
     };
   }, [sessions]);
 
-  // Save on tab close
+  // Save on tab close — flush batch queue immediately
   useEffect(() => {
-    function handleBeforeUnload() {
+    async function handleBeforeUnload() {
       persistSessions(sessions);
+      await ConversationsService.flushBatch?.();
     }
     window.addEventListener("beforeunload", handleBeforeUnload);
     return () => window.removeEventListener("beforeunload", handleBeforeUnload);

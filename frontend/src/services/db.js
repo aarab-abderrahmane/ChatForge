@@ -1,4 +1,5 @@
 import { encryptKey, decryptKey } from '../utils/crypto';
+import LZString from 'lz-string';
 
 const DB_NAME = 'ChatForgeDB';
 const DB_VERSION = 1;
@@ -31,6 +32,43 @@ export const openDB = () => {
     });
 };
 
+// ── Write-ahead log ──────────────────────────────────────────────
+const batchQueue = [];
+let batchTimer = null;
+const BATCH_FLUSH_MS = 30_000;
+
+function scheduleBatchFlush() {
+    if (batchTimer) return;
+    batchTimer = setTimeout(async () => {
+        batchTimer = null;
+        await flushBatch();
+    }, BATCH_FLUSH_MS);
+}
+
+async function flushBatch() {
+    const items = batchQueue.splice(0);
+    if (!items.length) return;
+
+    const groups = {};
+    for (const { storeName, value } of items) {
+        if (!groups[storeName]) groups[storeName] = [];
+        groups[storeName].push(value);
+    }
+
+    const db = await openDB();
+    const tx = db.transaction(Object.keys(groups), 'readwrite');
+    await new Promise((resolve, reject) => {
+        tx.oncomplete = () => resolve();
+        tx.onerror = () => reject(tx.error);
+        for (const [storeName, values] of Object.entries(groups)) {
+            const store = tx.objectStore(storeName);
+            for (const value of values) {
+                store.put(value);
+            }
+        }
+    });
+}
+
 export const idb = {
     get: async (storeName, id) => {
         const db = await openDB();
@@ -62,6 +100,18 @@ export const idb = {
             request.onerror = () => reject(request.error);
         });
     },
+    putBatch: async (storeName, value) => {
+        batchQueue.push({ storeName, value });
+        scheduleBatchFlush();
+    },
+    flushBatch: async () => {
+        if (batchTimer) {
+            clearTimeout(batchTimer);
+            batchTimer = null;
+        }
+        await flushBatch();
+    },
+    getQueueLength: () => batchQueue.length,
     delete: async (storeName, id) => {
         const db = await openDB();
         return new Promise((resolve, reject) => {
@@ -158,11 +208,53 @@ export const StorageService = {
     }
 };
 
+// ── Compression helpers ─────────────────────────────────────────
+const COMPRESS_MSG_THRESHOLD = 50;
+const COMPRESS_AGE_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
+function shouldCompress(session) {
+    if (session._compressed) return false;
+    const msgCount = session.messages?.length || 0;
+    if (msgCount > COMPRESS_MSG_THRESHOLD) return true;
+    const age = Date.now() - new Date(session.createdAt || 0).getTime();
+    return age > COMPRESS_AGE_MS;
+}
+
+function compressSession(session) {
+    if (!session || session._compressed) return session;
+    try {
+        const compressed = LZString.compress(JSON.stringify(session.messages || []));
+        return { ...session, messages: compressed, _compressed: true };
+    } catch {
+        return session;
+    }
+}
+
+function decompressSession(session) {
+    if (!session || !session._compressed) return session;
+    try {
+        const decompressed = JSON.parse(LZString.decompress(session.messages));
+        return { ...session, messages: decompressed, _compressed: false };
+    } catch {
+        return { ...session, messages: [], _compressed: false };
+    }
+}
+
 export const ConversationsService = {
-    saveConversation: async (conv) => await idb.put(stores.CONVERSATIONS, conv),
-    getConversation: async (id) => await idb.get(stores.CONVERSATIONS, id),
-    getAllConversations: async () => await idb.getAll(stores.CONVERSATIONS),
+    saveConversation: async (conv) => {
+        const toSave = shouldCompress(conv) ? compressSession(conv) : conv;
+        await idb.putBatch(stores.CONVERSATIONS, toSave);
+    },
+    getConversation: async (id) => {
+        const raw = await idb.get(stores.CONVERSATIONS, id);
+        return raw ? decompressSession(raw) : raw;
+    },
+    getAllConversations: async () => {
+        const raw = await idb.getAll(stores.CONVERSATIONS);
+        return raw.map(decompressSession);
+    },
     deleteConversation: async (id) => await idb.delete(stores.CONVERSATIONS, id),
+    flushBatch: async () => await idb.flushBatch(),
 };
 
 export const ProjectsService = {

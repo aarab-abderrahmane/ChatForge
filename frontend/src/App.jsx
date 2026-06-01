@@ -158,33 +158,68 @@ function App() {
         ? Math.min(rawTemp + draftIndex * 0.15, 1.5)
         : rawTemp;
 
-    // ── Execute stream ──
+    // ── Execute stream (with retry) ──
+    const MAX_RETRIES = 2;
+    const RETRY_DELAYS = [1000, 3000];
+    let lastError = null;
+    let response;
+
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+      if (attempt > 0) {
+        const delay = RETRY_DELAYS[attempt - 1] || 5000;
+        setChats((prev) =>
+          prev.map((obj) => {
+            if (obj.id !== id) return obj;
+            const retryMsg = `\n\n_[Retrying in ${delay / 1000}s... (attempt ${attempt}/${MAX_RETRIES})]_`;
+            if (draftIndex >= 0) {
+              const newAnsws = [...(obj.answers || [])];
+              newAnsws[draftIndex] = (newAnsws[draftIndex] || '') + retryMsg;
+              return { ...obj, answers: newAnsws, isMulti: true };
+            }
+            return { ...obj, answer: (obj.answer || '') + retryMsg };
+          })
+        );
+        await new Promise(r => setTimeout(r, delay));
+      }
+
+      try {
+        response = await api.chat(
+          preferences.userId,
+          contextMessages,
+          finalSystemPrompt,
+          activeModelId,
+          {
+            temperature: draftTemp,
+            top_p: (settings.topP ?? 10) / 10,
+            frequency_penalty: (settings.frequencyPenalty ?? 0) / 10,
+            presence_penalty: (settings.presencePenalty ?? 0) / 10,
+            max_tokens: maxTokens,
+            routingMode: apiRoutingMode,
+            smartTaskType: settings.smartTaskType || "auto",
+          },
+          signal
+        );
+
+        if (!response.ok) throw new Error('Failed to connect to AI service.');
+        lastError = null;
+        break;
+      } catch (error) {
+        lastError = error;
+        if (error.name === 'AbortError') throw error;
+        const status = error.status || error.response?.status;
+        if (status && status >= 400 && status < 500 && status !== 429) throw error;
+        if (attempt >= MAX_RETRIES) throw error;
+      }
+    }
+
+    if (lastError) throw lastError;
+
     try {
-      const response = await api.chat(
-        preferences.userId,
-        contextMessages,
-        finalSystemPrompt,
-        activeModelId,
-        {
-          temperature: draftTemp,
-          top_p: (settings.topP ?? 10) / 10,
-          frequency_penalty: (settings.frequencyPenalty ?? 0) / 10,
-          presence_penalty: (settings.presencePenalty ?? 0) / 10,
-          max_tokens: maxTokens,
-          routingMode: apiRoutingMode,
-          smartTaskType: settings.smartTaskType || "auto",
-        },
-        signal
-      );
-
-      if (!response.ok) throw new Error('Failed to connect to AI service.');
-
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
       let isTruncated = false;
 
-      // Preserve existing content for continuation so new output appends
       if (isContinuation) {
         const existing = chats.find(c => c.id === id);
         if (existing) {
@@ -276,7 +311,7 @@ function App() {
         }
       }
 
-      // Final flush — ensure last content is rendered
+      // Final flush
       if (flushRafRef.current) {
         cancelAnimationFrame(flushRafRef.current);
         flushRafRef.current = null;
