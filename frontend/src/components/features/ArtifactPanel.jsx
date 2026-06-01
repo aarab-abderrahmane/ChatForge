@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { FileText, Download, Copy, Check, X, Archive } from "lucide-react";
 import { useState } from "react";
 import { FilePreviewDialog } from "./FilePreviewDialog";
+import { zip, strToU8 } from "fflate";
 
 function formatSize(bytes) {
   if (bytes < 1024) return `${bytes} B`;
@@ -36,7 +37,22 @@ export function ArtifactPanel({ isOpen, onClose }) {
   const [previewFile, setPreviewFile] = useState(null);
 
   const handleDownloadAll = () => {
-    files.forEach(handleDownload);
+    const fileMap = {};
+    for (const file of files) {
+      fileMap[file.filename] = strToU8(file.content);
+    }
+    zip(fileMap, { level: 3 }, (err, data) => {
+      if (err) return;
+      const blob = new Blob([data], { type: "application/zip" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "ChatForge-files.zip";
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    });
   };
 
   const handleDownload = (file) => {

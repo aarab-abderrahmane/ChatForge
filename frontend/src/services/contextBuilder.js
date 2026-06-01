@@ -331,13 +331,70 @@ const buildArtifactBlock = (artifactFiles = []) => {
 };
 
 /**
+ * Detects the editing mode based on user intent and available artifacts.
+ * Returns 'generate', 'modify', 'fix', or 'explain'.
+ */
+const MODES = { GENERATE: 'generate', MODIFY: 'modify', FIX: 'fix', EXPLAIN: 'explain' };
+
+const detectMode = (text, hasArtifacts) => {
+    if (!text) return MODES.GENERATE;
+    const lower = text.toLowerCase();
+
+    if (/^(explain|what does|how does|why does|describe|what is|tell me about)\b/.test(lower)) {
+        return MODES.EXPLAIN;
+    }
+
+    if (/\b(fix|bug|error|issue|not working|broken|doesn't work|wrong|incorrect)\b/.test(lower)) {
+        return MODES.FIX;
+    }
+
+    if (hasArtifacts && /\b(add|change|update|modify|improve|edit|replace|remove|delete|insert|rewrite)\b/.test(lower)) {
+        return MODES.MODIFY;
+    }
+
+    return MODES.GENERATE;
+};
+
+const buildModeBlock = (mode) => {
+    switch (mode) {
+        case MODES.MODIFY:
+            return "MODE: Modify\n" +
+                "You are editing existing files in this session.\n" +
+                "- Output ONLY the specific code blocks that changed.\n" +
+                "- Include a context marker: --- FILE: filename.ext → region ---\n" +
+                "- Do NOT output unchanged code.\n" +
+                "- Only output the full file if more than ~30% of the content changed.\n" +
+                "- Keep the SAME filename. Do not create version suffixes.\n\n";
+
+        case MODES.FIX:
+            return "MODE: Fix\n" +
+                "You are fixing a bug in existing code.\n" +
+                "- First explain what was wrong (1-2 sentences).\n" +
+                "- Then output ONLY the function or section that needs the fix.\n" +
+                "- Include a context marker: --- FILE: filename.ext → function name() ---\n" +
+                "- Do NOT regenerate unrelated parts.\n\n";
+
+        case MODES.EXPLAIN:
+            return "MODE: Explain\n" +
+                "The user wants an explanation, not code changes.\n" +
+                "- Provide a clear, beginner-friendly explanation.\n" +
+                "- Do NOT generate new code unless the user explicitly asks.\n" +
+                "- If code examples help, keep them minimal and focused.\n\n";
+
+        default:
+            return "";
+    }
+};
+
+/**
  * Context Builder Logic:
  * 1. Takes current chats and active project (if any).
  * 2. Applies 10-message rule.
  * 3. Injects attached file content into the system prompt.
  * 4. Injects previously-generated artifact files for modify-in-place.
- * 5. Detects if the AI should auto-generate a downloadable file.
- * 6. Optimized for Payload Size.
+ * 5. Detects task mode (generate/modify/fix/explain) and injects mode-specific instructions.
+ * 6. Detects if the AI should auto-generate a downloadable file.
+ * 7. Optimized for Payload Size.
  */
 export const ContextBuilder = {
 
@@ -415,10 +472,13 @@ export const ContextBuilder = {
             mergedFacts = extractFacts(c.answer, mergedFacts);
         }
 
-        // 4. Auto-file detection: should the AI wrap its output in a file block?
+        // 4. Detect task mode
+        const mode = detectMode(currentQuestion, artifactFiles.length > 0);
+
+        // 5. Auto-file detection: should the AI wrap its output in a file block?
         const autoFileName = detectAutoFileOutput(currentQuestion);
 
-        // 5. Build System Prompt
+        // 6. Build System Prompt
         let systemPrompt = buildFactsBlock(mergedFacts);
 
         // Inject file content block (text files only — images handled in messages)
@@ -444,6 +504,12 @@ export const ContextBuilder = {
             "- Never hallucinate or restart a generation from zero unless explicitly asked.\n" +
             "- When generating code files, be CONCISE. Code block first, then brief notes only if relevant.\n" +
             "- When requirements are ambiguous (e.g. unspecified design style, color scheme, layout, technology stack), ask 1-2 brief clarifying questions before generating. Do NOT assume defaults for vague requests.\n\n";
+
+        // Mode-specific instructions
+        const modeBlock = buildModeBlock(mode);
+        if (modeBlock) {
+            systemPrompt += modeBlock;
+        }
 
         // File artifact rules
         systemPrompt += "FILE ARTIFACTS:\n" +
