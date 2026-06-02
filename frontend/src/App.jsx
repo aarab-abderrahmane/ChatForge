@@ -65,6 +65,7 @@ function AppInner() {
   const abortControllerRef = useRef(null);
   const draftControllersRef = useRef([]);
   const streamCountRef = useRef(0);
+  const generationRef = useRef(0);
   const askAIRef = useRef(null);
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
   const pendingContentRef = useRef(null);
@@ -112,6 +113,7 @@ function AppInner() {
   //  CORE AI STREAM
   // ════════════════════════════════════════════
   async function startStream(question, id, skillId, draftIndex, signal, autoContinueCount = 0, seedContent = '') {
+    const myGen = generationRef.current;
     streamCountRef.current += 1;
     setLoading(true);
     if (autoContinueCount > 0) {
@@ -362,6 +364,7 @@ function AppInner() {
       // Auto-continuation: if response was truncated, automatically continue
       if (isTruncated && autoContinueCount < MAX_AUTO_CONTINUATIONS) {
         await new Promise(r => setTimeout(r, 500));
+        if (generationRef.current !== myGen) return;
         return startStream(
           'Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.',
           id,
@@ -398,6 +401,10 @@ function AppInner() {
       );
     } finally {
       streamCountRef.current -= 1;
+      if (generationRef.current !== myGen) {
+        if (streamCountRef.current < 0) streamCountRef.current = 0;
+        return;
+      }
       if (streamCountRef.current <= 0) {
         streamCountRef.current = 0;
         setLoading(false);
@@ -407,11 +414,11 @@ function AppInner() {
   }
 
   async function askAI(question, id, overrideSkillId = null, draftCount = 1) {
+    generationRef.current += 1;
     if (abortControllerRef.current) abortControllerRef.current.abort();
     draftControllersRef.current.forEach(c => c.abort());
     draftControllersRef.current = [];
     abortControllerRef.current = new AbortController();
-    streamCountRef.current = 0;
 
     if (draftCount > 1) {
       setChats((prev) =>
