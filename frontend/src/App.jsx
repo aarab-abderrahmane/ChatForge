@@ -206,18 +206,6 @@ function AppInner() {
     for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
       if (attempt > 0) {
         const delay = RETRY_DELAYS[attempt - 1] || 5000;
-        setChats((prev) =>
-          prev.map((obj) => {
-            if (obj.id !== id) return obj;
-            const retryMsg = `\n\n_[Retrying in ${delay / 1000}s... (attempt ${attempt}/${MAX_RETRIES})]_`;
-            if (draftIndex >= 0) {
-              const newAnsws = [...(obj.answers || [])];
-              newAnsws[draftIndex] = (newAnsws[draftIndex] || '') + retryMsg;
-              return { ...obj, answers: newAnsws, isMulti: true };
-            }
-            return { ...obj, answer: (obj.answer || '') + retryMsg };
-          })
-        );
         await new Promise(r => setTimeout(r, delay));
       }
 

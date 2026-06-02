@@ -28,14 +28,22 @@ app.use(cors({
 
 app.use(express.json({ limit: "500kb" }));
 
-const limiter = rateLimit({
+const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
-  max: 30,
+  max: 60,
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
 });
-app.use("/api/", limiter);
+const keysLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 20,
+  message: { error: "Too many requests, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+app.use("/api/chat", chatLimiter);
+app.use("/api/keys", keysLimiter);
 
 
 
@@ -57,10 +65,10 @@ app.post("/api/chat", async (req, res) => {
   }
 
   const KEY_PATTERNS = {
-    openrouter: /^sk-or-v1-[a-zA-Z0-9]{32,}$/,
-    groq: /^gsk_[a-zA-Z0-9]{32,}$/,
-    gemini: /^AIzaSy[a-zA-Z0-9_-]{33}$/,
-    huggingface: /^hf_[a-zA-Z0-9]{32,}$/,
+    openrouter: /^sk-or-v1-/,
+    groq: /^gsk_/,
+    gemini: /^AIzaSy/,
+    huggingface: /^hf_/,
   };
   for (const [provider, key] of Object.entries(clientKeys)) {
     if (key && KEY_PATTERNS[provider] && !KEY_PATTERNS[provider].test(key)) {

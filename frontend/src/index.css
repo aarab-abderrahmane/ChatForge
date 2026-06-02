@@ -217,6 +217,20 @@ a:hover {
   100% { opacity: 0; }
 }
 
+/* ── Loading animations for file generation ── */
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+@keyframes pulse {
+  50% { opacity: .5; }
+}
+.animate-pulse {
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
 /* ── Responsive ── */
 @media (max-width: 767px) {
   .grid-border-collapse > * {
