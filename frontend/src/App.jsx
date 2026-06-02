@@ -12,7 +12,6 @@ import { ArtifactProvider, useArtifacts } from './context/artifactContext';
 const MAX_AUTO_CONTINUATIONS = 5;
 
 function App() {
-  const [autoContinuationProgress, setAutoContinuationProgress] = useState(null);
   const { activeSessionId } = useContext(chatsContext) || {};
   return (
     <ArtifactProvider sessionId={activeSessionId}>
@@ -41,6 +40,7 @@ const COMMANDS = {
 
 function AppInner() {
   const [query, setQuery] = useState('');
+  const [autoContinuationProgress, setAutoContinuationProgress] = useState(null);
 
   const {
     chats,
