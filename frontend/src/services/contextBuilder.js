@@ -13,6 +13,9 @@ const MAX_TOTAL_PAYLOAD_SIZE = 200000; // ~200KB threshold for warning
 const contextCache = new Map();
 const CACHE_TTL = 30_000; // 30 seconds
 
+// Model used for background summarization
+const SUMMARIZE_MODEL = "llama-3.3-70b-versatile";
+
 // Max characters of file text content to inject per file
 const MAX_FILE_CONTENT_CHARS = 12000;
 // Max characters of total injected file content across all files
@@ -197,7 +200,12 @@ const detectAutoFileOutput = (text) => {
             filename: "data.json",
         },
         {
-            patterns: ["bash script", "shell script", "write a script", "create a script"],
+            patterns: ["bash script", "shell script"],
+            filename: "script.sh",
+        },
+        {
+            patterns: ["write a script", "create a script"],
+            subPatterns: [".sh", "bash", "shell", "python", ".py", ".js", "powershell", "batch"],
             filename: "script.sh",
         },
         {
@@ -205,7 +213,7 @@ const detectAutoFileOutput = (text) => {
             filename: (t) => lower.includes("compose") ? "docker-compose.yml" : "Dockerfile",
         },
         {
-            patterns: ["readme", "read me", "documentation file", "write docs"],
+            patterns: ["readme", "documentation file", "write docs"],
             filename: "README.md",
         },
         {
@@ -221,7 +229,7 @@ const detectAutoFileOutput = (text) => {
             filename: "data.csv",
         },
         {
-            patterns: [".env", "environment file", "env file", "config file"],
+            patterns: ["environment file", "env file", "config file"],
             filename: ".env.example",
         },
     ];
@@ -416,7 +424,8 @@ export const ContextBuilder = {
             typeof c.id === "string" && !c.id.startsWith("welcome-")
         );
 
-        const cacheKey = `${chatHistory.length}_${currentSummary?.length || 0}_${currentQuestion?.length || 0}_${Object.keys(userFacts).join(",")}`;
+        const filesKey = attachedFiles.map(f => f.name).join(",") + "|" + artifactFiles.length;
+        const cacheKey = `${chatHistory.length}_${currentSummary?.length || 0}_${currentQuestion?.length || 0}_${Object.keys(userFacts).join(",")}_${filesKey}`;
         const cached = contextCache.get(cacheKey);
         if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
             return cached.result;
@@ -629,7 +638,7 @@ export const ContextBuilder = {
         const prompt = `Summarize the following conversation in EXACTLY FIVE structured sentences covering: 1) Key topics discussed, 2) Decisions made, 3) User preferences or facts learned, 4) Action items or open questions, 5) Current status or conclusion.${fileContext}\n\nExisting Summary: ${trimmedOldSummary}\n\nNew Conversation:\n${historyText}`;
 
         try {
-            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer. Output exactly 5 sentences in a single paragraph.", "llama-3.3-70b-versatile", { routingMode: "groq", max_tokens: 500 });
+            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer. Output exactly 5 sentences in a single paragraph.", SUMMARIZE_MODEL, { routingMode: "groq", max_tokens: 500 });
             if (!res.ok) return oldSummary;
 
             const reader = res.body.getReader();

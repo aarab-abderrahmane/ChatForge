@@ -104,7 +104,7 @@ export function SettingsPage() {
     setKeySaving((p) => ({ ...p, [provider]: true }));
     setKeyResults((p) => ({ ...p, [provider]: null }));
     try {
-      const res = await api.saveKeys(preferences.userId, { [provider]: key });
+      const res = await api.validateAndSaveKey(preferences.userId, { [provider]: key });
       const result = res?.results?.[provider];
       setKeyResults((p) => ({ ...p, [provider]: result }));
       if (result?.ok) {

@@ -1,5 +1,6 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Copy, Check } from 'lucide-react';
+import DOMPurify from 'dompurify';
 
 let _mermaidPromise = null;
 let _initialized = false;
@@ -72,8 +73,6 @@ async function initMermaid() {
   return m;
 }
 
-let _uid = 0;
-
 function cleanMermaidCode(raw) {
   return raw
     .trim()
@@ -141,6 +140,7 @@ export function MermaidBlock({ code }) {
   const [loading, setLoading] = useState(true);
   const [copied, setCopied] = useState(false);
   const containerRef = useRef(null);
+  const uidRef = useRef(0);
 
   const handleCopy = useCallback(async () => {
     try {
@@ -157,7 +157,7 @@ export function MermaidBlock({ code }) {
     setError(null);
     setLoading(true);
 
-    const id = `mermaid-cf-${++_uid}`;
+    const id = `mermaid-cf-${++uidRef.current}`;
 
     const render = async () => {
       const m = await initMermaid();
@@ -267,7 +267,7 @@ export function MermaidBlock({ code }) {
         {svgHtml && (
           <div
             className="w-full flex justify-center"
-            dangerouslySetInnerHTML={{ __html: svgHtml }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgHtml) }}
           />
         )}
       </div>

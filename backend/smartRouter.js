@@ -145,10 +145,20 @@ export async function askAI(messages, key, options = {}) {
 }
 
 // ─── Task type detection ─────────────────────────────────────
+const CODE_KEYWORDS = [
+  "function ", "class ", "const ", "let ", "var ", "import ", "export ",
+  "debug", "error", "bug", "fix ", "refactor", "optimize",
+  "react", "component", "api", "sql", "json", "html", "css",
+  "code", "script", "algorithm", "compile", "syntax", "type ",
+];
+
 export function detectTaskType(messages) {
   const lastMsg = messages[messages.length - 1]?.content || "";
   const lower = lastMsg.toLowerCase();
 
+  const hasCodeKeywords = CODE_KEYWORDS.some(kw => lower.includes(kw));
+
+  if (hasCodeKeywords) return "specialist";
   if (lower.length < 150 && !lower.includes("```")) return "speedster";
   if (messages.length > 15 || lower.includes("find bug") || lower.includes("search") || lower.includes("read_file")) return "specialist";
   return "architect";

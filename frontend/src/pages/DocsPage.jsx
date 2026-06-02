@@ -37,8 +37,12 @@ import {
 } from "lucide-react";
 
 
-// ── Picsum placeholder helper ─────────────────────────────────
-const pic = (w, h, seed) => `https://picsum.photos/seed/${seed}/${w}/${h}`;
+// ── Placeholder helper (inline SVG, no external dependency) ────
+const pic = (w, h, seed) => {
+  const label = seed.replace(/chatforge-/i, "").replace(/-/g, " ");
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" viewBox="0 0 ${w} ${h}"><rect width="100%" height="100%" fill="#f0f0e8"/><rect x="1" y="1" width="${w-2}" height="${h-2}" fill="none" stroke="#ddd" stroke-width="1"/><text x="50%" y="50%" text-anchor="middle" dominant-baseline="middle" font-family="monospace" font-size="14" fill="#999" text-transform="uppercase">${label}</text></svg>`;
+  return `data:image/svg+xml,${encodeURIComponent(svg)}`;
+};
 
 // ── Data mirrors from chatsContext ────────────────────────────
 const SKILLS = [

@@ -1,13 +1,29 @@
 // A simple Web Crypto API wrapper for AES-GCM
-// Generates a static key or uses a password-derived key.
+// Uses a per-installation random seed for key derivation,
+// falling back to the static key for backward compatibility.
 
-const ENCRYPTION_KEY = "ChatForge-Static-Key-Fallback";
+const FALLBACK_KEY = "ChatForge-Static-Key-Fallback";
+const SEED_KEY = "ChatForge_CryptoSeed";
 
-async function getKeyMaterial() {
+function getOrCreateSeed() {
+    let seed = localStorage.getItem(SEED_KEY);
+    if (!seed) {
+        const bytes = new Uint8Array(32);
+        window.crypto.getRandomValues(bytes);
+        seed = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+        try {
+            localStorage.setItem(SEED_KEY, seed);
+        } catch { /* localStorage unavailable — will use fallback */ }
+    }
+    return seed;
+}
+
+async function getKeyMaterial(useFallback) {
+    const password = useFallback ? FALLBACK_KEY : getOrCreateSeed();
     const enc = new TextEncoder();
     return window.crypto.subtle.importKey(
         "raw",
-        enc.encode(ENCRYPTION_KEY),
+        enc.encode(password),
         { name: "PBKDF2" },
         false,
         ["deriveBits", "deriveKey"]
@@ -15,8 +31,8 @@ async function getKeyMaterial() {
 }
 
 // Generate an AES-GCM key from the password
-async function getKey(salt) {
-    const keyMaterial = await getKeyMaterial();
+async function getKey(salt, useFallback) {
+    const keyMaterial = await getKeyMaterial(useFallback);
     return window.crypto.subtle.deriveKey(
         {
             name: "PBKDF2",
@@ -51,7 +67,6 @@ export async function encryptKey(text) {
         combined.set(iv, salt.length);
         combined.set(encryptedArray, salt.length + iv.length);
 
-        // Convert to base64 safely
         let binary = "";
         for (let i = 0; i < combined.byteLength; i++) {
             binary += String.fromCharCode(combined[i]);
@@ -59,8 +74,22 @@ export async function encryptKey(text) {
         return btoa(binary);
     } catch (error) {
         console.warn("Encryption failed (possibly non-secure context), returning plain text", error);
-        return `plaintext:${text}`; // Fallback to easily identifiable plaintext if crypto fails
+        return `plaintext:${text}`;
     }
+}
+
+async function tryDecrypt(combined, useFallback) {
+    const salt = combined.slice(0, 16);
+    const iv = combined.slice(16, 28);
+    const data = combined.slice(28);
+    const key = await getKey(salt, useFallback);
+    const decryptedContent = await window.crypto.subtle.decrypt(
+        { name: "AES-GCM", iv },
+        key,
+        data
+    );
+    const dec = new TextDecoder();
+    return dec.decode(decryptedContent);
 }
 
 export async function decryptKey(base64Text) {
@@ -72,19 +101,13 @@ export async function decryptKey(base64Text) {
         for (let i = 0; i < binary.length; i++) {
             combined[i] = binary.charCodeAt(i);
         }
-        const salt = combined.slice(0, 16);
-        const iv = combined.slice(16, 28);
-        const data = combined.slice(28);
 
-        const key = await getKey(salt);
-        const decryptedContent = await window.crypto.subtle.decrypt(
-            { name: "AES-GCM", iv },
-            key,
-            data
-        );
-
-        const dec = new TextDecoder();
-        return dec.decode(decryptedContent);
+        // Try per-installation seed first, fall back to static key
+        try {
+            return await tryDecrypt(combined, false);
+        } catch {
+            return await tryDecrypt(combined, true);
+        }
     } catch (error) {
         console.warn("Decryption failed", error);
         return base64Text;

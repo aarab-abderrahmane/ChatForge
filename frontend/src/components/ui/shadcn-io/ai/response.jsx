@@ -14,9 +14,9 @@
  * limitations under the License.
  */
 
-'use client';
+ 'use client';
 import { cn } from '../../../../lib/utils';
-import { isValidElement, memo } from 'react';
+import { isValidElement, memo, useMemo } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
@@ -194,6 +194,50 @@ const shouldAutoPromoteToFile = (language, code) => {
   return { promote: true, filename };
 };
 
+// ─── Memoized pre component (avoids shouldAutoPromoteToFile on every render) ──
+const MemoizedPre = memo(({ node, children }) => {
+  let language = 'text';
+  if (isValidElement(children) && children.props?.className) {
+    const match = children.props.className.match(/language-(\S+)/);
+    if (match) language = match[1];
+  } else if (typeof node?.properties?.className === 'string') {
+    language = node.properties.className.replace('language-', '');
+  }
+
+  let code = '';
+  if (isValidElement(children) && children.props && typeof children.props.children === 'string') {
+    code = children.props.children;
+  } else if (typeof children === 'string') {
+    code = children;
+  }
+
+  if (language === 'mermaid') return <MermaidBlock code={code} />;
+  if (language === 'quiz') return <QuizBlock code={code} />;
+  if (language === 'flashcards') return <FlashcardBlock code={code} />;
+  if (language === 'mindmap') return <MindmapBlock code={code} />;
+
+  if (language?.startsWith('file:')) {
+    const filename = language.replace('file:', '').trim() || 'untitled.txt';
+    return <FileBlock code={code} filename={filename} />;
+  }
+
+  const { promote, filename: autoFilename } = useMemo(
+    () => shouldAutoPromoteToFile(language, code),
+    [language, code]
+  );
+  if (promote && autoFilename) {
+    return <FileBlock code={code} filename={autoFilename} autoPromoted />;
+  }
+
+  return (
+    <CodeBlock code={code} language={language} dir="ltr">
+      <CodeBlockCopyButton onCopy={() => {}} onError={() => {}} />
+    </CodeBlock>
+  );
+});
+
+MemoizedPre.displayName = 'MemoizedPre';
+
 // ─── Markdown components ───────────────────────────────────────────────────────
 const HardenedMarkdown = hardenReactMarkdown(ReactMarkdown);
 
@@ -309,49 +353,7 @@ const components = {
 
   // ── Code / pre block ────────────────────────────────────────────────────────
   pre: ({ node, className, children }) => {
-    // Detect language from child code element
-    let language = 'text';
-    if (isValidElement(children) && children.props?.className) {
-      const match = children.props.className.match(/language-(\S+)/);
-      if (match) language = match[1];
-    } else if (typeof node?.properties?.className === 'string') {
-      language = node.properties.className.replace('language-', '');
-    }
-
-    // Extract code string
-    let code = '';
-    if (isValidElement(children) && children.props && typeof children.props.children === 'string') {
-      code = children.props.children;
-    } else if (typeof children === 'string') {
-      code = children;
-    }
-
-    // ── Special language handlers ────────────────────────────────────────────
-
-    if (language === 'mermaid') return <MermaidBlock code={code} />;
-    if (language === 'quiz') return <QuizBlock code={code} />;
-    if (language === 'flashcards') return <FlashcardBlock code={code} />;
-    if (language === 'mindmap') return <MindmapBlock code={code} />;
-
-    // ── file:filename.ext — explicit file download card ──────────────────────
-    if (language?.startsWith('file:')) {
-      const filename = language.replace('file:', '').trim() || 'untitled.txt';
-      return <FileBlock code={code} filename={filename} />;
-    }
-
-    // ── Auto-promote large, complete code blocks to FileBlock ────────────────
-    // This handles cases where the AI generated a full file but forgot the file: prefix.
-    const { promote, filename: autoFilename } = shouldAutoPromoteToFile(language, code);
-    if (promote && autoFilename) {
-      return <FileBlock code={code} filename={autoFilename} autoPromoted />;
-    }
-
-    // ── Default: syntax-highlighted code block ───────────────────────────────
-    return (
-      <CodeBlock code={code} language={language} dir="ltr">
-        <CodeBlockCopyButton onCopy={() => {}} onError={() => {}} />
-      </CodeBlock>
-    );
+    return <MemoizedPre node={node} children={children} />;
   },
 };
 

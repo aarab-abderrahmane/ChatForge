@@ -137,7 +137,7 @@ export const Terminal = ({
   chats, copyToClipboard, handleSend, loading, isCopied,
   query, setQuery, messagesEndRef, className, onRetry,
   onEditSubmit, onStopAI, onMergeDrafts, onSummarizeDrafts,
-  onKeepDraft, onContinue,
+  onKeepDraft, onContinue, autoContinuationProgress,
 }) => {
   const COMMAND_PREFIX = "/";
   const {
@@ -678,9 +678,16 @@ export const Terminal = ({
                         </div>
                         <div>
                           <span className="font-mono text-xs text-ink font-semibold uppercase tracking-wider">
-                            Generating response<span className="loading-dots"><span>.</span><span>.</span><span>.</span></span>
+                            {autoContinuationProgress
+                              ? `Auto-continuing (${autoContinuationProgress.current}/${autoContinuationProgress.total})`
+                              : `Generating response`}
+                            <span className="loading-dots"><span>.</span><span>.</span><span>.</span></span>
                           </span>
-                          <p className="font-mono text-[9px] text-muted-500 uppercase tracking-widest">AI is processing your request</p>
+                          <p className="font-mono text-[9px] text-muted-500 uppercase tracking-widest">
+                            {autoContinuationProgress
+                              ? `AI is extending the response — continuing automatically`
+                              : `AI is processing your request`}
+                          </p>
                         </div>
                       </div>
                       <button

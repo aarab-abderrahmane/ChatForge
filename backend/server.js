@@ -14,6 +14,10 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
   ? process.env.ALLOWED_ORIGINS.split(",")
   : ["http://localhost:5173", "http://localhost:3000", "http://127.0.0.1:5173"];
 
+if (process.env.NODE_ENV === "production" && !process.env.ALLOWED_ORIGINS) {
+  throw new Error("ALLOWED_ORIGINS environment variable must be set in production");
+}
+
 app.use(cors({
   origin: (origin, cb) => {
     if (!origin || allowedOrigins.includes(origin)) return cb(null, true);
@@ -22,7 +26,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json());
+app.use(express.json({ limit: "500kb" }));
 
 const limiter = rateLimit({
   windowMs: 60 * 1000,
@@ -42,8 +46,39 @@ app.use("/api/", limiter);
 // ─────────────────────────────────────────────
 app.post("/api/chat", async (req, res) => {
   const { userId, messages, skillPrompt, model, parameters, clientKeys } = req.body;
+
   if (!clientKeys || (!clientKeys.openrouter && !clientKeys.groq && !clientKeys.gemini && !clientKeys.huggingface)) {
     return res.status(401).json({ response: "No API keys found! Please add at least one key in Settings.", type: "error" });
+  }
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (userId && !UUID_RE.test(userId)) {
+    return res.status(400).json({ response: "Invalid userId format.", type: "error" });
+  }
+
+  const KEY_PATTERNS = {
+    openrouter: /^sk-or-v1-[a-zA-Z0-9]{32,}$/,
+    groq: /^gsk_[a-zA-Z0-9]{32,}$/,
+    gemini: /^AIzaSy[a-zA-Z0-9_-]{33}$/,
+    huggingface: /^hf_[a-zA-Z0-9]{32,}$/,
+  };
+  for (const [provider, key] of Object.entries(clientKeys)) {
+    if (key && KEY_PATTERNS[provider] && !KEY_PATTERNS[provider].test(key)) {
+      return res.status(401).json({ response: `Invalid ${provider} API key format.`, type: "error" });
+    }
+  }
+
+  if (!Array.isArray(messages) || messages.length === 0) {
+    return res.status(400).json({ response: "Messages must be a non-empty array.", type: "error" });
+  }
+
+  const totalChars = messages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
+  if (totalChars > 100000) {
+    return res.status(400).json({ response: "Message payload too large (max 100,000 characters).", type: "error" });
+  }
+
+  if (skillPrompt && skillPrompt.length > 5000) {
+    return res.status(400).json({ response: "Skill prompt too long (max 5,000 characters).", type: "error" });
   }
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -117,6 +152,10 @@ app.post("/api/chat", async (req, res) => {
 app.post("/api/keys", async (req, res) => {
   const { userId, openrouter, groq, gemini, huggingface, together, mistral } = req.body;
   if (!userId) return res.status(400).json({ type: "error", response: "userId is required." });
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+  if (!UUID_RE.test(userId)) {
+    return res.status(400).json({ type: "error", response: "Invalid userId format." });
+  }
 
   const results = {};
 
@@ -232,7 +271,10 @@ app.post("/api/keys", async (req, res) => {
 
 
 
-app.get("/", (_, res) => res.json({ message: "Welcome to ChatForge" }));
+app.get("/", (_, res) => process.env.NODE_ENV === "production"
+  ? res.status(404).json({ error: "Not found" })
+  : res.json({ message: "ChatForge API" })
+);
 
 // ─────────────────────────────────────────────
 // Start server
@@ -256,7 +298,10 @@ app.use((err, req, res, _next) => {
   console.error("Unhandled error:", err);
   const status = err.status || err.statusCode || 500;
   if (res.headersSent) return;
-  res.status(status).json({ error: err.message || "Internal server error" });
+  const message = process.env.NODE_ENV === "production"
+    ? "Internal server error"
+    : err.message;
+  res.status(status).json({ error: message });
 });
 
 export default app;

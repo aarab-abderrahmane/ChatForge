@@ -75,6 +75,7 @@ export async function askHuggingFace(messages, key, options = {}) {
                 ],
             };
             controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunk)}\n\n`));
+            controller.enqueue(encoder.encode("data: [DONE]\n\n"));
             controller.close();
         },
     });

@@ -80,6 +80,88 @@ export const api = {
     }
   },
 
+  // ── Unified: validate & save one or more provider keys ─────────
+  // keys = { openrouter?: string, groq?: string, gemini?: string, ... }
+  // Returns { type, results, error } — results maps provider -> { ok, error? }
+  validateAndSaveKey: async (userId, keys) => {
+    try {
+      const res = await fetch(`${BASE_URL}/keys`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, ...keys }),
+      });
+      const data = await res.json();
+
+      if (data.type === "success") {
+        const validatedKeys = {};
+        for (const [provider, result] of Object.entries(data.results || {})) {
+          if (result.ok) {
+            validatedKeys[provider] = keys[provider];
+          }
+        }
+        if (Object.keys(validatedKeys).length > 0) {
+          await KeysService.saveKeys(validatedKeys);
+        }
+        return data;
+      }
+
+      // Offline fallback: save keys that have valid format even if backend unreachable
+      if (!navigator.onLine || data.type === "error") {
+        const fallbackKeys = {};
+        for (const [provider, key] of Object.entries(keys)) {
+          const cleanKey = String(key || "").trim();
+          const validFormat =
+            (provider === "openrouter" && cleanKey.startsWith("sk-or-v1-")) ||
+            (provider === "groq" && cleanKey.startsWith("gsk_")) ||
+            (provider === "gemini" && cleanKey.startsWith("AIza")) ||
+            (provider === "huggingface" && cleanKey.startsWith("hf_")) ||
+            (provider === "together" && cleanKey.startsWith("tgp_")) ||
+            (provider === "mistral" && cleanKey.length > 8);
+          if (validFormat) {
+            fallbackKeys[provider] = cleanKey;
+          }
+        }
+        if (Object.keys(fallbackKeys).length > 0) {
+          await KeysService.saveKeys(fallbackKeys);
+          return {
+            type: "success",
+            results: Object.fromEntries(
+              Object.keys(fallbackKeys).map(p => [p, { ok: true, warning: `Offline — key saved locally. Verify connectivity.` }])
+            ),
+          };
+        }
+      }
+
+      return { type: "error", results: {}, error: data?.response || "Validation failed." };
+    } catch (error) {
+      // Network error
+      const fallbackKeys = {};
+      for (const [provider, key] of Object.entries(keys)) {
+        const cleanKey = String(key || "").trim();
+        const validFormat =
+          (provider === "openrouter" && cleanKey.startsWith("sk-or-v1-")) ||
+          (provider === "groq" && cleanKey.startsWith("gsk_")) ||
+          (provider === "gemini" && cleanKey.startsWith("AIza")) ||
+          (provider === "huggingface" && cleanKey.startsWith("hf_")) ||
+          (provider === "together" && cleanKey.startsWith("tgp_")) ||
+          (provider === "mistral" && cleanKey.length > 8);
+        if (validFormat) {
+          fallbackKeys[provider] = cleanKey;
+        }
+      }
+      if (Object.keys(fallbackKeys).length > 0) {
+        await KeysService.saveKeys(fallbackKeys);
+        return {
+          type: "success",
+          results: Object.fromEntries(
+            Object.keys(fallbackKeys).map(p => [p, { ok: true, warning: `Network issue — key saved locally.` }])
+          ),
+        };
+      }
+      return { type: "error", results: {}, error: `Connection error: ${error.message}` };
+    }
+  },
+
   // ── Save multiple provider keys ─────────────────────────────────
   // keys = { openrouter?: string, groq?: string, gemini?: string }
   saveKeys: async (userId, keys) => {

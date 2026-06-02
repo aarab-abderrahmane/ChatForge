@@ -31,17 +31,17 @@ export async function KeyTest(
   setShowConfirm
 ) {
   try {
-    const data = await api.testKey(key, userId);
+    const providerKey = key.startsWith("gsk_") ? "groq" : key.startsWith("AIza") ? "gemini" : key.startsWith("hf_") ? "huggingface" : key.startsWith("tgp_") ? "together" : "openrouter";
+    const data = await api.validateAndSaveKey(userId, { [providerKey]: key });
     if (data.type === "error") {
       setMessages((prev) => [
         ...prev,
-        { type: "error", content: data.response },
+        { type: "error", content: data.error || "Validation failed." },
       ]);
     } else {
-      const isWarning = data.response?.startsWith("warning:");
-      const message = isWarning
-        ? data.response.split("warning:")[1]
-        : "API Key authenticated. Full access granted.";
+      const firstResult = Object.values(data.results || {})[0];
+      const isWarning = firstResult?.warning;
+      const message = isWarning || "API Key authenticated. Full access granted.";
 
       setMessages((prev) => [
         ...prev,

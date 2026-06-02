@@ -12,6 +12,7 @@ import { ArtifactProvider, useArtifacts } from './context/artifactContext';
 const MAX_AUTO_CONTINUATIONS = 5;
 
 function App() {
+  const [autoContinuationProgress, setAutoContinuationProgress] = useState(null);
   const { activeSessionId } = useContext(chatsContext) || {};
   return (
     <ArtifactProvider sessionId={activeSessionId}>
@@ -62,6 +63,7 @@ function AppInner() {
 
   const messagesEndRef = useRef(null);
   const abortControllerRef = useRef(null);
+  const draftControllersRef = useRef([]);
   const streamCountRef = useRef(0);
   const askAIRef = useRef(null);
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
@@ -96,12 +98,27 @@ function AppInner() {
     return () => window.removeEventListener('chatforge:stats', handleStats);
   }, []);
 
+  // ── Clean up RAF on unmount ──
+  useEffect(() => {
+    return () => {
+      if (flushRafRef.current) {
+        cancelAnimationFrame(flushRafRef.current);
+        flushRafRef.current = null;
+      }
+    };
+  }, []);
+
   // ════════════════════════════════════════════
   //  CORE AI STREAM
   // ════════════════════════════════════════════
   async function startStream(question, id, skillId, draftIndex, signal, autoContinueCount = 0, seedContent = '') {
     streamCountRef.current += 1;
     setLoading(true);
+    if (autoContinueCount > 0) {
+      setAutoContinuationProgress({ current: autoContinueCount, total: MAX_AUTO_CONTINUATIONS });
+    } else {
+      setAutoContinuationProgress(null);
+    }
 
     const activeSkill = allSkills.find((s) => s.id === skillId) || SKILLS[0];
     const activeModelId = settings.activeModelId || 'meta-llama/llama-3.3-70b-instruct:free';
@@ -396,12 +413,15 @@ function AppInner() {
       if (streamCountRef.current <= 0) {
         streamCountRef.current = 0;
         setLoading(false);
+        setAutoContinuationProgress(null);
       }
     }
   }
 
   async function askAI(question, id, overrideSkillId = null, draftCount = 1) {
     if (abortControllerRef.current) abortControllerRef.current.abort();
+    draftControllersRef.current.forEach(c => c.abort());
+    draftControllersRef.current = [];
     abortControllerRef.current = new AbortController();
     streamCountRef.current = 0;
 
@@ -413,9 +433,13 @@ function AppInner() {
             : obj
         )
       );
-      for (let i = 0; i < draftCount; i++) {
-        startStream(question, id, overrideSkillId, i, abortControllerRef.current.signal);
-      }
+      const controllers = Array.from({ length: draftCount }, () => new AbortController());
+      draftControllersRef.current = controllers;
+      await Promise.all(
+        controllers.map((ctrl, i) =>
+          startStream(question, id, overrideSkillId, i, ctrl.signal).catch(() => {})
+        )
+      );
     } else {
       startStream(question, id, overrideSkillId, -1, abortControllerRef.current.signal);
     }
@@ -426,7 +450,10 @@ function AppInner() {
   const handleStopAI = useCallback(() => {
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
+    draftControllersRef.current.forEach(c => c.abort());
+    draftControllersRef.current = [];
     setLoading(false);
+    setAutoContinuationProgress(null);
     const lastMsg = [...chats].reverse().find(m => m.type === 'ch');
     if (lastMsg) {
       const hasContent = lastMsg.answer || (lastMsg.answers && lastMsg.answers.some(a => a));
@@ -688,6 +715,7 @@ function AppInner() {
           onSummarizeDrafts={handleSummarizeDrafts}
           onKeepDraft={handleKeepDraft}
           onContinue={handleContinue}
+          autoContinuationProgress={autoContinuationProgress}
         />
       )}
     </div>

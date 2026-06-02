@@ -62,6 +62,17 @@ const WELCOME_MESSAGES = [
   },
 ];
 
+const makeSession = (overrides = {}) => ({
+  id: uuid(),
+  title: overrides.title || "New Chat",
+  messages: overrides.messages || WELCOME_MESSAGES,
+  createdAt: new Date().toISOString(),
+  summary: overrides.summary || "",
+  userFacts: overrides.userFacts || {},
+  routingMode: overrides.routingMode || null,
+  ...overrides,
+});
+
 export const SKILLS = [
   {
     id: "general",
@@ -294,6 +305,23 @@ export function ChatsProvider({ children }) {
   });
 
   useEffect(() => {
+    // Re-run settings migration on mount and persist the migrated version
+    try {
+      const stored = localStorage.getItem("ChatForge_Settings");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (parsed._settingsVersion !== SETTINGS_VERSION) {
+          if (typeof parsed.temperature === 'number' && parsed.temperature < 2) parsed.temperature = Math.round(parsed.temperature * 10);
+          if (typeof parsed.topP === 'number' && parsed.topP < 2) parsed.topP = Math.round(parsed.topP * 10);
+          if (typeof parsed.frequencyPenalty === 'number' && Math.abs(parsed.frequencyPenalty) < 5) parsed.frequencyPenalty = Math.round(parsed.frequencyPenalty * 10);
+          if (typeof parsed.presencePenalty === 'number' && Math.abs(parsed.presencePenalty) < 5) parsed.presencePenalty = Math.round(parsed.presencePenalty * 10);
+          parsed._settingsVersion = SETTINGS_VERSION;
+          localStorage.setItem("ChatForge_Settings", JSON.stringify({ ...defaultSettings, ...parsed }));
+          setSettings((prev) => ({ ...defaultSettings, ...parsed }));
+        }
+      }
+    } catch { /* ignore */ }
+
     // Auto-migrate any defunct model IDs to the default
     const liveModelIds = MODELS.map((m) => m.id);
     if (!liveModelIds.includes(settings.activeModelId)) {
@@ -404,17 +432,6 @@ export function ChatsProvider({ children }) {
   }, []);
 
   // ── Sessions ────────────────────────────────────────────────────────
-  const makeSession = (overrides = {}) => ({
-    id: uuid(),
-    title: overrides.title || "New Chat",
-    messages: overrides.messages || WELCOME_MESSAGES,
-    createdAt: new Date().toISOString(),
-    summary: overrides.summary || "",
-    userFacts: overrides.userFacts || {},
-    routingMode: overrides.routingMode || null,
-    ...overrides,
-  });
-
   const [sessions, setSessions] = useState(() => {
     try {
       const stored = localStorage.getItem("ChatForge_Sessions");
@@ -458,11 +475,6 @@ export function ChatsProvider({ children }) {
     for (const session of s) {
       ConversationsService.saveConversation(session);
     }
-
-    // localStorage: write sessions list (titles/ids only for fast load)
-    try {
-      localStorage.setItem("ChatForge_Sessions", JSON.stringify(s));
-    } catch { /* quota exceeded — persist to IDB only */ }
   }
 
   // Load sessions from IndexedDB on mount
