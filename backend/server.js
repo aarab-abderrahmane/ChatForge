@@ -1,6 +1,6 @@
 import cors from "cors";
 import express from "express";
-import rateLimit from "express-rate-limit";
+import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { validateGroqKey } from "./groqClient.js";
 import { validateGeminiKey } from "./geminiClient.js";
 import { validateHuggingFaceKey } from "./huggingfaceClient.js";
@@ -31,7 +31,7 @@ app.use(express.json({ limit: "1mb" }));
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 60,
-  keyGenerator: (req) => req.headers['x-forwarded-for'] || req.ip,
+  keyGenerator: ipKeyGenerator,
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
@@ -39,7 +39,7 @@ const chatLimiter = rateLimit({
 const keysLimiter = rateLimit({
   windowMs: 60 * 1000,
   max: 20,
-  keyGenerator: (req) => req.headers['x-forwarded-for'] || req.ip,
+  keyGenerator: ipKeyGenerator,
   message: { error: "Too many requests, please try again later." },
   standardHeaders: true,
   legacyHeaders: false,
