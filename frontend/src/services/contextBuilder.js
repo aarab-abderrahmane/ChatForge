@@ -7,7 +7,7 @@ import { api } from './api';
 const MAX_MESSAGE_CONTENT = 1500;
 const MAX_SUMMARY_CONTENT = 1500;
 const MAX_HISTORY_FOR_SUMMARY = 10;
-const MAX_TOTAL_PAYLOAD_SIZE = 200000; // ~200KB threshold for warning
+const MAX_TOTAL_PAYLOAD_SIZE = 350000; // ~350KB threshold — payloads above this get aggressively trimmed
 
 // Context cache: keyed by sessionId + messageCount, invalidated on new messages
 const contextCache = new Map();
@@ -539,11 +539,22 @@ export const ContextBuilder = {
                 `You may still add explanation text before or after the file block.\n\n`;
         }
 
-        // Diagnostic: Check payload size
-        const payloadSize = JSON.stringify({ messages, systemPrompt }).length;
+        // Enforce payload size — aggressively trim if over limit
+        let payloadSize = JSON.stringify({ messages, systemPrompt }).length;
         console.log(`[ContextBuilder] Payload size: ${payloadSize} bytes | Files: ${attachedFiles.length} | AutoFile: ${autoFileName || "none"}`);
         if (payloadSize > MAX_TOTAL_PAYLOAD_SIZE) {
-            console.warn(`[ContextBuilder] Large payload detected (${payloadSize} bytes). Consider further truncation.`);
+            console.warn(`[ContextBuilder] Large payload (${payloadSize} bytes). Trimming messages...`);
+            let safety = 10;
+            while (payloadSize > MAX_TOTAL_PAYLOAD_SIZE && safety > 0 && messages.length > 2) {
+                safety--;
+                for (const msg of messages) {
+                    if (typeof msg.content === 'string' && msg.content.length > 100) {
+                        msg.content = msg.content.slice(0, Math.floor(msg.content.length * 0.7)) + '\n... [trimmed]';
+                    }
+                }
+                payloadSize = JSON.stringify({ messages, systemPrompt }).length;
+            }
+            console.log(`[ContextBuilder] After trim: ${payloadSize} bytes`);
         }
 
         const result = {

@@ -26,7 +26,7 @@ app.use(cors({
   credentials: true,
 }));
 
-app.use(express.json({ limit: "500kb" }));
+app.use(express.json({ limit: "1mb" }));
 
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -81,8 +81,8 @@ app.post("/api/chat", async (req, res) => {
   }
 
   const totalChars = messages.reduce((sum, m) => sum + (m.content?.length || 0), 0);
-  if (totalChars > 100000) {
-    return res.status(400).json({ response: "Message payload too large (max 100,000 characters).", type: "error" });
+  if (totalChars > 200000) {
+    return res.status(400).json({ response: "Message payload too large (max 200,000 characters).", type: "error" });
   }
 
   if (skillPrompt && skillPrompt.length > 5000) {
