@@ -211,6 +211,11 @@ const MemoizedPre = memo(({ node, children }) => {
     code = children;
   }
 
+  const { promote, filename: autoFilename } = useMemo(
+    () => shouldAutoPromoteToFile(language, code),
+    [language]
+  );
+
   if (language === 'mermaid') return <MermaidBlock code={code} />;
   if (language === 'quiz') return <QuizBlock code={code} />;
   if (language === 'flashcards') return <FlashcardBlock code={code} />;
@@ -221,10 +226,6 @@ const MemoizedPre = memo(({ node, children }) => {
     return <FileBlock code={code} filename={filename} />;
   }
 
-  const { promote, filename: autoFilename } = useMemo(
-    () => shouldAutoPromoteToFile(language, code),
-    [language]
-  );
   if (promote && autoFilename) {
     return <FileBlock code={code} filename={autoFilename} autoPromoted />;
   }

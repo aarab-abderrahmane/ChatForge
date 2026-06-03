@@ -3,7 +3,7 @@
  */
 export async function validateHuggingFaceKey(key) {
     try {
-        const response = await fetch("https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.3", {
+        const response = await fetch("https://api-inference.huggingface.co/models/gpt2", {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${key}`,
@@ -25,7 +25,7 @@ export async function validateHuggingFaceKey(key) {
  */
 export async function askHuggingFace(messages, key, options = {}) {
     const {
-        model = "mistralai/Mistral-7B-Instruct-v0.3",
+        model = "gpt2",
         systemPrompt = "You are a helpful AI assistant.",
         temperature = 0.7,
         max_tokens = 1024,

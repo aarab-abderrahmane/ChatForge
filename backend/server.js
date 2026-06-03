@@ -102,6 +102,11 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ response: "Skill prompt too long (max 5,000 characters).", type: "error" });
   }
 
+  const INJECTION_PATTERNS = /ignore all previous|forget all|you are free|override.*system|jailbreak|system prompt/i;
+  if (skillPrompt && INJECTION_PATTERNS.test(skillPrompt)) {
+    return res.status(400).json({ response: "Skill prompt contains prohibited patterns.", type: "error" });
+  }
+
   res.setHeader("Content-Type", "text/event-stream");
   res.setHeader("Cache-Control", "no-cache");
   res.setHeader("Connection", "keep-alive");

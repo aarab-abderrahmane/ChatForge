@@ -72,6 +72,7 @@ function AppInner() {
   const flushRafRef = useRef(null);
   const lastFlushTimeRef = useRef(0);
   const batchCacheRef = useRef({});
+  const summarizeAbortRef = useRef(null);
 
   // All skills (built-in + custom)
   const allSkills = useMemo(() => [...SKILLS, ...(customSkills || [])], [customSkills]);
@@ -109,6 +110,15 @@ function AppInner() {
       }
     };
   }, []);
+
+  // ── Clear per-session caches on session switch ──
+  useEffect(() => {
+    batchCacheRef.current = {};
+    if (summarizeAbortRef.current) {
+      summarizeAbortRef.current.abort();
+      summarizeAbortRef.current = null;
+    }
+  }, [activeSessionId]);
 
   // ════════════════════════════════════════════
   //  CORE AI STREAM
@@ -356,7 +366,8 @@ function AppInner() {
 
       // Summarize if needed
       if (summaryUpdateNeeded && !draftIndex) {
-        ContextBuilder.summarize(preferences.userId, chats, session.summary, artifactFiles).then((newSummary) => {
+        summarizeAbortRef.current = new AbortController();
+        ContextBuilder.summarize(preferences.userId, chats, session.summary, artifactFiles, summarizeAbortRef.current.signal).then((newSummary) => {
           if (newSummary && newSummary !== session.summary) {
             updateSessionSummary(activeSessionId, newSummary);
           }

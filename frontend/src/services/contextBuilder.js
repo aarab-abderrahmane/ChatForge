@@ -632,7 +632,7 @@ export const ContextBuilder = {
     /**
      * Summarizes the conversation if needed.
      */
-    summarize: async (userId, chats, oldSummary = "", artifactFiles = []) => {
+    summarize: async (userId, chats, oldSummary = "", artifactFiles = [], signal) => {
         const relevantHistory = chats
             .filter(c => c.type === "ch")
             .slice(-MAX_HISTORY_FOR_SUMMARY);
@@ -649,7 +649,7 @@ export const ContextBuilder = {
         const prompt = `Summarize the following conversation in EXACTLY FIVE structured sentences covering: 1) Key topics discussed, 2) Decisions made, 3) User preferences or facts learned, 4) Action items or open questions, 5) Current status or conclusion.${fileContext}\n\nExisting Summary: ${trimmedOldSummary}\n\nNew Conversation:\n${historyText}`;
 
         try {
-            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer. Output exactly 5 sentences in a single paragraph.", SUMMARIZE_MODEL, { routingMode: "groq", max_tokens: 500 });
+            const res = await api.chat(userId, [{ role: "user", content: prompt }], "You are a concise summarizer. Output exactly 5 sentences in a single paragraph.", SUMMARIZE_MODEL, { routingMode: "groq", max_tokens: 500 }, signal);
             if (!res.ok) return oldSummary;
 
             const reader = res.body.getReader();
