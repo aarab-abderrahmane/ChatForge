@@ -176,7 +176,7 @@ export function DocsPage() {
     const goBack = () => {
         setPreferences((prev) => ({
             ...prev,
-            currentPage: prev.currentPage === "docs" ? (prev._prevPage || "guide") : prev._prevPage || "guide",
+            currentPage: "chat",
         }));
     };
 
