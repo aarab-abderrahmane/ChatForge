@@ -101,8 +101,8 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ response: "Message payload too large (max 200,000 characters).", type: "error" });
   }
 
-  if (skillPrompt && skillPrompt.length > 5000) {
-    return res.status(400).json({ response: "Skill prompt too long (max 5,000 characters).", type: "error" });
+  if (skillPrompt && skillPrompt.length > 50000) {
+    return res.status(400).json({ response: "Skill prompt too long (max 50,000 characters).", type: "error" });
   }
 
   const INJECTION_PATTERNS = /ignore all previous|forget all|you are free|override.*system|jailbreak|system prompt/i;
