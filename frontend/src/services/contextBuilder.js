@@ -512,7 +512,11 @@ export const ContextBuilder = {
             "- If the task is related to code, ensure tags are closed and logic is complete.\n" +
             "- Prioritize the LATEST request. If it's a new topic, ignore unrelated history.\n" +
             "- Never hallucinate or restart a generation from zero unless explicitly asked.\n" +
-            "- When generating code files, be CONCISE. Code block first, then brief notes only if relevant.\n\n";
+            "- When generating code files, be CONCISE. Code block first, then brief notes only if relevant.\n" +
+            "- COMPLETENESS: When modifying existing work, output EVERY piece that needs changing. Never skip any file, component, or section.\n" +
+            "- TRUTHFULNESS: Only list changes you actually included in your output. Never claim work you didn't produce.\n" +
+            "- REQUIREMENTS: Explicitly satisfy every requirement the user listed. Do not silently drop features.\n" +
+            "- CONSISTENCY: When modifying multiple pieces, ensure all references and dependencies between them stay consistent.\n\n";
 
         // Mode-specific instructions
         const modeBlock = buildModeBlock(mode);
