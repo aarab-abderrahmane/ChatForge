@@ -55,7 +55,7 @@ export function MessageBlock({
   const cancelEdit = () => { setIsEditing(false); setEditValue(""); };
 
   return (
-    <article className={`border-b border-divider py-5 ${isFirst ? "first-message" : ""}`}>
+    <article id={`msg-${obj.id}`} className={`border-b border-divider py-5 ${isFirst ? "first-message" : ""}`}>
       {/* Question — as a serif subheading */}
       <header className="flex items-start gap-4 mb-3">
         <div className="flex-1 min-w-0">

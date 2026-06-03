@@ -18,6 +18,7 @@ import {
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
 import { useArtifacts } from "../../context/artifactContext";
 import { ArtifactPanel } from "./ArtifactPanel";
+import { ChatNavigation } from "./ChatNavigation";
 
 const COMMANDS = [
   { cmd: "/summarize", desc: "Summarize this conversation", icon: FileText, color: "#007AFF" },
@@ -629,6 +630,7 @@ export const Terminal = ({
           {preferences.currentPage === "chat" ? (
             <div className="flex flex-col flex-1 min-h-0">
               {/* ── Messages ─────────────────────────── */}
+              <div className="flex flex-1 min-h-0">
               <div ref={scrollRef} onScroll={handleScroll} onClick={() => { if (!isMobile) setInputVisible(false); }} className="relative flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 py-4 dot-grid-bg">
                 {showScrollDown && (
                   <button
@@ -701,6 +703,8 @@ export const Terminal = ({
 
                   <div ref={messagesEndRef} />
                 </div>
+              </div>
+              <ChatNavigation chats={chats} />
               </div>
 
               {/* ── Input Area ──────────────────────────── */}
