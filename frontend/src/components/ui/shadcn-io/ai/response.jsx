@@ -16,7 +16,7 @@
 
  'use client';
 import { cn } from '../../../../lib/utils';
-import { isValidElement, memo, useMemo, useRef } from 'react';
+import { isValidElement, memo, useMemo, useRef, Component } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
@@ -194,6 +194,23 @@ const shouldAutoPromoteToFile = (language, code) => {
   return { promote: true, filename };
 };
 
+// ─── Error boundary for streaming blocks (prevents one bad diagram from crashing all messages) ──
+class BlockErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { error: null };
+  }
+  static getDerivedStateFromError(error) {
+    return { error };
+  }
+  render() {
+    if (this.state.error) {
+      return <pre className="whitespace-pre-wrap text-red-400 text-xs p-2 border border-red-200 rounded">{this.props.code}</pre>;
+    }
+    return this.props.children;
+  }
+}
+
 // ─── Memoized pre component (avoids shouldAutoPromoteToFile on every render) ──
 const MemoizedPre = memo(({ node, children }) => {
   let language = 'text';
@@ -216,10 +233,10 @@ const MemoizedPre = memo(({ node, children }) => {
     [language]
   );
 
-  if (language === 'mermaid') return <MermaidBlock code={code} />;
-  if (language === 'quiz') return <QuizBlock code={code} />;
-  if (language === 'flashcards') return <FlashcardBlock code={code} />;
-  if (language === 'mindmap') return <MindmapBlock code={code} />;
+  if (language === 'mermaid') return <BlockErrorBoundary code={code}><MermaidBlock code={code} /></BlockErrorBoundary>;
+  if (language === 'quiz') return <BlockErrorBoundary code={code}><QuizBlock code={code} /></BlockErrorBoundary>;
+  if (language === 'flashcards') return <BlockErrorBoundary code={code}><FlashcardBlock code={code} /></BlockErrorBoundary>;
+  if (language === 'mindmap') return <BlockErrorBoundary code={code}><MindmapBlock code={code} /></BlockErrorBoundary>;
 
   if (language?.startsWith('file:')) {
     const filename = language.replace('file:', '').trim() || 'untitled.txt';

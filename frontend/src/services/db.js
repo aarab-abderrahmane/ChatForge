@@ -37,6 +37,13 @@ const batchQueue = [];
 let batchTimer = null;
 const BATCH_FLUSH_MS = 30_000;
 
+if (typeof window !== 'undefined') {
+    window.addEventListener('beforeunload', () => { flushBatch(); });
+    document.addEventListener('visibilitychange', () => {
+        if (document.visibilityState === 'hidden') flushBatch();
+    });
+}
+
 function scheduleBatchFlush() {
     if (batchTimer) return;
     batchTimer = setTimeout(async () => {

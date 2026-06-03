@@ -565,6 +565,10 @@ export const ContextBuilder = {
             autoFileName,
         };
 
+        if (contextCache.size > 100) {
+            const firstKey = contextCache.keys().next().value;
+            if (firstKey) contextCache.delete(firstKey);
+        }
         contextCache.set(cacheKey, { result, ts: Date.now() });
 
         return result;
