@@ -113,7 +113,7 @@ function AppInner() {
   // ════════════════════════════════════════════
   //  CORE AI STREAM
   // ════════════════════════════════════════════
-  async function startStream(question, id, skillId, draftIndex, signal, autoContinueCount = 0, seedContent = '') {
+  async function startStream(question, id, skillId, draftIndex, signal, autoContinueCount = 0, seedContent = '', attachedFiles = []) {
     const myGen = generationRef.current;
     streamCountRef.current += 1;
     setLoading(true);
@@ -142,7 +142,7 @@ function AppInner() {
     const artifactFiles = sessionFiles.map(f => ({ filename: f.filename, content: f.content }));
 
     const { messages: contextMessages, systemPrompt: contextSystemPrompt, summaryUpdateNeeded, updatedFacts } =
-      await ContextBuilder.build(chats, session.summary, question, session.userFacts || {}, [], artifactFiles);
+      await ContextBuilder.build(chats, session.summary, question, session.userFacts || {}, attachedFiles, artifactFiles);
 
     if (updatedFacts && JSON.stringify(updatedFacts) !== JSON.stringify(session.userFacts || {})) {
       updateSessionFacts(activeSessionId, updatedFacts);
@@ -374,7 +374,8 @@ function AppInner() {
           draftIndex,
           signal,
           autoContinueCount + 1,
-          fullContent
+          fullContent,
+          attachedFiles
         );
       }
     } catch (error) {
@@ -411,7 +412,7 @@ function AppInner() {
     }
   }
 
-  async function askAI(question, id, overrideSkillId = null, draftCount = 1) {
+  async function askAI(question, id, overrideSkillId = null, draftCount = 1, attachedFiles = []) {
     generationRef.current += 1;
     if (abortControllerRef.current) abortControllerRef.current.abort();
     draftControllersRef.current.forEach(c => c.abort());
@@ -430,11 +431,11 @@ function AppInner() {
       draftControllersRef.current = controllers;
       await Promise.all(
         controllers.map((ctrl, i) =>
-          startStream(question, id, overrideSkillId, i, ctrl.signal).catch(() => {})
+          startStream(question, id, overrideSkillId, i, ctrl.signal, 0, '', attachedFiles).catch(() => {})
         )
       );
     } else {
-      startStream(question, id, overrideSkillId, -1, abortControllerRef.current.signal);
+      startStream(question, id, overrideSkillId, -1, abortControllerRef.current.signal, 0, '', attachedFiles);
     }
   }
   askAIRef.current = askAI;
@@ -559,7 +560,7 @@ function AppInner() {
 
   // ── Send handler ──
   const handleSend = useCallback(
-    (e, draftCount = 1) => {
+    (e, draftCount = 1, attachedFiles = []) => {
       const newId = crypto.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
       const text = (e.target?.value ?? e.target?.innerText ?? query).trim();
       if (!text) return;
@@ -583,7 +584,7 @@ function AppInner() {
           timestamp: new Date().toISOString(),
         };
         setChats((prev) => [...prev, newMsg]);
-        askAIRef.current(transformed.question, newId, transformed.skillId, draftCount);
+        askAIRef.current(transformed.question, newId, transformed.skillId, draftCount, attachedFiles);
         return;
       }
 
@@ -612,7 +613,8 @@ function AppInner() {
           : text,
         newId,
         null,
-        draftCount
+        draftCount,
+        attachedFiles
       );
     },
     [query, transformCommand]
