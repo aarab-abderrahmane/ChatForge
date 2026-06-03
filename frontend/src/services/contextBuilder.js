@@ -424,8 +424,8 @@ export const ContextBuilder = {
             typeof c.id === "string" && !c.id.startsWith("welcome-")
         );
 
-        const filesKey = attachedFiles.map(f => f.name).join(",") + "|" + artifactFiles.length;
-        const cacheKey = `${chatHistory.length}_${currentSummary?.length || 0}_${currentQuestion?.length || 0}_${Object.keys(userFacts).join(",")}_${filesKey}`;
+        const filesKey = attachedFiles.map(f => f.name).join(",") + "|" + artifactFiles.map(f => f.filename).join(",");
+        const cacheKey = `${chatHistory.length}_${chatHistory.map(m => m.id).join(',')}_${currentSummary?.length || 0}_${currentQuestion?.length || 0}_${Object.keys(userFacts).sort().join(",")}_${filesKey}`;
         const cached = contextCache.get(cacheKey);
         if (cached && (Date.now() - cached.ts) < CACHE_TTL) {
             return cached.result;

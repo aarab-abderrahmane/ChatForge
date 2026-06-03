@@ -8,8 +8,9 @@ export function ArtifactProvider({ children, sessionId }) {
   const fileIdCounter = useRef(0);
 
   const upsertFile = useCallback((_sessionId, { filename, content, mime, size, messageId }) => {
+    const sid = _sessionId || sessionId;
+    if (!sid) return;
     const id = `artifact-${++fileIdCounter.current}`;
-    const sid = _sessionId ?? sessionId;
     const file = { id, sessionId: sid, filename, content, mime, size, messageId, timestamp: Date.now() };
     setFiles(prev => {
       const dupIdx = prev.findIndex(f =>

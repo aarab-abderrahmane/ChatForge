@@ -70,6 +70,7 @@ function AppInner() {
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
   const pendingContentRef = useRef(null);
   const flushRafRef = useRef(null);
+  const lastFlushTimeRef = useRef(0);
   const batchCacheRef = useRef({});
 
   // All skills (built-in + custom)
@@ -202,48 +203,40 @@ function AppInner() {
     // ── Execute stream (with retry) ──
     const MAX_RETRIES = 2;
     const RETRY_DELAYS = [1000, 3000];
-    let lastError = null;
     let response;
 
-    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-      if (attempt > 0) {
-        const delay = RETRY_DELAYS[attempt - 1] || 5000;
-        await new Promise(r => setTimeout(r, delay));
-      }
-
-      try {
-        response = await api.chat(
-          preferences.userId,
-          contextMessages,
-          finalSystemPrompt,
-          activeModelId,
-          {
-            temperature: draftTemp,
-            top_p: (settings.topP ?? 10) / 10,
-            frequency_penalty: (settings.frequencyPenalty ?? 0) / 10,
-            presence_penalty: (settings.presencePenalty ?? 0) / 10,
-            max_tokens: maxTokens,
-            routingMode: apiRoutingMode,
-            smartTaskType: settings.smartTaskType || "auto",
-          },
-          signal
-        );
-
-        if (!response.ok) throw new Error('Failed to connect to AI service.');
-        lastError = null;
-        break;
-      } catch (error) {
-        lastError = error;
-        if (error.name === 'AbortError') throw error;
-        const status = error.status || error.response?.status;
-        if (status && status >= 400 && status < 500 && status !== 429) throw error;
-        if (attempt >= MAX_RETRIES) throw error;
-      }
-    }
-
-    if (lastError) throw lastError;
-
     try {
+      for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        try {
+          response = await api.chat(
+            preferences.userId,
+            contextMessages,
+            finalSystemPrompt,
+            activeModelId,
+            {
+              temperature: draftTemp,
+              top_p: (settings.topP ?? 10) / 10,
+              frequency_penalty: (settings.frequencyPenalty ?? 0) / 10,
+              presence_penalty: (settings.presencePenalty ?? 0) / 10,
+              max_tokens: maxTokens,
+              routingMode: apiRoutingMode,
+              smartTaskType: settings.smartTaskType || "auto",
+            },
+            signal
+          );
+
+          if (!response.ok) throw new Error('Failed to connect to AI service.');
+          break;
+        } catch (error) {
+          if (error.name === 'AbortError') throw error;
+          const status = error.status || error.response?.status;
+          if (status && status >= 400 && status < 500 && status !== 429) throw error;
+          if (attempt >= MAX_RETRIES) throw error;
+          const delay = RETRY_DELAYS[attempt] || 5000;
+          await new Promise(r => setTimeout(r, delay));
+        }
+      }
+
       const reader = response.body.getReader();
       const decoder = new TextDecoder();
       let fullContent = '';
@@ -288,8 +281,17 @@ function AppInner() {
 
       function scheduleFlush() {
         if (flushRafRef.current) return;
+        const now = Date.now();
+        if (now - lastFlushTimeRef.current < 100) {
+          flushRafRef.current = requestAnimationFrame(() => {
+            flushRafRef.current = null;
+            scheduleFlush();
+          });
+          return;
+        }
         flushRafRef.current = requestAnimationFrame(() => {
           flushRafRef.current = null;
+          lastFlushTimeRef.current = Date.now();
           flushContent();
         });
       }
@@ -401,10 +403,6 @@ function AppInner() {
       );
     } finally {
       streamCountRef.current -= 1;
-      if (generationRef.current !== myGen) {
-        if (streamCountRef.current < 0) streamCountRef.current = 0;
-        return;
-      }
       if (streamCountRef.current <= 0) {
         streamCountRef.current = 0;
         setLoading(false);

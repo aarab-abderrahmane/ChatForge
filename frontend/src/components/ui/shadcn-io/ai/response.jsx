@@ -16,7 +16,7 @@
 
  'use client';
 import { cn } from '../../../../lib/utils';
-import { isValidElement, memo, useMemo } from 'react';
+import { isValidElement, memo, useMemo, useRef } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
@@ -223,7 +223,7 @@ const MemoizedPre = memo(({ node, children }) => {
 
   const { promote, filename: autoFilename } = useMemo(
     () => shouldAutoPromoteToFile(language, code),
-    [language, code]
+    [language]
   );
   if (promote && autoFilename) {
     return <FileBlock code={code} filename={autoFilename} autoPromoted />;
@@ -368,10 +368,15 @@ export const Response = memo(({
   parseIncompleteMarkdown: shouldParseIncompleteMarkdown = true,
   ...props
 }) => {
-  const parsedChildren =
-    typeof children === 'string' && shouldParseIncompleteMarkdown
-      ? parseIncompleteMarkdown(children)
-      : children;
+  const parseCacheRef = useRef({ input: '', output: '' });
+  const parsedChildren = (() => {
+    if (typeof children !== 'string' || !shouldParseIncompleteMarkdown) return children;
+    const cache = parseCacheRef.current;
+    if (cache.input === children) return cache.output;
+    const output = parseIncompleteMarkdown(children);
+    parseCacheRef.current = { input: children, output };
+    return output;
+  })();
 
   return (
     <div className={cn('text-wrap', className)} {...props}>
