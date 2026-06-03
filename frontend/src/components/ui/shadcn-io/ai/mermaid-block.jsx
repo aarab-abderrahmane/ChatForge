@@ -267,7 +267,7 @@ export function MermaidBlock({ code }) {
         {svgHtml && (
           <div
             className="w-full flex justify-center"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgHtml) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgHtml, { ADD_ATTR: ['data-*', 'stroke', 'stroke-width', 'fill', 'transform', 'viewBox'] }) }}
           />
         )}
       </div>

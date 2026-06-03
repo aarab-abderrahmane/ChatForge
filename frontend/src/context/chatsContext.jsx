@@ -421,13 +421,24 @@ export function ChatsProvider({ children }) {
   }, []);
 
   // ── Prompt History ───────────────────────────────────────────────────
-  const [promptHistory, setPromptHistory] = useState([]);
+  const [promptHistory, setPromptHistory] = useState(() => {
+    try {
+      const stored = localStorage.getItem("ChatForge_PromptHistory");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed)) return parsed;
+      }
+    } catch { /* ignore */ }
+    return [];
+  });
 
   const addToPromptHistory = useCallback((text) => {
     if (!text?.trim()) return;
     setPromptHistory((prev) => {
       const filtered = prev.filter((p) => p !== text);
-      return [text, ...filtered].slice(0, 50);
+      const next = [text, ...filtered].slice(0, 50);
+      try { localStorage.setItem("ChatForge_PromptHistory", JSON.stringify(next)); } catch { /* ignore */ }
+      return next;
     });
   }, []);
 

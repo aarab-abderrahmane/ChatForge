@@ -1,4 +1,5 @@
 import cors from "cors";
+import helmet from "helmet";
 import express from "express";
 import rateLimit, { ipKeyGenerator } from "express-rate-limit";
 import { validateGroqKey } from "./groqClient.js";
@@ -17,6 +18,8 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 if (process.env.NODE_ENV === "production" && !process.env.ALLOWED_ORIGINS) {
   throw new Error("ALLOWED_ORIGINS environment variable must be set in production");
 }
+
+app.use(helmet());
 
 app.use(cors({
   origin: (origin, cb) => {
@@ -161,7 +164,10 @@ app.post("/api/chat", async (req, res) => {
     res.end();
   } catch (error) {
     console.error("Chat API error:", error);
-    res.write(`data: ${JSON.stringify({ error: error.message })}\n\n`);
+    const safeMsg = error.message?.length > 200
+      ? error.message.slice(0, 200) + "..."
+      : (error.message || "An error occurred");
+    res.write(`data: ${JSON.stringify({ error: safeMsg })}\n\n`);
     res.end();
   }
 });

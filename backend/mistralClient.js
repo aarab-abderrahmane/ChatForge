@@ -56,6 +56,8 @@ export async function askMistral(messages, apiKey, options = {}) {
 }
 
 export async function validateMistralKey(apiKey) {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 10000);
     try {
         const res = await fetch(MISTRAL_API_URL, {
             method: "POST",
@@ -69,11 +71,14 @@ export async function validateMistralKey(apiKey) {
                 max_tokens: 5,
                 stream: false,
             }),
+            signal: controller.signal,
         });
+        clearTimeout(timeout);
         if (!res.ok) return false;
         const data = await res.json();
         return !!data?.choices?.[0]?.message?.content;
     } catch {
+        clearTimeout(timeout);
         return false;
     }
 }
