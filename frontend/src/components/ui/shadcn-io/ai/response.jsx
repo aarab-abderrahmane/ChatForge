@@ -16,7 +16,7 @@
 
  'use client';
 import { cn } from '../../../../lib/utils';
-import { isValidElement, memo, useMemo, useRef, Component } from 'react';
+import { isValidElement, memo, useMemo, useRef, useEffect, Component } from 'react';
 import ReactMarkdown from 'react-markdown';
 import rehypeKatex from 'rehype-katex';
 import remarkGfm from 'remark-gfm';
@@ -28,6 +28,7 @@ import { QuizBlock } from './quiz-block';
 import { FlashcardBlock } from './flashcard-block';
 import { MindmapBlock } from './mindmap-block';
 import { FileBlock } from './file-block';
+import { useArtifacts } from '../../../../context/artifactContext';
 import 'katex/dist/katex.min.css';
 import hardenReactMarkdown from 'harden-react-markdown';
 
@@ -211,6 +212,20 @@ class BlockErrorBoundary extends Component {
   }
 }
 
+// ─── Delete block handler (removes a file from the artifact registry) ──
+function DeleteBlockHandler({ filename }) {
+  const { removeFileByFilename, sessionId } = useArtifacts();
+  const handled = useRef(false);
+  useEffect(() => {
+    if (handled.current) return;
+    handled.current = true;
+    if (filename && sessionId) {
+      removeFileByFilename(sessionId, filename);
+    }
+  }, [filename, sessionId]);
+  return null;
+}
+
 // ─── Memoized pre component (avoids shouldAutoPromoteToFile on every render) ──
 const MemoizedPre = memo(({ node, children }) => {
   let language = 'text';
@@ -237,6 +252,11 @@ const MemoizedPre = memo(({ node, children }) => {
   if (language === 'quiz') return <BlockErrorBoundary code={code}><QuizBlock code={code} /></BlockErrorBoundary>;
   if (language === 'flashcards') return <BlockErrorBoundary code={code}><FlashcardBlock code={code} /></BlockErrorBoundary>;
   if (language === 'mindmap') return <BlockErrorBoundary code={code}><MindmapBlock code={code} /></BlockErrorBoundary>;
+
+  if (language?.startsWith('delete:')) {
+    const filename = language.replace('delete:', '').trim() || 'untitled.txt';
+    return <DeleteBlockHandler filename={filename} />;
+  }
 
   if (language?.startsWith('file:')) {
     const filename = language.replace('file:', '').trim() || 'untitled.txt';

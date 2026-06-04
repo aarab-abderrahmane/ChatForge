@@ -471,6 +471,32 @@ export function ChatsProvider({ children }) {
     });
   }, []);
 
+  // ── Global Personal Info (cross-session: name, profession, hobbies, etc.) ──
+  const [personalInfo, setPersonalInfo] = useState(() => {
+    try {
+      const stored = localStorage.getItem("ChatForge_PersonalInfo");
+      return stored ? JSON.parse(stored) : {};
+    } catch {
+      return {};
+    }
+  });
+
+  useEffect(() => {
+    localStorage.setItem("ChatForge_PersonalInfo", JSON.stringify(personalInfo));
+  }, [personalInfo]);
+
+  const updatePersonalInfo = useCallback((info) => {
+    setPersonalInfo(info);
+    // Merge into current session's userFacts so changes apply immediately
+    setSessions((prev) =>
+      prev.map((s) =>
+        s.id === activeSessionId
+          ? { ...s, userFacts: { ...s.userFacts, ...info } }
+          : s
+      )
+    );
+  }, [activeSessionId]);
+
   // ── Sessions ────────────────────────────────────────────────────────
   const [sessions, setSessions] = useState(() => {
     try {
@@ -620,11 +646,11 @@ export function ChatsProvider({ children }) {
       setActiveSessionId(emptySession.id);
       return emptySession.id;
     }
-    const s = makeSession();
+    const s = makeSession({ userFacts: { ...personalInfo } });
     setSessions((prev) => [s, ...prev]);
     setActiveSessionId(s.id);
     return s.id;
-  }, [sessions]);
+  }, [sessions, personalInfo]);
 
   const deleteSession = useCallback((id) => {
     setSessions((prev) => {
@@ -742,6 +768,9 @@ export function ChatsProvider({ children }) {
         setSessions,
         activeSessionId,
         setActiveSessionId,
+        // personal info
+        personalInfo,
+        updatePersonalInfo,
         // helpers
         createNewSession,
         deleteSession,

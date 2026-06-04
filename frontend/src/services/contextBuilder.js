@@ -131,8 +131,10 @@ const buildFactsBlock = (userFacts) => {
     const entries = Object.entries(userFacts).filter(([, v]) => v);
     if (!entries.length) return "";
     const factsStr = entries.map(([k, v]) => `${k.charAt(0).toUpperCase() + k.slice(1)}: ${v}`).join(" | ");
-    return `=== USER FACTS (Always trust these over code examples) ===\n${factsStr}\n\n` +
-        "CRITICAL: If user facts above conflict with example data in code or JSON snippets in recent messages, ALWAYS trust user facts.\n\n";
+    return `=== ABOUT THE USER ===\n${factsStr}\n\n` +
+        "This is personal information about me. Use it to personalize your responses — " +
+        "address me by name, reference my profession, preferences, and other details " +
+        "naturally in our conversation. If you're not sure about something, just ask.\n\n";
 };
 
 // ─── File Content Injection ────────────────────────────────────────────────────
@@ -327,14 +329,27 @@ const buildArtifactBlock = (artifactFiles = []) => {
     const MAX_ARTIFACT_FILE_CHARS = 8000;
     const MAX_TOTAL_ARTIFACT_CHARS = 24000;
     let totalChars = 0;
-    let block = "=== PREVIOUSLY GENERATED FILES (Modify these if asked) ===\n";
-    block += "The following files were generated in this session. When the user asks to modify or improve one of these, output ONLY the changed file block with the SAME filename. Do NOT regenerate unrelated files.\n\n";
+
+    // Group files by apparent project (directory-like prefix in filename)
+    const groups = {};
+    for (const f of artifactFiles) {
+        const project = f.filename.includes("/") ? f.filename.split("/")[0] : "main";
+        if (!groups[project]) groups[project] = [];
+        groups[project].push(f);
+    }
+    const projectNames = Object.keys(groups);
+    const multiProject = projectNames.length > 1;
+
+    let block = "=== WORKSPACE FILES ===\n";
+    block += `Current workspace has ${artifactFiles.length} file(s) across ${projectNames.length} project(s): ${projectNames.join(", ")}\n\n`;
 
     // File manifest: always list filenames even if content is omitted
-    const fileNames = artifactFiles.map(f => f.filename);
-    if (fileNames.length > 0) {
-        block += `Available files: ${fileNames.join(", ")}\n\n`;
+    for (const project of projectNames) {
+        const projectFiles = groups[project];
+        const names = projectFiles.map(f => f.filename);
+        block += `Project "${project}" files: ${names.join(", ")}\n`;
     }
+    block += "\n";
 
     for (const file of artifactFiles) {
         if (totalChars >= MAX_TOTAL_ARTIFACT_CHARS) {
@@ -354,7 +369,16 @@ const buildArtifactBlock = (artifactFiles = []) => {
         "- If the user asks to modify, improve, or fix one of these files, output ONLY the changed file as a new ```file:filename.ext block.\n" +
         "- Keep the SAME filename. Do NOT create duplicate files with version suffixes (v2, _final, etc).\n" +
         "- Do NOT regenerate files the user didn't ask about.\n" +
-        "- When generating multiple files, verify that exports, imports, function signatures, and type definitions match across all files. Cross-file references must be consistent.\n\n";
+        "- When generating multiple files, verify that exports, imports, function signatures, and type definitions match across all files. Cross-file references must be consistent.\n" +
+        "- To DELETE a file when the user asks, output it as ```delete:filename.ext (the file will be removed from the workspace immediately).\n" +
+        "- If the user says 'undo' or 'restore' a deleted file, re-output it with ```file:filename.ext as before.\n\n";
+
+    if (multiProject) {
+        block += "MULTI-PROJECT NOTICE:\n" +
+            "There are files from multiple projects in this workspace. If the user's request could apply to " +
+            "more than one project (e.g. 'add login' with both a recipe site and a fitness app), " +
+            "STOP and ask which project they mean BEFORE proceeding. Do not assume.\n\n";
+    }
 
     return block;
 };
@@ -552,7 +576,9 @@ export const ContextBuilder = {
             "- Supported extensions: .md, .txt, .js, .ts, .jsx, .tsx, .py, .html, .css, .json, .csv, .sql, .sh, .yaml, .env, etc.\n" +
             "- Use this for scripts, data exports, reports, and any content the user may want to download.\n" +
             "- IMPORTANT: For ALL code generation, wrap the complete code in a ```file:filename.ext block. This is MANDATORY for code responses. Without this, the user cannot download the file.\n" +
-            "- When generating multiple files, verify that exports, imports, function signatures, and type definitions match across all files. Cross-file references must be consistent.\n\n";
+            "- When generating multiple files, verify that exports, imports, function signatures, and type definitions match across all files. Cross-file references must be consistent.\n" +
+            "- To DELETE a file when the user asks, output it as ```delete:filename.ext (the file will be removed from the workspace). Do NOT output empty file blocks for deletion.\n" +
+            "- If the user says 'undo' or 'restore' a deleted file, re-output it with ```file:filename.ext with the full restored content.\n\n";
 
         // Auto-file instruction: prompt the AI to output a file block automatically
         if (autoFileName) {

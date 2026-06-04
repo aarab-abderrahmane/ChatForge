@@ -75,6 +75,7 @@ export function SettingsPage() {
     customSkills, addCustomSkill, deleteCustomSkill,
     aiTools, addAITool, updateAITool, deleteAITool,
     providerStatus, setProviderStatus, activeSessionId,
+    personalInfo, updatePersonalInfo,
   } = useContext(chatsContext);
 
   const activeSession = sessions.find(s => s.id === activeSessionId);
@@ -485,11 +486,22 @@ export function SettingsPage() {
             </div>
           </SectionCard>
 
-          {/* ═══ USER FACTS ═══ */}
-          <SectionCard title="What I Remember About You" icon={Bot}>
+          {/* ═══ PERSONAL INFO (global, persists across all sessions) ═══ */}
+          <SectionCard title="Personal Info" icon={Bot} colSpan="md:col-span-2">
+            <p className="font-body text-xs text-muted-500 mb-3 leading-relaxed">
+              Stored across all sessions. Edit your name, profession, hobbies, or preferences — the AI will use these to personalize responses.
+            </p>
+            <PersonalInfoEditor info={personalInfo} onSave={updatePersonalInfo} />
+          </SectionCard>
+
+          {/* ═══ SESSION MEMORY (per-session facts) ═══ */}
+          <SectionCard title="Session Memory" icon={MessageSquare}>
+            <p className="font-body text-xs text-muted-500 mb-3 leading-relaxed">
+              Facts learned from this session-specific conversation. Starts from your Personal Info and grows as we talk.
+            </p>
             {Object.keys(activeSession?.userFacts || {}).length === 0 ? (
               <p className="font-body text-sm text-muted-400">
-                Tell me your name, profession, or preferences and I&apos;ll remember them across this conversation.
+                No session-specific facts yet.
               </p>
             ) : (
               <div className="space-y-2">
@@ -720,5 +732,77 @@ function ToolFormContent({ onSave, onCancel, initialData }) {
         <button onClick={onCancel} className="px-3 py-1.5 text-xs font-mono uppercase tracking-widest border border-[var(--color-border)] text-ink hover:bg-muted-100 transition-colors">Cancel</button>
       </div>
     </>
+  );
+}
+
+function PersonalInfoEditor({ info, onSave }) {
+  const [entries, setEntries] = useState(() => Object.entries(info).map(([k, v]) => ({ key: k, value: v })));
+  const [editingIdx, setEditingIdx] = useState(null);
+
+  const handleSave = () => {
+    const obj = {};
+    for (const e of entries) {
+      if (e.key.trim()) obj[e.key.trim()] = e.value.trim();
+    }
+    onSave(obj);
+    setEditingIdx(null);
+  };
+
+  const addEntry = () => {
+    setEntries((prev) => [...prev, { key: "", value: "" }]);
+    setEditingIdx(entries.length);
+  };
+
+  const removeEntry = (idx) => {
+    setEntries((prev) => prev.filter((_, i) => i !== idx));
+    setEditingIdx(null);
+  };
+
+  const updateEntry = (idx, field, val) => {
+    setEntries((prev) => prev.map((e, i) => i === idx ? { ...e, [field]: val } : e));
+  };
+
+  return (
+    <div className="space-y-2">
+      {entries.map((e, idx) => (
+        <div key={idx} className="flex items-center gap-2">
+          {editingIdx === idx ? (
+            <>
+              <input
+                value={e.key}
+                onChange={(v) => updateEntry(idx, "key", v.target.value)}
+                placeholder="Label (e.g. name)"
+                className="w-28 bg-transparent border-b border-divider pb-0.5 text-xs font-mono uppercase text-muted-400 outline-none focus:border-ink transition-colors placeholder:text-muted-300"
+              />
+              <input
+                value={e.value}
+                onChange={(v) => updateEntry(idx, "value", v.target.value)}
+                placeholder="Value"
+                className="flex-1 bg-transparent border-b border-divider pb-0.5 text-sm font-body text-ink outline-none focus:border-ink transition-colors placeholder:text-muted-300"
+              />
+              <button onClick={handleSave} className="shrink-0 p-1 hover:bg-muted-100 transition-colors">
+                <Check size={14} strokeWidth={1.5} />
+              </button>
+              <button onClick={() => removeEntry(idx)} className="shrink-0 p-1 hover:bg-muted-100 transition-colors text-red-500">
+                <Trash2 size={14} strokeWidth={1.5} />
+              </button>
+            </>
+          ) : (
+            <>
+              <span className="w-28 font-mono text-xs uppercase text-muted-400 truncate">{e.key}</span>
+              <span className="flex-1 font-body text-sm text-ink truncate">{e.value}</span>
+              <button onClick={() => setEditingIdx(idx)} className="shrink-0 p-1 hover:bg-muted-100 transition-colors text-muted-400 hover:text-ink">
+                <span className="text-xs font-mono uppercase tracking-widest">edit</span>
+              </button>
+            </>
+          )}
+        </div>
+      ))}
+      {editingIdx === null && (
+        <button onClick={addEntry} className="flex items-center gap-1.5 text-xs font-mono uppercase tracking-widest text-muted-400 hover:text-ink transition-colors">
+          <Plus size={12} strokeWidth={1.5} /> Add
+        </button>
+      )}
+    </div>
   );
 }

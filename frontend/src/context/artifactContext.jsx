@@ -5,6 +5,7 @@ const ArtifactContext = createContext(null);
 
 export function ArtifactProvider({ children, sessionId }) {
   const [files, setFiles] = useState([]);
+  const [trash, setTrash] = useState({});
   const fileIdCounter = useRef(0);
 
   const upsertFile = useCallback((_sessionId, { filename, content, mime, size, messageId }) => {
@@ -27,12 +28,36 @@ export function ArtifactProvider({ children, sessionId }) {
   }, [sessionId]);
 
   const removeFile = useCallback((id) => {
-    setFiles(prev => prev.filter(f => f.id !== id));
+    setFiles(prev => {
+      const file = prev.find(f => f.id === id);
+      if (file) {
+        setTrash(t => ({
+          ...t,
+          [file.sessionId]: { ...(t[file.sessionId] || {}), [file.filename]: file },
+        }));
+      }
+      return prev.filter(f => f.id !== id);
+    });
   }, []);
 
   const clearFiles = useCallback((clearSessionId) => {
     setFiles(prev => clearSessionId ? prev.filter(f => f.sessionId !== clearSessionId) : []);
   }, []);
+
+  const removeFileByFilename = useCallback((sid, filename) => {
+    const targetId = sid ?? sessionId;
+    if (!targetId) return;
+    setFiles(prev => {
+      const file = prev.find(f => f.sessionId === targetId && f.filename === filename);
+      if (file) {
+        setTrash(t => ({
+          ...t,
+          [targetId]: { ...(t[targetId] || {}), [filename]: file },
+        }));
+      }
+      return prev.filter(f => !(f.sessionId === targetId && f.filename === filename));
+    });
+  }, [sessionId]);
 
   const getFiles = useCallback((sid) => {
     const targetId = sid ?? sessionId;
@@ -40,7 +65,7 @@ export function ArtifactProvider({ children, sessionId }) {
   }, [files, sessionId]);
 
   return (
-    <ArtifactContext.Provider value={{ files, sessionId, upsertFile, removeFile, clearFiles, getFiles }}>
+    <ArtifactContext.Provider value={{ files, sessionId, upsertFile, removeFile, clearFiles, removeFileByFilename, getFiles, trash }}>
       {children}
     </ArtifactContext.Provider>
   );
