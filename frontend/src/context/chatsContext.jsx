@@ -613,11 +613,18 @@ export function ChatsProvider({ children }) {
 
   // ── Session helpers ─────────────────────────────────────────────────
   const createNewSession = useCallback(() => {
+    const emptySession = sessions.find(
+      s => s.messages.filter(m => m.type === "ch").length === 0
+    );
+    if (emptySession) {
+      setActiveSessionId(emptySession.id);
+      return emptySession.id;
+    }
     const s = makeSession();
     setSessions((prev) => [s, ...prev]);
     setActiveSessionId(s.id);
     return s.id;
-  }, []);
+  }, [sessions]);
 
   const deleteSession = useCallback((id) => {
     setSessions((prev) => {

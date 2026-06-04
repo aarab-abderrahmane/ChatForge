@@ -66,33 +66,6 @@ export function ChatNavigation({ chats, scrollRef }) {
     setMessageTops(tops);
   }, [chats, scrollRef]);
 
-  if (items.length < 1) return null;
-
-  const showPopup = isHovered || hoveredIndex !== null || popupHovered;
-
-  const scrollToMessage = (id) => {
-    const el = document.getElementById(`msg-${id}`);
-    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
-  };
-
-  const handleTrackClick = (e) => {
-    if (ignoreClickRef.current) { ignoreClickRef.current = false; return; }
-    const track = trackRef.current;
-    if (!track || !scrollRef.current) return;
-    const rect = track.getBoundingClientRect();
-    const ratio = (e.clientY - rect.top) / rect.height;
-    const el = scrollRef.current;
-    el.scrollTop = ratio * (el.scrollHeight - el.clientHeight);
-  };
-
-  const handleMouseDown = (e) => {
-    e.preventDefault();
-    e.stopPropagation();
-    setIsDragging(true);
-    dragRef.current = { y: e.clientY, top: sliderTop };
-    ignoreClickRef.current = true;
-  };
-
   useEffect(() => {
     if (!isDragging) return;
 
@@ -119,6 +92,33 @@ export function ChatNavigation({ chats, scrollRef }) {
       document.removeEventListener("mouseup", onUp);
     };
   }, [isDragging, sliderHeight, scrollRef]);
+
+  if (items.length < 1) return null;
+
+  const showPopup = isHovered || hoveredIndex !== null || popupHovered;
+
+  const scrollToMessage = (id) => {
+    const el = document.getElementById(`msg-${id}`);
+    if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
+  const handleTrackClick = (e) => {
+    if (ignoreClickRef.current) { ignoreClickRef.current = false; return; }
+    const track = trackRef.current;
+    if (!track || !scrollRef.current) return;
+    const rect = track.getBoundingClientRect();
+    const ratio = (e.clientY - rect.top) / rect.height;
+    const el = scrollRef.current;
+    el.scrollTop = ratio * (el.scrollHeight - el.clientHeight);
+  };
+
+  const handleMouseDown = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragging(true);
+    dragRef.current = { y: e.clientY, top: sliderTop };
+    ignoreClickRef.current = true;
+  };
 
   const getLabel = (msg) => {
     const text = msg.question || "";
