@@ -13,9 +13,6 @@ export function ChatNavigation({ chats, scrollRef }) {
   const ignoreClickRef = useRef(false);
 
   const items = chats.filter(c => c.type === "ch");
-  if (items.length < 1) return null;
-
-  const showPopup = isHovered || hoveredIndex !== null || popupHovered;
 
   useEffect(() => {
     const el = scrollRef?.current;
@@ -68,6 +65,10 @@ export function ChatNavigation({ chats, scrollRef }) {
     });
     setMessageTops(tops);
   }, [chats, scrollRef]);
+
+  if (items.length < 1) return null;
+
+  const showPopup = isHovered || hoveredIndex !== null || popupHovered;
 
   const scrollToMessage = (id) => {
     const el = document.getElementById(`msg-${id}`);
