@@ -825,19 +825,6 @@ export const Terminal = ({
                     </div>
                   )}
 
-                  {/* ── Quick suggestion chips ── */}
-                  {!loading && (
-                    <QuickSuggestions chats={chats} onSelect={(s) => {
-                      setQuery(s);
-                      setCharCount(s.length);
-                      setTimeout(() => {
-                        handleSend({ target: { value: s } }, draftCount, []);
-                        setQuery("");
-                        setCharCount(0);
-                      }, 0);
-                    }} loading={loading} />
-                  )}
-
                   {/* ── Attached files chips ── */}
                   {attachedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
@@ -1109,34 +1096,3 @@ function ConversationStarters({ onSelect }) {
   );
 }
 
-function QuickSuggestions({ chats, onSelect, loading }) {
-  const hasMessages = chats.filter(c => c.type === "ch").length > 0;
-
-  const suggestions = hasMessages ? [
-    "Summarize this",
-    "Give me more detail",
-    "Explain differently",
-    "What are the next steps?",
-  ] : [
-    "Explain something to me",
-    "Help me write",
-    "Brainstorm ideas",
-    "Answer a question",
-  ];
-
-  if (loading) return null;
-
-  return (
-    <div className="flex flex-wrap gap-2 mb-3">
-      {suggestions.map(s => (
-        <button
-          key={s}
-          onClick={() => onSelect(s)}
-          className="px-3 py-1 text-xs font-mono border border-divider text-muted-500 hover:border-ink hover:text-ink transition-colors"
-        >
-          {s}
-        </button>
-      ))}
-    </div>
-  );
-}

@@ -18,13 +18,6 @@ function formatTime(isoString) {
 const btnGhost = "inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-500 hover:text-green transition-colors";
 const btnActiveUp = `${btnGhost} text-green`;
 
-const QUICK_FOLLOWUPS = [
-  { label: "Shorter", prompt: "Make that shorter and more concise" },
-  { label: "Simpler", prompt: "Explain that more simply" },
-  { label: "More detail", prompt: "Give me more detail on that" },
-  { label: "Examples", prompt: "Give me some concrete examples" },
-];
-
 export function MessageBlock({
   obj, index, isLast, isCopied, copyToClipboard, onRetry,
   onEditSubmit, onMergeDrafts, onSummarizeDrafts, onKeepDraft, onContinue,
@@ -199,16 +192,16 @@ export function MessageBlock({
             )}
           </div>
 
-          {/* Quick follow-up buttons */}
-          {hasAnswer && !isError && !obj.isMulti && isLast && (
+          {/* AI-generated follow-up suggestions */}
+          {hasAnswer && !isError && !obj.isMulti && isLast && obj.suggestions && obj.suggestions.length > 0 && (
             <div className="flex flex-wrap gap-1 mt-2">
-              {QUICK_FOLLOWUPS.map(f => (
+              {obj.suggestions.map((s, i) => (
                 <button
-                  key={f.label}
-                  onClick={() => onEditSubmit(f.prompt)}
+                  key={i}
+                  onClick={() => onEditSubmit(s)}
                   className="px-2 py-0.5 text-[10px] font-mono border border-divider text-muted-400 hover:text-ink hover:border-ink transition-colors"
                 >
-                  {f.label} →
+                  {s} →
                 </button>
               ))}
             </div>

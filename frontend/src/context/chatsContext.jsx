@@ -67,7 +67,13 @@ RESPONSE STYLE RULES:
 - Never start with "Certainly!", "Of course!", "Great question!" or similar filler phrases.
 - If you are unsure, say so clearly rather than guessing.
 - For sensitive topics (health, legal, financial), give helpful information but note that a professional should be consulted.
-- LANGUAGE: Always respond in the same language the user is writing in. If they write in Arabic, respond in Arabic. If French, respond in French. Never switch languages unless asked.`,
+- LANGUAGE: Always respond in the same language the user is writing in. If they write in Arabic, respond in Arabic. If French, respond in French. Never switch languages unless asked.
+- OPTIONAL: At the very end of your response, you may suggest 2-4 follow-up questions wrapped in <followups> tags like:
+  <followups>
+  - Question 1?
+  - Question 2?
+  </followups>
+  Only include these when follow-up questions are genuinely useful.`,
   },
   {
     id: "code",

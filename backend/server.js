@@ -298,7 +298,8 @@ app.post("/api/keys", async (req, res) => {
     }
   }
 
-  res.json({ type: "success", results });
+  const anyOk = Object.values(results).some(r => r.ok);
+  res.json({ type: anyOk ? "success" : "error", results });
 });
 
 

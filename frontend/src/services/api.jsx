@@ -101,8 +101,9 @@ export const api = {
         }
         if (Object.keys(validatedKeys).length > 0) {
           await KeysService.saveKeys(validatedKeys);
+          return data;
         }
-        return data;
+        return { type: "error", results: data.results, error: "All provider keys failed validation." };
       }
 
       // Offline fallback: save keys that have valid format even if backend unreachable

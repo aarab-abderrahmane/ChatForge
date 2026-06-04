@@ -362,6 +362,25 @@ function AppInner() {
         flushRafRef.current = null;
       }
       flushContent();
+
+      // Parse AI-generated follow-up suggestions from <followups> block
+      if (!draftIndex && fullContent) {
+        const fwMatch = fullContent.match(/<followups>([\s\S]*?)<\/followups>/i);
+        if (fwMatch) {
+          const items = fwMatch[1].split('\n').map(l => l.replace(/^\s*[-*•]\s*/, '').trim()).filter(Boolean);
+          if (items.length > 0) {
+            const cleanAnswer = fullContent.replace(/<followups>[\s\S]*?<\/followups>/i, '').trim() || fullContent;
+            setChats((prev) =>
+              prev.map((obj) => {
+                if (obj.id !== id) return obj;
+                batchCacheRef.current[batchKey] = cleanAnswer;
+                return { ...obj, answer: cleanAnswer, suggestions: items };
+              })
+            );
+          }
+        }
+      }
+
       delete batchCacheRef.current[batchKey];
 
       // Summarize if needed
