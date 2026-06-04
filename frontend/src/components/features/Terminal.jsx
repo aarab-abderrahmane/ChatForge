@@ -704,7 +704,7 @@ export const Terminal = ({
                   <div ref={messagesEndRef} />
                 </div>
               </div>
-              <ChatNavigation chats={chats} />
+              <ChatNavigation chats={chats} scrollRef={scrollRef} />
               </div>
 
               {/* ── Input Area ──────────────────────────── */}
