@@ -4,9 +4,10 @@ import { api } from './api';
 /**
  * Limits to prevent Payload Too Large (413) errors
  */
-const MAX_MESSAGE_CONTENT = 1500;
+const MAX_MESSAGE_CONTENT = 3000;
+const MAX_AI_RESPONSE_CONTENT = 2000;
 const MAX_SUMMARY_CONTENT = 1500;
-const MAX_HISTORY_FOR_SUMMARY = 10;
+const MAX_HISTORY_FOR_SUMMARY = 20;
 const MAX_TOTAL_PAYLOAD_SIZE = 350000; // ~350KB threshold — payloads above this get aggressively trimmed
 
 // Context cache: keyed by sessionId + messageCount, invalidated on new messages
@@ -23,7 +24,7 @@ const MAX_TOTAL_FILE_CHARS = 30000;
 
 const truncate = (text, max = MAX_MESSAGE_CONTENT, isCode = false) => {
     if (!text) return "";
-    const effectiveMax = isCode ? max * 5 : max;
+    const effectiveMax = isCode ? max * 4 : max;
     if (text.length <= effectiveMax) return text;
 
     if (isCode) {
@@ -33,6 +34,14 @@ const truncate = (text, max = MAX_MESSAGE_CONTENT, isCode = false) => {
             return cut.slice(0, lastNewline) + "\n...";
         }
         return cut + "...";
+    }
+
+    if (effectiveMax > 600) {
+        const keepStart = Math.floor(effectiveMax * 0.6);
+        const keepEnd = Math.floor(effectiveMax * 0.3);
+        return text.slice(0, keepStart) +
+               "\n\n[...middle section trimmed for length...]\n\n" +
+               text.slice(-keepEnd);
     }
 
     const cut = text.slice(0, effectiveMax);
@@ -155,6 +164,17 @@ const isFileRequest = (text) => {
 const detectAutoFileOutput = (text) => {
     if (!text) return null;
     const lower = text.toLowerCase();
+
+    // ONLY trigger when user explicitly wants a file/download artifact
+    const explicitFileIntent = [
+        "create a file", "make a file", "generate a file", "save as",
+        "download", "export", "write a script", "write a python",
+        "write a bash", "create a dockerfile", "write sql",
+        "create a csv", "make a spreadsheet", "create a pdf",
+        "generate a pdf", "create an html file", "write an html file",
+    ];
+    const hasExplicitIntent = explicitFileIntent.some(p => lower.includes(p));
+    if (!hasExplicitIntent) return null;
 
     // Each entry: { patterns, filename, reason }
     // The first match wins. Filename can be a string or a function(text) => string.
@@ -440,14 +460,14 @@ export const ContextBuilder = {
 
         const historyForMessages = chatHistory.filter(c => !c.isEphemeral && !!c.answer);
 
-        // 10-message rule logic
-        if (historyForMessages.length <= 10) {
+        // 15-message rule logic
+        if (historyForMessages.length <= 15) {
             messages = historyForMessages.flatMap(c => [
                 { role: "user", content: truncate(c.question, MAX_MESSAGE_CONTENT, codeMode) },
                 ...(c.answer ? [{ role: "assistant", content: truncate(c.answer, MAX_MESSAGE_CONTENT, codeMode) }] : [])
             ]);
         } else {
-            messages = historyForMessages.slice(-6).flatMap(c => [
+            messages = historyForMessages.slice(-10).flatMap(c => [
                 { role: "user", content: truncate(c.question, MAX_MESSAGE_CONTENT, codeMode) },
                 ...(c.answer ? [{ role: "assistant", content: truncate(c.answer, MAX_MESSAGE_CONTENT, codeMode) }] : [])
             ]);
@@ -507,6 +527,7 @@ export const ContextBuilder = {
 
         // Control layer rules
         systemPrompt += "CONTROL LAYER RULES:\n" +
+            "- LANGUAGE: Always respond in the same language the user is writing in. If they write in Arabic, respond in Arabic. If French, respond in French. Never switch languages unless asked.\n" +
             "- If the user asks to 'continue', provide ONLY the continuation. Do NOT repeat or restart.\n" +
             "- If requirements are ambiguous (e.g. unspecified design style, color scheme, layout, technology stack), ask 1-2 brief clarifying questions before generating. Do NOT assume defaults for vague requests.\n" +
             "- If the task is related to code, ensure tags are closed and logic is complete.\n" +

@@ -12,7 +12,7 @@ import {
   Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil, Wifi, WifiOff,
   Briefcase, Bug, Code, BarChart3, TrendingUp, ChevronUp, ChevronDown,
   RefreshCw, Download, Languages, Check, Paperclip, File, Image, FileCode,
-  FileJson, AlertCircle,
+  FileJson, AlertCircle, Edit3,
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
@@ -26,9 +26,26 @@ const COMMANDS = [
   { cmd: "/quiz", desc: "Generate a quiz (e.g. /quiz React)", icon: Lightbulb, color: "#FF9500" },
   { cmd: "/flashcards", desc: "Generate flashcards", icon: Layers, color: "#AF52DE" },
   { cmd: "/mindmap", desc: "Generate a mindmap", icon: Sparkles, color: "#FF2D55" },
+  { cmd: "/write", desc: "Help me write something", icon: Edit3, color: "#34C759" },
+  { cmd: "/improve", desc: "Improve my text", icon: Sparkles, color: "#007AFF" },
+  { cmd: "/explain", desc: "Explain something simply", icon: Lightbulb, color: "#FF9F0A" },
+  { cmd: "/compare", desc: "Compare two things", icon: BarChart3, color: "#5E5CE6" },
+  { cmd: "/brainstorm", desc: "Brainstorm ideas", icon: Sparkles, color: "#FF6B6B" },
   { cmd: "/help", desc: "Show keyboard shortcuts", icon: Search, color: "#8E8E93" },
   { cmd: "/skill", desc: "Show current AI skill info", icon: Code, color: "#AF52DE" },
   { cmd: "/model", desc: "Show current AI model info", icon: Wifi, color: "#007AFF" },
+];
+
+const PLACEHOLDER_SUGGESTIONS = [
+  "Ask me anything — a question, a task, an idea...",
+  "Write me a birthday message for my friend...",
+  "Explain quantum physics like I'm 10...",
+  "Help me write a professional email...",
+  "What are some dinner ideas with chicken and rice?",
+  "Summarize the pros and cons of remote work...",
+  "Help me plan a trip to Japan...",
+  "I need to practice for a job interview...",
+  "Type / to see all commands",
 ];
 
 const EDITION_DATE = new Date().toLocaleDateString("en-US", {
@@ -151,6 +168,7 @@ export const Terminal = ({
   const activeSkill = allSkills.find(s => s.id === settings.activeSkillId) || SKILLS[0];
   const activeModel = MODELS.find(m => m.id === settings.activeModelId) || MODELS[0];
 
+  const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [showCmdMenu, setShowCmdMenu] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [showScrollDown, setShowScrollDown] = useState(false);
@@ -230,6 +248,13 @@ export const Terminal = ({
   }, []);
 
   useEffect(() => { resizeTextarea(); }, [query, resizeTextarea]);
+
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setPlaceholderIdx(i => (i + 1) % PLACEHOLDER_SUGGESTIONS.length);
+    }, 4000);
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (isMobile) return;
@@ -416,6 +441,16 @@ export const Terminal = ({
       '/quiz': () => send(`Generate a quiz${args ? ` about ${args}` : ''} with 5 multiple-choice questions. Format as JSON with fields: question, options (array of 4), answer (0-based index).`),
       '/flashcards': () => send(`Create a set of flashcards${args ? ` about ${args}` : ''} for studying. Format as JSON array with fields: front, back.`),
       '/mindmap': () => send(`//> mindmap ${args}`),
+      '/write': () => send(args || "Help me write something. I'll provide the topic and style I need."),
+      '/improve': () => {
+        if (args) return send(`Improve and polish the following text:\n\n${args}`);
+        const lastChat = [...chats].reverse().find(c => c.type === "ch" && c.answer);
+        if (lastChat?.answer) return send(`Improve and polish the following text:\n\n${lastChat.answer.slice(0, 1000)}`);
+        return send("Improve and polish my text. I'll paste what I need improved.");
+      },
+      '/explain': () => send(args || "Explain something simply. I'll tell you what I need explained."),
+      '/compare': () => send(args || "Compare two things for me. Tell me what you'd like me to compare."),
+      '/brainstorm': () => send(args || "Let's brainstorm ideas! Tell me the topic or problem you're thinking about."),
       '/help': () => info([
         '⌨  Keyboard Shortcuts',
         '├ Enter       : Send message',
@@ -642,32 +677,44 @@ export const Terminal = ({
                   </button>
                 )}
                 <div className="mx-auto max-w-3xl">
-                  {chats.map((obj, index) => {
-                    if (obj.type === "ms") {
+                  {chats.filter(c => c.type === "ch").length === 0 ? (
+                    <ConversationStarters onSelect={(s) => {
+                      setQuery(s);
+                      setCharCount(s.length);
+                      setTimeout(() => {
+                        handleSend({ target: { value: s } }, draftCount, []);
+                        setQuery("");
+                        setCharCount(0);
+                      }, 0);
+                    }} />
+                  ) : (
+                    chats.map((obj, index) => {
+                      if (obj.type === "ms") {
+                        return (
+                          <div key={index} className="mb-6 border-b border-divider pb-4">
+                            {obj.content.map((line, i) => (
+                              <p key={i} className="font-mono text-xs text-muted-500 uppercase tracking-widest mb-1">{line}</p>
+                            ))}
+                          </div>
+                        );
+                      }
                       return (
-                        <div key={index} className="mb-6 border-b border-divider pb-4">
-                          {obj.content.map((line, i) => (
-                            <p key={i} className="font-mono text-xs text-muted-500 uppercase tracking-widest mb-1">{line}</p>
-                          ))}
-                        </div>
+                        <MessageBlock
+                          key={obj.id || index}
+                          obj={obj} index={index}
+                          isLast={index === chats.length - 1}
+                          isCopied={isCopied}
+                          copyToClipboard={copyToClipboard}
+                          onRetry={onRetry}
+                          onEditSubmit={onEditSubmit || ((newQ) => handleSend({ target: { value: newQ } }, draftCount))}
+                          onMergeDrafts={onMergeDrafts}
+                          onSummarizeDrafts={onSummarizeDrafts}
+                          onKeepDraft={onKeepDraft}
+                          onContinue={onContinue}
+                        />
                       );
-                    }
-                    return (
-                      <MessageBlock
-                        key={obj.id || index}
-                        obj={obj} index={index}
-                        isLast={index === chats.length - 1}
-                        isCopied={isCopied}
-                        copyToClipboard={copyToClipboard}
-                        onRetry={onRetry}
-                        onEditSubmit={onEditSubmit || ((newQ) => handleSend({ target: { value: newQ } }, draftCount))}
-                        onMergeDrafts={onMergeDrafts}
-                        onSummarizeDrafts={onSummarizeDrafts}
-                        onKeepDraft={onKeepDraft}
-                        onContinue={onContinue}
-                      />
-                    );
-                  })}
+                    })
+                  )}
 
                   {/* ── Loading Indicator ────────────────── */}
                   {loading && (
@@ -778,6 +825,19 @@ export const Terminal = ({
                     </div>
                   )}
 
+                  {/* ── Quick suggestion chips ── */}
+                  {!loading && (
+                    <QuickSuggestions chats={chats} onSelect={(s) => {
+                      setQuery(s);
+                      setCharCount(s.length);
+                      setTimeout(() => {
+                        handleSend({ target: { value: s } }, draftCount, []);
+                        setQuery("");
+                        setCharCount(0);
+                      }, 0);
+                    }} loading={loading} />
+                  )}
+
                   {/* ── Attached files chips ── */}
                   {attachedFiles.length > 0 && (
                     <div className="flex flex-wrap gap-1.5 mb-2">
@@ -805,7 +865,7 @@ export const Terminal = ({
                         ref={textareaRef}
                         dir="auto"
                         className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink placeholder:text-muted-400 outline-none resize-none min-h-[44px] max-h-[160px]"
-                        placeholder="Ask anything… or type / for commands"
+                        placeholder={PLACEHOLDER_SUGGESTIONS[placeholderIdx]}
                         value={query}
                         onChange={handleInputChange}
                         onKeyDown={handleKeyDown}
@@ -991,5 +1051,92 @@ function ArtifactCountButton({ isOpen, onToggle }) {
         </span>
       )}
     </button>
+  );
+}
+
+function ConversationStarters({ onSelect }) {
+  const categories = [
+    {
+      title: "✍️ Writing",
+      items: ["Write a professional email", "Help me with my essay", "Create a social media post"],
+    },
+    {
+      title: "🎓 Learning",
+      items: ["Explain a concept simply", "Quiz me on a topic", "What should I know about..."],
+    },
+    {
+      title: "💡 Ideas",
+      items: ["Brainstorm ideas for...", "What are the pros and cons of...", "Help me plan..."],
+    },
+    {
+      title: "💻 Tech",
+      items: ["Debug my code", "Explain this error", "Help me build..."],
+    },
+  ];
+
+  return (
+    <div className="mx-auto max-w-2xl py-8">
+      <h2 className="font-serif text-2xl font-bold text-center mb-2" style={{ animation: "fadeInUp 0.4s ease-out forwards" }}>
+        Hi, I&apos;m ChatForge.
+      </h2>
+      <p className="font-body text-base text-center text-muted-500 mb-8" style={{ animation: "fadeInUp 0.4s ease-out 0.15s forwards", opacity: 0 }}>
+        Your AI assistant for anything.
+      </p>
+      <div className="grid grid-cols-2 gap-4">
+        {categories.map((cat, ci) => (
+          <div
+            key={cat.title}
+            className="border border-divider p-4"
+            style={{ animation: `fadeInUp 0.4s ease-out ${0.3 + ci * 0.12}s forwards`, opacity: 0 }}
+          >
+            <h3 className="font-mono text-xs uppercase tracking-widest mb-3 text-muted-500">
+              {cat.title}
+            </h3>
+            {cat.items.map((item, ii) => (
+              <button
+                key={item}
+                onClick={() => onSelect(item)}
+                className="w-full text-left text-sm font-body text-ink py-1.5 hover:text-red transition-colors block"
+                style={{ animation: `fadeInUp 0.35s ease-out ${0.5 + ci * 0.12 + ii * 0.1}s forwards`, opacity: 0 }}
+              >
+                {item} →
+              </button>
+            ))}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function QuickSuggestions({ chats, onSelect, loading }) {
+  const hasMessages = chats.filter(c => c.type === "ch").length > 0;
+
+  const suggestions = hasMessages ? [
+    "Summarize this",
+    "Give me more detail",
+    "Explain differently",
+    "What are the next steps?",
+  ] : [
+    "Explain something to me",
+    "Help me write",
+    "Brainstorm ideas",
+    "Answer a question",
+  ];
+
+  if (loading) return null;
+
+  return (
+    <div className="flex flex-wrap gap-2 mb-3">
+      {suggestions.map(s => (
+        <button
+          key={s}
+          onClick={() => onSelect(s)}
+          className="px-3 py-1 text-xs font-mono border border-divider text-muted-500 hover:border-ink hover:text-ink transition-colors"
+        >
+          {s}
+        </button>
+      ))}
+    </div>
   );
 }

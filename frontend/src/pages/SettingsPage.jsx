@@ -74,8 +74,10 @@ export function SettingsPage() {
     clearCurrentChat, clearAllSessions, importSessions,
     customSkills, addCustomSkill, deleteCustomSkill,
     aiTools, addAITool, updateAITool, deleteAITool,
-    providerStatus, setProviderStatus,
+    providerStatus, setProviderStatus, activeSessionId,
   } = useContext(chatsContext);
+
+  const activeSession = sessions.find(s => s.id === activeSessionId);
 
   const [showSkillForm, setShowSkillForm] = useState(false);
   const [showToolForm, setShowToolForm] = useState(false);
@@ -481,6 +483,24 @@ export function SettingsPage() {
                 <span className="font-mono text-xs text-ink font-bold">~{estTokens.toLocaleString()}</span>
               </div>
             </div>
+          </SectionCard>
+
+          {/* ═══ USER FACTS ═══ */}
+          <SectionCard title="What I Remember About You" icon={Bot}>
+            {Object.keys(activeSession?.userFacts || {}).length === 0 ? (
+              <p className="font-body text-sm text-muted-400">
+                Tell me your name, profession, or preferences and I&apos;ll remember them across this conversation.
+              </p>
+            ) : (
+              <div className="space-y-2">
+                {Object.entries(activeSession?.userFacts || {}).map(([key, value]) => (
+                  <div key={key} className="flex justify-between items-center border-b border-divider pb-1">
+                    <span className="font-mono text-xs uppercase text-muted-400">{key}</span>
+                    <span className="font-body text-sm text-ink">{value}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </SectionCard>
 
           {/* ═══ STORAGE ═══ */}
