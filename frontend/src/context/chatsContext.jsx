@@ -471,6 +471,27 @@ export function ChatsProvider({ children }) {
     });
   }, []);
 
+  // ── Sessions ────────────────────────────────────────────────────────
+  const [sessions, setSessions] = useState(() => {
+    try {
+      const stored = localStorage.getItem("ChatForge_Sessions");
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return parsed.length > 0 ? parsed : [makeSession()];
+      }
+    } catch { /* ignore */ }
+    return [makeSession()];
+  });
+
+  const [activeSessionId, setActiveSessionId] = useState(() => {
+    try {
+      const stored = localStorage.getItem("ChatForge_ActiveSession");
+      return stored || null;
+    } catch {
+      return null;
+    }
+  });
+
   // ── Global Personal Info (cross-session: name, profession, hobbies, etc.) ──
   const [personalInfo, setPersonalInfo] = useState(() => {
     try {
@@ -496,27 +517,6 @@ export function ChatsProvider({ children }) {
       )
     );
   }, [activeSessionId]);
-
-  // ── Sessions ────────────────────────────────────────────────────────
-  const [sessions, setSessions] = useState(() => {
-    try {
-      const stored = localStorage.getItem("ChatForge_Sessions");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        return parsed.length > 0 ? parsed : [makeSession()];
-      }
-    } catch { /* ignore */ }
-    return [makeSession()];
-  });
-
-  const [activeSessionId, setActiveSessionId] = useState(() => {
-    try {
-      const stored = localStorage.getItem("ChatForge_ActiveSession");
-      return stored || null;
-    } catch {
-      return null;
-    }
-  });
 
   const sessionsHashRef = useRef("");
   const sessionsTimerRef = useRef(null);
