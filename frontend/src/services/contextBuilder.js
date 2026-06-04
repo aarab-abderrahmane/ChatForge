@@ -554,6 +554,7 @@ export const ContextBuilder = {
             "- LANGUAGE: Always respond in the same language the user is writing in. If they write in Arabic, respond in Arabic. If French, respond in French. Never switch languages unless asked.\n" +
             "- If the user asks to 'continue', provide ONLY the continuation. Do NOT repeat or restart.\n" +
             "- If requirements are ambiguous (e.g. unspecified design style, color scheme, layout, technology stack), ask 1-2 brief clarifying questions before generating. Do NOT assume defaults for vague requests.\n" +
+            "- DUPLICATE DETECTION: Before adding a feature the user requests, check the workspace files and session memory to see if it already exists. If it does (e.g. user asks for 'tags' and tags are already implemented in TaskManager and NotesManager), respond with 'This feature already exists.' and briefly list where it's implemented. Do NOT regenerate identical files.\n" +
             "- If the task is related to code, ensure tags are closed and logic is complete.\n" +
             "- Prioritize the LATEST request. If it's a new topic, ignore unrelated history.\n" +
             "- Never hallucinate or restart a generation from zero unless explicitly asked.\n" +
