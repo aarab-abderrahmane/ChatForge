@@ -7,6 +7,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { chatsContext, SKILLS, MODELS } from './context/chatsContext';
 import { api } from './services/api';
 import { ContextBuilder } from './services/contextBuilder';
+import { clearRAGIndex } from './services/rag';
 import { ArtifactProvider, useArtifacts } from './context/artifactContext';
 
 const MAX_AUTO_CONTINUATIONS = 5;
@@ -117,6 +118,7 @@ function AppInner() {
   useEffect(() => {
     batchCacheRef.current = {};
     ContextBuilder.clearContextCache();
+    clearRAGIndex();
     if (summarizeAbortRef.current) {
       summarizeAbortRef.current.abort();
       summarizeAbortRef.current = null;
@@ -403,7 +405,7 @@ function AppInner() {
         await new Promise(r => setTimeout(r, 500));
         if (stopRequestedRef.current || generationRef.current !== myGen) return;
         return startStream(
-          'Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.',
+          `Continue from exactly this point (do not repeat the text below):\n\n${fullContent.slice(-500)}\n\nContinue:`,
           id,
           skillId,
           draftIndex,
@@ -516,7 +518,7 @@ function AppInner() {
       );
 
       askAIRef.current(
-        'Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.',
+        `Continue from exactly this point (do not repeat the text below):\n\n${(msg.answer || '').slice(-500)}\n\nContinue:`,
         id,
         msg.skillId,
         msg.isMulti ? msg.answers?.length : 1
@@ -646,7 +648,7 @@ function AppInner() {
 
       askAIRef.current(
         isContinue
-          ? 'Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.'
+          ? `Continue from exactly this point (do not repeat the text below):\n\n${(([...chats].reverse().find(c => c.type === 'ch' && c.answer) || {}).answer || '').slice(-500)}\n\nContinue:`
           : text,
         newId,
         null,

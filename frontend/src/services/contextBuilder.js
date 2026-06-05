@@ -1,5 +1,6 @@
 import { ConversationsService } from './db';
 import { api } from './api';
+import { buildRAGBlock } from './rag';
 
 /**
  * Limits to prevent Payload Too Large (413) errors
@@ -272,12 +273,14 @@ const detectAutoFileOutput = (text) => {
 
 /**
  * Builds the file injection block for the system prompt from attached files.
- * Text files are injected inline; images are handled separately via message content.
+ * Uses RAG when a question is provided to only inject relevant chunks.
+ * Falls back to full content injection when no question is available.
  *
  * @param {Array} attachedFiles - [{ name, type, content, isImage, sizeKB }]
- * @returns {{ textBlock: string, imageFiles: Array }}
+ * @param {String} currentQuestion - The user's current message (used for RAG search)
+ * @returns {Promise<{ textBlock: string, imageFiles: Array }>}
  */
-const buildFileBlock = (attachedFiles = []) => {
+const buildFileBlock = async (attachedFiles = [], currentQuestion = "") => {
     if (!attachedFiles.length) return { textBlock: "", imageFiles: [] };
 
     const textFiles = attachedFiles.filter(f => !f.isImage);
@@ -285,31 +288,19 @@ const buildFileBlock = (attachedFiles = []) => {
 
     if (!textFiles.length && !imageFiles.length) return { textBlock: "", imageFiles: [] };
 
-    let totalChars = 0;
     let textBlock = "";
 
     if (textFiles.length > 0) {
-        textBlock += "=== ATTACHED FILES ===\n";
-        textBlock += "The user has attached the following file(s) for you to read and work with:\n\n";
-
-        for (const file of textFiles) {
-            if (totalChars >= MAX_TOTAL_FILE_CHARS) {
-                textBlock += `[File "${file.name}" omitted — total file content limit reached]\n\n`;
-                continue;
+        if (currentQuestion) {
+            const ragBlock = await buildRAGBlock(attachedFiles, currentQuestion);
+            if (ragBlock) {
+                textBlock = ragBlock;
+            } else {
+                textBlock = buildFallbackFileBlock(textFiles);
             }
-            const remaining = MAX_TOTAL_FILE_CHARS - totalChars;
-            const content = truncate(file.content, Math.min(MAX_FILE_CONTENT_CHARS, remaining));
-            totalChars += content.length;
-
-            textBlock += `--- File: ${file.name} (${file.sizeKB}KB, ${file.type || "text"}) ---\n`;
-            textBlock += content;
-            textBlock += "\n--- End of file ---\n\n";
+        } else {
+            textBlock = buildFallbackFileBlock(textFiles);
         }
-
-        textBlock += "INSTRUCTIONS FOR FILES:\n" +
-            "- Treat the above file content as the source of truth for any questions about it.\n" +
-            "- If the user asks to edit, improve, or analyze the file, base your response on its actual content.\n" +
-            "- If you generate a modified version, output it as a downloadable file block: ```file:filename.ext\n```\n\n";
     }
 
     if (imageFiles.length > 0) {
@@ -317,6 +308,35 @@ const buildFileBlock = (attachedFiles = []) => {
     }
 
     return { textBlock, imageFiles };
+};
+
+const buildFallbackFileBlock = (textFiles) => {
+    let totalChars = 0;
+    let textBlock = "";
+
+    textBlock += "=== ATTACHED FILES ===\n";
+    textBlock += "The user has attached the following file(s) for you to read and work with:\n\n";
+
+    for (const file of textFiles) {
+        if (totalChars >= MAX_TOTAL_FILE_CHARS) {
+            textBlock += `[File "${file.name}" omitted — total file content limit reached]\n\n`;
+            continue;
+        }
+        const remaining = MAX_TOTAL_FILE_CHARS - totalChars;
+        const content = truncate(file.content, Math.min(MAX_FILE_CONTENT_CHARS, remaining));
+        totalChars += content.length;
+
+        textBlock += `--- File: ${file.name} (${file.sizeKB}KB, ${file.type || "text"}) ---\n`;
+        textBlock += content;
+        textBlock += "\n--- End of file ---\n\n";
+    }
+
+    textBlock += "INSTRUCTIONS FOR FILES:\n" +
+        "- Treat the above file content as the source of truth for any questions about it.\n" +
+        "- If the user asks to edit, improve, or analyze the file, base your response on its actual content.\n" +
+        "- If you generate a modified version, output it as a downloadable file block: ```file:filename.ext\n```\n\n";
+
+    return textBlock;
 };
 
 /**
@@ -500,7 +520,7 @@ export const ContextBuilder = {
         // 2. Build the current user message content.
         // For images: inject them as image content parts (multimodal).
         // For text files: injected via system prompt (see below).
-        const { textBlock: fileTextBlock, imageFiles } = buildFileBlock(attachedFiles);
+        const { textBlock: fileTextBlock, imageFiles } = await buildFileBlock(attachedFiles, currentQuestion);
 
         if (currentQuestion) {
             if (imageFiles.length > 0) {

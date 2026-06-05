@@ -4,21 +4,43 @@ const BASE_URL = import.meta.env.VITE_BACKEND_URL + "api";
 
 const SESSION_TOKEN_KEY = "chatforge_session_token";
 const USER_ID_KEY = "chatforge_user_id";
+const TOKEN_EXPIRY_MS = 24 * 60 * 60 * 1000;
 
 function getStoredToken() {
-  try { return sessionStorage.getItem(SESSION_TOKEN_KEY); } catch { return null; }
+  try {
+    const raw = localStorage.getItem(SESSION_TOKEN_KEY);
+    if (!raw) return null;
+    const { token, expiresAt } = JSON.parse(raw);
+    if (Date.now() > expiresAt) {
+      localStorage.removeItem(SESSION_TOKEN_KEY);
+      localStorage.removeItem(USER_ID_KEY);
+      return null;
+    }
+    return token;
+  } catch { return null; }
 }
 
 function getStoredUserId() {
-  try { return sessionStorage.getItem(USER_ID_KEY); } catch { return null; }
+  try {
+    const raw = localStorage.getItem(USER_ID_KEY);
+    if (!raw) return null;
+    const { userId, expiresAt } = JSON.parse(raw);
+    if (Date.now() > expiresAt) {
+      localStorage.removeItem(SESSION_TOKEN_KEY);
+      localStorage.removeItem(USER_ID_KEY);
+      return null;
+    }
+    return userId;
+  } catch { return null; }
 }
 
 function setStoredSession(token, userId) {
   try {
-    if (token) sessionStorage.setItem(SESSION_TOKEN_KEY, token);
-    else sessionStorage.removeItem(SESSION_TOKEN_KEY);
-    if (userId) sessionStorage.setItem(USER_ID_KEY, userId);
-    else sessionStorage.removeItem(USER_ID_KEY);
+    const expiresAt = Date.now() + TOKEN_EXPIRY_MS;
+    if (token) localStorage.setItem(SESSION_TOKEN_KEY, JSON.stringify({ token, expiresAt }));
+    else localStorage.removeItem(SESSION_TOKEN_KEY);
+    if (userId) localStorage.setItem(USER_ID_KEY, JSON.stringify({ userId, expiresAt }));
+    else localStorage.removeItem(USER_ID_KEY);
   } catch {}
 }
 
@@ -106,10 +128,12 @@ export const api = {
   // Returns { type, results, error } — results maps provider -> { ok, error? }
   validateAndSaveKey: async (userId, keys) => {
     try {
+      const existingKeys = await KeysService.getKeys();
+      const allKeys = { ...existingKeys, ...keys };
       const res = await fetch(`${BASE_URL}/keys`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ userId, ...keys }),
+        body: JSON.stringify({ userId, ...allKeys }),
       });
       const data = await res.json();
       if (data.token) setStoredSession(data.token, userId);
@@ -118,7 +142,7 @@ export const api = {
         const validatedKeys = {};
         for (const [provider, result] of Object.entries(data.results || {})) {
           if (result.ok) {
-            validatedKeys[provider] = keys[provider];
+            validatedKeys[provider] = allKeys[provider];
           }
         }
         if (Object.keys(validatedKeys).length > 0) {

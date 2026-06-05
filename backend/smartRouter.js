@@ -150,6 +150,10 @@ const CODE_KEYWORDS = [
   "debug", "error", "bug", "fix ", "refactor", "optimize",
   "react", "component", "api", "sql", "json", "html", "css",
   "code", "script", "algorithm", "compile", "syntax", "type ",
+  // Arabic
+  "دالة", "كود", "برمجة", "تصحيح", "خطأ", "متغير", "وظيفة",
+  // French
+  "fonction", "classe", "déboguer", "erreur", "code", "variable", "composant",
 ];
 
 export function detectTaskType(messages) {
@@ -158,7 +162,17 @@ export function detectTaskType(messages) {
 
   const hasCodeKeywords = CODE_KEYWORDS.some(kw => lower.includes(kw));
 
-  if (hasCodeKeywords) return "specialist";
+  // Math detection — equations, calculations
+  const mathPattern = /\d+\s*[+\-*/^=]\s*\d+/;
+  const hasMath = mathPattern.test(lower) ||
+    ["solve", "calculate", "equation", "math", "integral", "derivative", "matrix", "theorem"].some(kw => lower.includes(kw));
+
+  // Arabic question words
+  const arabicQuestion = ["لماذا", "كيف", "ما هو", "ما هي", "اشرح", "عرّف", "متى", "أين"].some(kw => lastMsg.includes(kw));
+  // French question words
+  const frenchQuestion = ["pourquoi", "comment", "explique", "quelle est", "qu'est-ce", "définis"].some(kw => lower.includes(kw));
+
+  if (hasCodeKeywords || hasMath || arabicQuestion || frenchQuestion) return "specialist";
   if (lower.length < 150 && !lower.includes("```")) return "speedster";
   if (messages.length > 15 || lower.includes("find bug") || lower.includes("search") || lower.includes("read_file")) return "specialist";
   return "architect";
