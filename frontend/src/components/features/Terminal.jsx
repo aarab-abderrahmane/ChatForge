@@ -11,8 +11,8 @@ import {
   Search, X as XIcon, Menu, Sparkles,
   Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil, Wifi, WifiOff,
   Briefcase, Bug, Code, BarChart3, TrendingUp, ChevronUp, ChevronDown,
-  RefreshCw, Download, Languages, Check, Paperclip, File, Image, FileCode,
-  FileJson, AlertCircle, Edit3,
+  RefreshCw, Download, Check, Paperclip, File, Image, FileCode,
+  FileJson, AlertCircle,
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
@@ -21,16 +21,9 @@ import { ArtifactPanel } from "./ArtifactPanel";
 import { ChatNavigation } from "./ChatNavigation";
 
 const COMMANDS = [
-  { cmd: "/summarize", desc: "Summarize this conversation", icon: FileText, color: "#007AFF" },
-  { cmd: "/translate", desc: "Translate text (e.g. /translate French: hello)", icon: Languages, color: "#5856D6" },
   { cmd: "/quiz", desc: "Generate a quiz (e.g. /quiz React)", icon: Lightbulb, color: "#FF9500" },
   { cmd: "/flashcards", desc: "Generate flashcards", icon: Layers, color: "#AF52DE" },
   { cmd: "/mindmap", desc: "Generate a mindmap", icon: Sparkles, color: "#FF2D55" },
-  { cmd: "/write", desc: "Help me write something", icon: Edit3, color: "#34C759" },
-  { cmd: "/improve", desc: "Improve my text", icon: Sparkles, color: "#007AFF" },
-  { cmd: "/explain", desc: "Explain something simply", icon: Lightbulb, color: "#FF9F0A" },
-  { cmd: "/compare", desc: "Compare two things", icon: BarChart3, color: "#5E5CE6" },
-  { cmd: "/brainstorm", desc: "Brainstorm ideas", icon: Sparkles, color: "#FF6B6B" },
   { cmd: "/help", desc: "Show keyboard shortcuts", icon: Search, color: "#8E8E93" },
   { cmd: "/skill", desc: "Show current AI skill info", icon: Code, color: "#AF52DE" },
   { cmd: "/model", desc: "Show current AI model info", icon: Wifi, color: "#007AFF" },
@@ -426,31 +419,9 @@ export const Terminal = ({
     };
 
     const HANDLERS = {
-      '/summarize': () => send('Please provide a concise summary of our conversation so far, highlighting the key points, decisions, and any action items discussed.'),
-      '/translate': () => {
-        const ci = args.indexOf(':');
-        if (ci === -1) {
-          return send(args.length > 30
-            ? `Please translate the following text:\n\n${args}`
-            : `Please translate this to ${args || 'English'}`);
-        }
-        const lang = args.slice(0, ci).trim();
-        const text = args.slice(ci + 1).trim();
-        return send(lang ? `Please translate the following text to ${lang}:\n\n${text}` : `Please translate this:\n\n${text}`);
-      },
       '/quiz': () => send(`Generate a quiz${args ? ` about ${args}` : ''} with 5 multiple-choice questions. Format as JSON with fields: question, options (array of 4), answer (0-based index).`),
       '/flashcards': () => send(`Create a set of flashcards${args ? ` about ${args}` : ''} for studying. Format as JSON array with fields: front, back.`),
       '/mindmap': () => send(`//> mindmap ${args}`),
-      '/write': () => send(args || "Help me write something. I'll provide the topic and style I need."),
-      '/improve': () => {
-        if (args) return send(`Improve and polish the following text:\n\n${args}`);
-        const lastChat = [...chats].reverse().find(c => c.type === "ch" && c.answer);
-        if (lastChat?.answer) return send(`Improve and polish the following text:\n\n${lastChat.answer.slice(0, 1000)}`);
-        return send("Improve and polish my text. I'll paste what I need improved.");
-      },
-      '/explain': () => send(args || "Explain something simply. I'll tell you what I need explained."),
-      '/compare': () => send(args || "Compare two things for me. Tell me what you'd like me to compare."),
-      '/brainstorm': () => send(args || "Let's brainstorm ideas! Tell me the topic or problem you're thinking about."),
       '/help': () => info([
         '⌨  Keyboard Shortcuts',
         '├ Enter       : Send message',

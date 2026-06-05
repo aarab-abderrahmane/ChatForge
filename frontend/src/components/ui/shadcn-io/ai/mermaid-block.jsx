@@ -2,75 +2,50 @@ import { useEffect, useState, useRef, useCallback } from 'react';
 import { Copy, Check } from 'lucide-react';
 import DOMPurify from 'dompurify';
 
-let _mermaidPromise = null;
-let _initialized = false;
+// We use one promise to make sure Mermaid only loads exactly once
+let mermaidInitPromise = null;
 
-function getMermaid() {
-  if (!_mermaidPromise) {
-    _mermaidPromise = import('mermaid');
-  }
-  return _mermaidPromise;
-}
-
-async function initMermaid() {
-  if (_initialized) return;
-  _initialized = true;
-
-  const mermaid = await getMermaid();
-  const m = mermaid.default || mermaid;
-
-  m.initialize({
-    startOnLoad: false,
-    suppressErrorRendering: true,
-    theme: 'base',
-    themeVariables: {
-      background: '#F9F9F7',
-      primaryColor: '#F5F5F5',
-      primaryTextColor: '#111111',
-      primaryBorderColor: '#111111',
-      lineColor: '#111111',
-      secondaryColor: '#F5F5F5',
-      tertiaryColor: '#F9F9F7',
-      edgeLabelBackground: '#F5F5F5',
-      clusterBkg: '#F9F9F7',
-      titleColor: '#111111',
-      nodeBorder: '#111111',
-      mainBkg: '#F5F5F5',
-      nodeTextColor: '#111111',
-      labelBoxBkgColor: '#F5F5F5',
-      labelBoxBorderColor: '#111111',
-      labelTextColor: '#111111',
-      loopTextColor: '#111111',
-      noteBkgColor: '#F5F5F5',
-      noteTextColor: '#111111',
-      noteBorderColor: '#111111',
-      activationBorderColor: '#111111',
-      activationBkgColor: '#F5F5F5',
-      sectionBkgColor: '#F5F5F5',
-      altSectionBkgColor: '#F9F9F7',
-    },
+function initMermaid() {
+  if (!mermaidInitPromise) {
+    mermaidInitPromise = import('mermaid').then((mermaidModule) => {
+      const m = mermaidModule.default || mermaidModule;
+      
+      m.initialize({
+        startOnLoad: false,
+        suppressErrorRendering: true,
+        theme: 'base',
+        themeVariables: {
+          background: '#F9F9F7',         
+          primaryColor: '#FFFFFF',       
+          primaryTextColor: '#111111',   
+          primaryBorderColor: '#999494', 
+          lineColor: '#999494',          
+          secondaryColor: '#F5F5F5',     
+          tertiaryColor: '#F9F9F7',      
+          clusterBkg: '#F5F5F5',         
+          clusterBorder: '#E5E5E0',      
+          titleColor: '#111111',
+          nodeBorder: '#999494',
+          mainBkg: '#FFFFFF',
+          nodeTextColor: '#111111',
+          fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
+        },
     flowchart: {
       curve: 'basis',
       htmlLabels: true,
-      nodeSpacing: 15,
-      rankSpacing: 15,
-      padding: 5,
+      nodeSpacing: 10,
+      rankSpacing: 10,
+      padding: 3,
       useMaxWidth: false,
     },
-    sequence: { actorMargin: 30, boxMargin: 10, boxTextMargin: 5, noteMargin: 10, messageMargin: 35, mirrorActors: false, bottomMarginAdj: 10, useMaxWidth: false },
-    gantt: { barHeight: 20, barGap: 4, topPadding: 20, leftPadding: 50, gridLineStartPadding: 35, fontSize: 10, useMaxWidth: false },
-    class: { useMaxWidth: false },
-    git: { useMaxWidth: false },
-    pie: { useMaxWidth: false },
-    requirement: { useMaxWidth: false },
-    journey: { useMaxWidth: false },
-    timeline: { useMaxWidth: false },
-    fontFamily: "'Fira Code', 'JetBrains Mono', monospace",
-    fontSize: 9,
-    securityLevel: 'strict',
-  });
-
-  return m;
+        fontSize: 8, 
+        securityLevel: 'strict',
+      });
+      
+      return m;
+    });
+  }
+  return mermaidInitPromise;
 }
 
 function cleanMermaidCode(raw) {
@@ -82,55 +57,14 @@ function cleanMermaidCode(raw) {
     .trim();
 }
 
-function escapeMermaidLabel(label) {
-  return label
-    .replace(/&/g, '&amp;')
-    .replace(/"/g, '&quot;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;');
-}
-
-function preprocessMermaidCode(raw) {
-  let code = raw;
-
-  // Wrap node labels containing special characters in double quotes
-  // e.g. B[setCount(count + 1)] -> B["setCount(count + 1)"]
-  // Only targets labels NOT already quoted
-  code = code.replace(
-    /\[([^\]"\n]*[(){}<>;:+|=][^\]"\n]*)\]/g,
-    (_, label) => `["${escapeMermaidLabel(label)}"]`
-  );
-
-  // Escape parentheses inside quoted labels
-  code = code.replace(
-    /\["([^"]*)"\]/g,
-    (_, label) => {
-      const escaped = escapeMermaidLabel(label);
-      return `["${escaped}"]`;
-    }
-  );
-
-  return code;
-}
-
-function tryFix(code, attempt) {
-  switch (attempt) {
-    case 0: return code;
-    case 1: return preprocessMermaidCode(code);
-    case 2: return code.replace(/\(/g, '#40;').replace(/\)/g, '#41;').replace(/\[/g, '#91;').replace(/\]/g, '#93;').replace(/\{/g, '#123;').replace(/\}/g, '#125;').replace(/</g, '#60;').replace(/>/g, '#62;');
-    case 3: return `flowchart TB\n    A["Diagram Error"] --> B["Could not render this diagram"]`;
-    default: return code;
-  }
-}
-
 function patchSvg(svg) {
   return svg
     .replace(/width="[^"]*"/, '')
     .replace(/height="[^"]*"/, '')
-    .replace(/font-size: \d+px/g, 'font-size: 9px')
+    .replace(/font-size: \d+px/g, 'font-size: 8px')
     .replace(
       '<svg ',
-      '<svg style="max-width:100%; width:100%; height:auto; display:block; margin:0 auto;" '
+      '<svg style="max-width:100%; max-height:400px; width:auto; height:auto; display:block; margin:0 auto;" '
     );
 }
 
@@ -157,34 +91,29 @@ export function MermaidBlock({ code }) {
     setError(null);
     setLoading(true);
 
-    const id = `mermaid-cf-${++uidRef.current}`;
+    const id = `mermaid-chart-${++uidRef.current}`;
 
     const render = async () => {
-      const m = await initMermaid();
-      if (cancelled) return;
-
-      const cleanCode = cleanMermaidCode(code);
-      if (!cleanCode) {
-        if (!cancelled) { setLoading(false); setError('Empty diagram code'); }
-        return;
-      }
-
-      for (let attempt = 0; attempt < 4; attempt++) {
+      try {
+        const m = await initMermaid();
         if (cancelled) return;
-        const candidate = tryFix(cleanCode, attempt);
-        try {
-          const { svg } = await m.render(id, candidate);
-          if (cancelled) return;
-          setSvgHtml(patchSvg(svg));
+
+        const cleanCode = cleanMermaidCode(code);
+        if (!cleanCode) {
           setLoading(false);
+          setError('Empty diagram code');
           return;
-        } catch (err) {
-          if (attempt === 3) {
-            if (!cancelled) {
-              setError(err?.message || String(err) || 'Render failed');
-              setLoading(false);
-            }
-          }
+        }
+
+        const { svg } = await m.render(id, cleanCode);
+        if (cancelled) return;
+        
+        setSvgHtml(patchSvg(svg));
+        setLoading(false);
+      } catch (err) {
+        if (!cancelled) {
+          setError(err?.message || String(err) || 'Render failed');
+          setLoading(false);
         }
       }
     };
@@ -193,7 +122,7 @@ export function MermaidBlock({ code }) {
 
     return () => {
       cancelled = true;
-      const el = document.getElementById('d' + id);
+      const el = document.getElementById(id);
       if (el) el.remove();
     };
   }, [code]);
@@ -201,73 +130,75 @@ export function MermaidBlock({ code }) {
   return (
     <div
       ref={containerRef}
-      className="my-4 border border-divider overflow-hidden"
+      className="my-6 border overflow-hidden rounded shadow-xs"
       style={{
-        background: '#F9F9F7',
+        background: '#F9F9F7', 
+        borderColor: '#999494' 
       }}
     >
+      {/* ── Toolbar ── */}
       <div
         className="flex items-center justify-between px-4 py-2"
         style={{
-          borderBottom: '1px solid #E5E5E0',
-          background: '#F5F5F5',
+          borderBottom: '1px solid #E5E5E0', 
+          background: '#FFFFFF', 
         }}
       >
-        <span
-          className="text-[10px] tracking-[0.12em] uppercase font-semibold font-mono"
-          style={{ color: '#737373' }}
-        >
-          ⬡ Mermaid Diagram
-        </span>
+        <div className="flex items-center gap-2">
+          <div className="w-6 h-6 rounded flex items-center justify-center" style={{ backgroundColor: '#F5F5F5' }}>
+            <span className="text-xs font-bold" style={{ color: '#111111' }}>⬡</span>
+          </div>
+          <span
+            className="text-xs font-bold font-mono tracking-wider uppercase"
+            style={{ color: '#111111' }} 
+          >
+            Diagram
+          </span>
+        </div>
+        
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1 text-[10px] font-mono transition-colors"
-          style={{ color: copied ? '#111111' : '#A3A3A3' }}
+          className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-mono transition-colors hover:bg-neutral-100 active:bg-neutral-200"
+          style={{ color: copied ? '#1A7A3A' : '#525252' }}
           title="Copy diagram code"
         >
-          {copied ? <Check size={11} /> : <Copy size={11} />}
+          {copied ? <Check size={14} /> : <Copy size={14} />}
           <span>{copied ? 'copied' : 'copy'}</span>
         </button>
       </div>
 
-      <div className="p-4 flex justify-center min-h-16 relative">
+      {/* ── Canvas ── */}
+      <div className="p-6 flex justify-center items-center min-h-[200px] max-h-[420px] overflow-y-auto relative">
         {loading && !error && (
           <div
-            className="absolute inset-0 flex items-center justify-center gap-1"
-            style={{ color: '#A3A3A3' }}
+            className="absolute inset-0 flex items-center justify-center gap-2"
+            style={{ color: '#737373' }}
           >
-            <span className="text-xs font-mono">rendering</span>
-            <span className="loading-dots">
-              <span>.</span>
-              <span>.</span>
-              <span>.</span>
-            </span>
+            <span className="text-sm font-mono">Loading Diagram...</span>
           </div>
         )}
 
         {error && (
-          <div className="w-full">
-            <p className="text-xs font-mono mb-2 flex items-center gap-1.5" style={{ color: '#CC0000' }}>
-              ✗ Diagram error
+          <div className="w-full bg-white p-4 rounded border border-red-200">
+            <p className="text-sm font-mono mb-2 flex items-center gap-1.5 font-bold" style={{ color: '#CC0000' }}>
+              ✗ Diagram Error
             </p>
-            <pre className="text-xs whitespace-pre-wrap mb-3 font-mono leading-relaxed" style={{ color: '#737373' }}>
+            <pre className="text-sm whitespace-pre-wrap mb-4 font-mono leading-relaxed bg-neutral-50 p-3 rounded border border-neutral-200" style={{ color: '#525252' }}>
               {error}
             </pre>
-            <div className="text-xs font-mono" style={{ color: '#A3A3A3' }}>
-              <div className="flex items-center gap-2 mb-1">
-                <span style={{ color: '#737373' }}>raw mermaid code:</span>
-              </div>
-              <pre className="whitespace-pre-wrap leading-relaxed">
-                {code}
-              </pre>
-            </div>
           </div>
         )}
 
-        {svgHtml && (
+        {svgHtml && !error && (
           <div
             className="w-full flex justify-center"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgHtml, { ADD_ATTR: ['stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill', 'fill-opacity', 'fill-rule', 'opacity', 'd', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'points', 'x1', 'y1', 'x2', 'y2', 'transform', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'text-decoration', 'viewBox', 'preserveAspectRatio', 'clip-path', 'mask', 'marker-end', 'marker-start', 'marker-mid', 'refX', 'refY', 'orient', 'markerWidth', 'markerHeight', 'offset', 'stop-color', 'stop-opacity', 'spreadMethod', 'gradientUnits', 'href', 'class', 'style', 'xmlns', 'clip-rule', 'color' ]}) }}
+            dangerouslySetInnerHTML={{ 
+              __html: DOMPurify.sanitize(svgHtml, { 
+                // FIX: Added allowed HTML tags so text doesn't disappear
+                ADD_TAGS: ['foreignObject', 'div', 'span', 'p', 'br', 'strong', 'em', 'b', 'i'],
+                ADD_ATTR: ['xmlns', 'stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill', 'fill-opacity', 'fill-rule', 'opacity', 'd', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'points', 'x1', 'y1', 'x2', 'y2', 'transform', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'text-decoration', 'viewBox', 'preserveAspectRatio', 'clip-path', 'mask', 'marker-end', 'marker-start', 'marker-mid', 'refX', 'refY', 'orient', 'markerWidth', 'markerHeight', 'offset', 'stop-color', 'stop-opacity', 'spreadMethod', 'gradientUnits', 'href', 'class', 'style', 'clip-rule', 'color' ]
+              }) 
+            }}
           />
         )}
       </div>
