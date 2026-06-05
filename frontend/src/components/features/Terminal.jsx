@@ -406,8 +406,8 @@ export const Terminal = ({
     const cmd = spaceIdx === -1 ? rest.toLowerCase() : rest.slice(0, spaceIdx).toLowerCase();
     const args = spaceIdx === -1 ? '' : rest.slice(spaceIdx + 1).trim();
 
-    const send = (prompt) => {
-      handleSend({ target: { value: prompt } }, draftCount);
+    const send = () => {
+      handleSend({ target: { value: `//> ${cmd} ${args}`.trim() } }, 1);
       setQuery(''); setShowCmdMenu(false);
       return true;
     };
@@ -419,9 +419,9 @@ export const Terminal = ({
     };
 
     const HANDLERS = {
-      '/quiz': () => send(`Generate a quiz${args ? ` about ${args}` : ''} with 5 multiple-choice questions. Format as JSON with fields: question, options (array of 4), answer (0-based index).`),
-      '/flashcards': () => send(`Create a set of flashcards${args ? ` about ${args}` : ''} for studying. Format as JSON array with fields: front, back.`),
-      '/mindmap': () => send(`//> mindmap ${args}`),
+      '/quiz': () => send(),
+      '/flashcards': () => send(),
+      '/mindmap': () => send(),
       '/help': () => info([
         '⌨  Keyboard Shortcuts',
         '├ Enter       : Send message',
@@ -768,7 +768,8 @@ export const Terminal = ({
                         Available Commands
                       </div>
                       {(() => {
-                        const matched = COMMANDS.filter(c => c.cmd.startsWith(query.toLowerCase()));
+                        const firstWord = query.toLowerCase().split(' ')[0];
+                        const matched = COMMANDS.filter(c => c.cmd.startsWith(firstWord));
                         if (matched.length === 0) {
                           return (
                             <div className="px-3 py-4 text-center font-mono text-[10px] text-muted-500">

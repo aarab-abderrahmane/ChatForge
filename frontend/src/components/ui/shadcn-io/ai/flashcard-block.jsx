@@ -22,6 +22,8 @@ export function FlashcardBlock({ code }) {
     if (!data?.cards) return;
 
     const handleKey = (e) => {
+      const tag = e.target.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || e.target.isContentEditable) return;
       if (e.key === 'ArrowLeft') prev();
       else if (e.key === 'ArrowRight') next();
       else if (e.key === ' ' || e.key === 'Enter') {

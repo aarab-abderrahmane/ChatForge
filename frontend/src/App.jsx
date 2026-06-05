@@ -564,8 +564,8 @@ function AppInner() {
       }
 
       // Quiz command
-      if (cmd.startsWith('//> quiz ') || cmd.startsWith('//>quiz ')) {
-        const topic = text.substring(text.indexOf('quiz') + 4).trim();
+      if (cmd.startsWith('//> quiz') || cmd.startsWith('//>quiz')) {
+        const topic = text.substring(text.indexOf('quiz') + 4).trim() || 'general knowledge';
         return {
           question: `Generate a multiple choice quiz about: ${topic}. Format your response exactly as JSON using THIS STRICT STRUCTURE:\n\`\`\`quiz\n{\n  "topic": "${topic}",\n  "questions": [\n    {\n      "q": "Question text?",\n      "options": ["Option A", "Option B", "Option C", "Option D"],\n      "answer": 0\n    }\n  ]\n}\n\`\`\`\nProvide ONLY this JSON block. Do not include any other text.`,
           skillId: 'general',
@@ -573,8 +573,8 @@ function AppInner() {
       }
 
       // Flashcards command
-      if (cmd.startsWith('//> flashcards ') || cmd.startsWith('//>flashcards ')) {
-        const topic = text.substring(text.indexOf('flashcards') + 10).trim();
+      if (cmd.startsWith('//> flashcards') || cmd.startsWith('//>flashcards')) {
+        const topic = text.substring(text.indexOf('flashcards') + 10).trim() || 'general knowledge';
         return {
           question: `Generate a set of 5 interactive flashcards about: ${topic}. Format your response exactly as JSON using THIS STRICT STRUCTURE:\n\`\`\`flashcards\n{\n  "topic": "${topic}",\n  "cards": [\n    {\n      "front": "Term or Question",\n      "back": "Definition or Answer"\n    }\n  ]\n}\n\`\`\`\nProvide ONLY this JSON block. Do not include any other text.`,
           skillId: 'general',
