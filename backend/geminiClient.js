@@ -1,6 +1,6 @@
 // Google Gemini REST API client — converts Gemini streaming into SSE format
 // compatible with the existing OpenRouter SSE pipeline in the frontend.
-const GEMINI_MODEL = "gemini-flash-latest";
+const GEMINI_MODEL = "gemini-2.0-flash-exp";
 const GEMINI_BASE = "https://generativelanguage.googleapis.com/v1beta/models";
 
 /**

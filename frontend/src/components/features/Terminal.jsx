@@ -698,6 +698,7 @@ export const Terminal = ({
                           </div>
                         );
                       }
+                      const prevChat = index > 0 ? [...chats].slice(0, index).reverse().find(c => c.type === "ch" && c.provider) : null;
                       return (
                         <MessageBlock
                           key={obj.id || index}
@@ -711,6 +712,7 @@ export const Terminal = ({
                           onSummarizeDrafts={onSummarizeDrafts}
                           onKeepDraft={onKeepDraft}
                           onContinue={onContinue}
+                          prevProvider={prevChat?.provider}
                         />
                       );
                     })
@@ -1003,13 +1005,13 @@ export const Terminal = ({
 };
 
 function ChatActions({ createNewSession, onClear, onSearch, onExport }) {
-  const { clearFiles } = useArtifacts();
+  const { clearFiles, sessionId } = useArtifacts();
   return (
     <>
-      <button onClick={() => { clearFiles(); createNewSession(); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="New chat">
+      <button onClick={() => { clearFiles(sessionId); createNewSession(); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="New chat">
         <Plus size={16} strokeWidth={1.5} />
       </button>
-      <button onClick={() => { clearFiles(); onClear(); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Clear chat">
+      <button onClick={() => { clearFiles(sessionId); onClear(); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Clear chat">
         <Trash2 size={16} strokeWidth={1.5} />
       </button>
       <button onClick={onSearch} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Search (Ctrl+F)">

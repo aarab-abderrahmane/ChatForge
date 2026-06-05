@@ -21,6 +21,7 @@ const btnActiveUp = `${btnGhost} text-green`;
 export function MessageBlock({
   obj, index, isLast, isCopied, copyToClipboard, onRetry,
   onEditSubmit, onMergeDrafts, onSummarizeDrafts, onKeepDraft, onContinue,
+  prevProvider,
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const [editValue, setEditValue] = useState("");
@@ -88,7 +89,8 @@ export function MessageBlock({
 
         <div className="flex items-center gap-2 shrink-0">
           {obj.provider && (
-            <span className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border border-ink px-1.5 py-0.5">
+            <span className={`font-mono text-[9px] uppercase tracking-widest border px-1.5 py-0.5 ${prevProvider && prevProvider !== obj.provider ? "border-yellow text-yellow" : "border-ink text-muted-500"}`}>
+              {prevProvider && prevProvider !== obj.provider ? "⇄ " : ""}
               {obj.provider === "groq" ? "GROQ" : obj.provider === "gemini" ? "GEMINI" : obj.provider === "huggingface" ? "HUGGINGFACE" : obj.provider === "together" ? "TOGETHER" : obj.provider === "mistral" ? "MISTRAL" : "OPENROUTER"}
             </span>
           )}

@@ -1,5 +1,5 @@
 import { createContext, useState, useEffect, useCallback, useRef } from "react";
-import { ConversationsService, KeysService } from "../services/db";
+import { ConversationsService, KeysService, PersonalInfoService } from "../services/db";
 
 export const chatsContext = createContext();
 
@@ -334,7 +334,6 @@ export function ChatsProvider({ children }) {
   });
 
   useEffect(() => {
-    // Re-run settings migration on mount and persist the migrated version
     try {
       const stored = localStorage.getItem("ChatForge_Settings");
       if (stored) {
@@ -348,15 +347,16 @@ export function ChatsProvider({ children }) {
           localStorage.setItem("ChatForge_Settings", JSON.stringify({ ...defaultSettings, ...parsed }));
           setSettings((prev) => ({ ...defaultSettings, ...parsed }));
         }
+
+        // Auto-migrate any defunct model IDs to the default (reads from stored, not state)
+        const liveModelIds = MODELS.map((m) => m.id);
+        const storedModelId = parsed.activeModelId || defaultSettings.activeModelId;
+        if (!liveModelIds.includes(storedModelId)) {
+          setSettings((prev) => ({ ...prev, activeModelId: DEFAULT_MODEL_ID }));
+        }
       }
     } catch { /* ignore */ }
-
-    // Auto-migrate any defunct model IDs to the default
-    const liveModelIds = MODELS.map((m) => m.id);
-    if (!liveModelIds.includes(settings.activeModelId)) {
-      setSettings((prev) => ({ ...prev, activeModelId: DEFAULT_MODEL_ID }));
-    }
-  }, [settings.activeModelId]);
+  }, []);
 
   // ── Custom Skills ────────────────────────────────────────────────────
   const [customSkills, setCustomSkills] = useState(() => {
@@ -494,15 +494,26 @@ export function ChatsProvider({ children }) {
 
   // ── Global Personal Info (cross-session: name, profession, hobbies, etc.) ──
   const [personalInfo, setPersonalInfo] = useState(() => {
+    // Synchronous fallback from localStorage for instant first paint
     try {
       const stored = localStorage.getItem("ChatForge_PersonalInfo");
-      return stored ? JSON.parse(stored) : {};
-    } catch {
-      return {};
-    }
+      if (stored) return JSON.parse(stored);
+    } catch { /* ignore */ }
+    return {};
   });
 
   useEffect(() => {
+    // Load from encrypted IndexedDB on mount, supersedes localStorage fallback
+    PersonalInfoService.get().then((data) => {
+      if (data && Object.keys(data).length > 0) {
+        setPersonalInfo(data);
+        localStorage.setItem("ChatForge_PersonalInfo", JSON.stringify(data));
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    PersonalInfoService.save(personalInfo);
     localStorage.setItem("ChatForge_PersonalInfo", JSON.stringify(personalInfo));
   }, [personalInfo]);
 
@@ -653,6 +664,7 @@ export function ChatsProvider({ children }) {
   }, [sessions, personalInfo]);
 
   const deleteSession = useCallback((id) => {
+    ConversationsService.deleteConversation(id);
     setSessions((prev) => {
       const next = prev.filter((s) => s.id !== id);
       if (next.length === 0) {

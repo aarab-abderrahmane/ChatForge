@@ -732,5 +732,13 @@ export const ContextBuilder = {
             console.error("Summarization failed", e);
             return oldSummary;
         }
+    },
+
+    /**
+     * Clears the in-memory context cache.
+     * Call this when switching sessions to prevent stale context from leaking between sessions.
+     */
+    clearContextCache() {
+        contextCache.clear();
     }
 };

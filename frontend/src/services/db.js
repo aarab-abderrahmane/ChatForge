@@ -2,12 +2,13 @@ import { encryptKey, decryptKey } from '../utils/crypto';
 import LZString from 'lz-string';
 
 const DB_NAME = 'ChatForgeDB';
-const DB_VERSION = 1;
+const DB_VERSION = 2;
 
 export const stores = {
     KEYS: 'keys',
     CONVERSATIONS: 'conversations',
     PROJECTS: 'projects',
+    PERSONAL_INFO: 'personalInfo',
 };
 
 // Open DB
@@ -26,6 +27,9 @@ export const openDB = () => {
             if (!db.objectStoreNames.contains(stores.PROJECTS)) {
                 db.createObjectStore(stores.PROJECTS, { keyPath: 'id' });
             }
+            if (!db.objectStoreNames.contains(stores.PERSONAL_INFO)) {
+                db.createObjectStore(stores.PERSONAL_INFO, { keyPath: 'id' });
+            }
         };
         request.onsuccess = (e) => resolve(e.target.result);
         request.onerror = (e) => reject(e.target.error);
@@ -35,9 +39,10 @@ export const openDB = () => {
 // ── Write-ahead log ──────────────────────────────────────────────
 const batchQueue = [];
 let batchTimer = null;
-const BATCH_FLUSH_MS = 30_000;
+const BATCH_FLUSH_MS = 5_000;
 
 if (typeof window !== 'undefined') {
+    window.addEventListener('pagehide', () => { flushBatch(); });
     window.addEventListener('beforeunload', () => { flushBatch(); });
     document.addEventListener('visibilitychange', () => {
         if (document.visibilityState === 'hidden') flushBatch();
@@ -147,12 +152,30 @@ export const KeysService = {
     getKeys: async () => {
         const encrypted = await idb.get(stores.KEYS, 'user_keys') || {};
         const decrypted = {};
-        if (encrypted.openrouter) decrypted.openrouter = await decryptKey(encrypted.openrouter);
-        if (encrypted.groq) decrypted.groq = await decryptKey(encrypted.groq);
-        if (encrypted.gemini) decrypted.gemini = await decryptKey(encrypted.gemini);
-        if (encrypted.huggingface) decrypted.huggingface = await decryptKey(encrypted.huggingface);
-        if (encrypted.together) decrypted.together = await decryptKey(encrypted.together);
-        if (encrypted.mistral) decrypted.mistral = await decryptKey(encrypted.mistral);
+        if (encrypted.openrouter) {
+            const val = await decryptKey(encrypted.openrouter);
+            if (val) decrypted.openrouter = val;
+        }
+        if (encrypted.groq) {
+            const val = await decryptKey(encrypted.groq);
+            if (val) decrypted.groq = val;
+        }
+        if (encrypted.gemini) {
+            const val = await decryptKey(encrypted.gemini);
+            if (val) decrypted.gemini = val;
+        }
+        if (encrypted.huggingface) {
+            const val = await decryptKey(encrypted.huggingface);
+            if (val) decrypted.huggingface = val;
+        }
+        if (encrypted.together) {
+            const val = await decryptKey(encrypted.together);
+            if (val) decrypted.together = val;
+        }
+        if (encrypted.mistral) {
+            const val = await decryptKey(encrypted.mistral);
+            if (val) decrypted.mistral = val;
+        }
         return decrypted;
     },
     getStatus: async () => {
@@ -242,8 +265,9 @@ function decompressSession(session) {
     try {
         const decompressed = JSON.parse(LZString.decompress(session.messages));
         return { ...session, messages: decompressed, _compressed: false };
-    } catch {
-        return { ...session, messages: [], _compressed: false };
+    } catch (err) {
+        console.error("Session decompression failed, returning raw session:", err);
+        return { ...session, _compressed: false };
     }
 }
 
@@ -269,4 +293,24 @@ export const ProjectsService = {
     getProject: async (id) => await idb.get(stores.PROJECTS, id),
     getAllProjects: async () => await idb.getAll(stores.PROJECTS),
     deleteProject: async (id) => await idb.delete(stores.PROJECTS, id),
+};
+
+export const PersonalInfoService = {
+    save: async (data) => {
+        const encrypted = { id: 'personal_info' };
+        if (data && Object.keys(data).length > 0) {
+            encrypted.data = await encryptKey(JSON.stringify(data));
+        }
+        await idb.put(stores.PERSONAL_INFO, encrypted);
+    },
+    get: async () => {
+        const stored = await idb.get(stores.PERSONAL_INFO, 'personal_info');
+        if (!stored?.data) return {};
+        const decrypted = await decryptKey(stored.data);
+        try {
+            return JSON.parse(decrypted);
+        } catch {
+            return {};
+        }
+    },
 };

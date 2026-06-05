@@ -1,25 +1,69 @@
 // A simple Web Crypto API wrapper for AES-GCM
 // Uses a per-installation random seed for key derivation,
 // falling back to the static key for backward compatibility.
+// Seed is stored in both localStorage and IndexedDB for resilience.
 
 const FALLBACK_KEY = "ChatForge-Static-Key-Fallback";
 const SEED_KEY = "ChatForge_CryptoSeed";
+const IDB_SEED_STORE = "cryptoSeed";
 
-function getOrCreateSeed() {
+function openCryptoDB() {
+    return new Promise((resolve, reject) => {
+        const request = indexedDB.open("ChatForgeCryptoDB", 1);
+        request.onupgradeneeded = (e) => {
+            const db = e.target.result;
+            if (!db.objectStoreNames.contains(IDB_SEED_STORE)) {
+                db.createObjectStore(IDB_SEED_STORE, { keyPath: "id" });
+            }
+        };
+        request.onsuccess = (e) => resolve(e.target.result);
+        request.onerror = (e) => reject(e.target.error);
+    });
+}
+
+async function getSeedFromIDB() {
+    try {
+        const db = await openCryptoDB();
+        return new Promise((resolve) => {
+            const tx = db.transaction(IDB_SEED_STORE, "readonly");
+            const store = tx.objectStore(IDB_SEED_STORE);
+            const req = store.get("seed");
+            req.onsuccess = () => resolve(req.result?.value || null);
+            req.onerror = () => resolve(null);
+        });
+    } catch { return null; }
+}
+
+async function saveSeedToIDB(seed) {
+    try {
+        const db = await openCryptoDB();
+        const tx = db.transaction(IDB_SEED_STORE, "readwrite");
+        const store = tx.objectStore(IDB_SEED_STORE);
+        store.put({ id: "seed", value: seed });
+    } catch { /* ignore */ }
+}
+
+async function getOrCreateSeed() {
     let seed = localStorage.getItem(SEED_KEY);
     if (!seed) {
+        seed = await getSeedFromIDB();
+        if (seed) {
+            try { localStorage.setItem(SEED_KEY, seed); } catch { /* ignore */ }
+            return seed;
+        }
         const bytes = new Uint8Array(32);
         window.crypto.getRandomValues(bytes);
         seed = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
         try {
             localStorage.setItem(SEED_KEY, seed);
         } catch { /* localStorage unavailable — will use fallback */ }
+        saveSeedToIDB(seed);
     }
     return seed;
 }
 
 async function getKeyMaterial(useFallback) {
-    const password = useFallback ? FALLBACK_KEY : getOrCreateSeed();
+    const password = useFallback ? FALLBACK_KEY : await getOrCreateSeed();
     const enc = new TextEncoder();
     return window.crypto.subtle.importKey(
         "raw",
@@ -110,6 +154,6 @@ export async function decryptKey(base64Text) {
         }
     } catch (error) {
         console.warn("Decryption failed", error);
-        return base64Text;
+        return null;
     }
 }

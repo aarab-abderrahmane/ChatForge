@@ -267,7 +267,7 @@ export function MermaidBlock({ code }) {
         {svgHtml && (
           <div
             className="w-full flex justify-center"
-            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgHtml, { ADD_ATTR: ['data-*', 'stroke', 'stroke-width', 'fill', 'transform', 'viewBox'] }) }}
+            dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(svgHtml, { ADD_ATTR: ['stroke', 'stroke-width', 'stroke-dasharray', 'stroke-linecap', 'stroke-linejoin', 'fill', 'fill-opacity', 'fill-rule', 'opacity', 'd', 'cx', 'cy', 'r', 'rx', 'ry', 'x', 'y', 'width', 'height', 'points', 'x1', 'y1', 'x2', 'y2', 'transform', 'font-family', 'font-size', 'font-weight', 'font-style', 'text-anchor', 'dominant-baseline', 'letter-spacing', 'text-decoration', 'viewBox', 'preserveAspectRatio', 'clip-path', 'mask', 'marker-end', 'marker-start', 'marker-mid', 'refX', 'refY', 'orient', 'markerWidth', 'markerHeight', 'offset', 'stop-color', 'stop-opacity', 'spreadMethod', 'gradientUnits', 'href', 'class', 'style', 'xmlns', 'clip-rule', 'color' ]}) }}
           />
         )}
       </div>

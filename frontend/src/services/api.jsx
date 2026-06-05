@@ -2,6 +2,26 @@ import { KeysService } from './db';
 
 const BASE_URL = import.meta.env.VITE_BACKEND_URL + "api";
 
+const SESSION_TOKEN_KEY = "chatforge_session_token";
+const USER_ID_KEY = "chatforge_user_id";
+
+function getStoredToken() {
+  try { return sessionStorage.getItem(SESSION_TOKEN_KEY); } catch { return null; }
+}
+
+function getStoredUserId() {
+  try { return sessionStorage.getItem(USER_ID_KEY); } catch { return null; }
+}
+
+function setStoredSession(token, userId) {
+  try {
+    if (token) sessionStorage.setItem(SESSION_TOKEN_KEY, token);
+    else sessionStorage.removeItem(SESSION_TOKEN_KEY);
+    if (userId) sessionStorage.setItem(USER_ID_KEY, userId);
+    else sessionStorage.removeItem(USER_ID_KEY);
+  } catch {}
+}
+
 export const api = {
 
   // ── Legacy: check if OpenRouter key exists ──────────────────────
@@ -40,6 +60,7 @@ export const api = {
         body: JSON.stringify(payload),
       });
       const data = await res.json();
+      if (data.token) setStoredSession(data.token, userId);
 
       if (data.type === "success") {
         const results = data.results || {};
@@ -91,6 +112,7 @@ export const api = {
         body: JSON.stringify({ userId, ...keys }),
       });
       const data = await res.json();
+      if (data.token) setStoredSession(data.token, userId);
 
       if (data.type === "success") {
         const validatedKeys = {};
@@ -174,6 +196,7 @@ export const api = {
       });
 
       const data = await res.json();
+      if (data.token) setStoredSession(data.token, userId);
 
       if (data.type === "success") {
         // Only save the keys that were actually validated by the backend
@@ -207,26 +230,47 @@ export const api = {
 
 
 
-  // ── NORMAL CHAT (Text Only) ────────────────────────────────────
-  chat: async (userId, messages, skillPrompt, model, parameters = {}, signal) => {
+  // ── Restore session: send stored keys to get a fresh token ──
+  restoreSession: async () => {
+    const uid = getStoredUserId();
+    if (!uid) return false;
+    const keys = await KeysService.getKeys();
+    if (!keys.openrouter && !keys.groq && !keys.gemini && !keys.huggingface && !keys.together && !keys.mistral) {
+      return false;
+    }
     try {
-      const keys = await KeysService.getKeys();
+      const res = await fetch(`${BASE_URL}/keys`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId: uid, ...keys }),
+      });
+      const data = await res.json();
+      if (data.token) {
+        setStoredSession(data.token, uid);
+        return true;
+      }
+    } catch {}
+    return false;
+  },
+
+  // ── NORMAL CHAT (Text Only) ────────────────────────────────────
+  chat: async (userId, messages, skillPrompt, model, parameters = {}, signal, isRetry = false) => {
+    try {
+      if (userId) setStoredSession(getStoredToken(), userId);
+
+      let token = getStoredToken();
+      if (!token) {
+        const restored = await api.restoreSession();
+        if (!restored) {
+          throw new Error("No session. Please enter your API keys in Settings.");
+        }
+        token = getStoredToken();
+      }
+
       const safeParams = {
         ...parameters,
         max_tokens: Math.min(parameters.max_tokens || 4096, 16384)
       };
-
-      const clientKeys = {
-        openrouter: keys.openrouter,
-        groq: keys.groq,
-        gemini: keys.gemini,
-        huggingface: keys.huggingface,
-        together: keys.together,
-        mistral: keys.mistral,
-      };
-
-      // Free decrypted keys immediately after building clientKeys
-      for (const k of Object.keys(keys)) keys[k] = null;
 
       const res = await fetch(`${BASE_URL}/chat`, {
         method: "POST",
@@ -237,13 +281,18 @@ export const api = {
           skillPrompt,
           model,
           parameters: safeParams,
-          clientKeys
+          token,
         }),
         signal,
       });
 
-      // Free the clientKeys reference after the request is sent
-      for (const k of Object.keys(clientKeys)) clientKeys[k] = null;
+      if (res.status === 401 && !isRetry) {
+        setStoredSession(null, null);
+        const restored = await api.restoreSession();
+        if (restored) {
+          return api.chat(userId, messages, skillPrompt, model, parameters, signal, true);
+        }
+      }
 
       return res;
     } catch (error) {

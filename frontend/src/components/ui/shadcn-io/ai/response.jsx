@@ -245,7 +245,7 @@ const MemoizedPre = memo(({ node, children }) => {
 
   const { promote, filename: autoFilename } = useMemo(
     () => shouldAutoPromoteToFile(language, code),
-    [language]
+    [language, code]
   );
 
   if (language === 'mermaid') return <BlockErrorBoundary code={code}><MermaidBlock code={code} /></BlockErrorBoundary>;

@@ -3,7 +3,7 @@
  */
 export async function validateHuggingFaceKey(key) {
     try {
-        const response = await fetch("https://api-inference.huggingface.co/models/gpt2", {
+        const response = await fetch("https://api-inference.huggingface.co/models/google/flan-t5-small", {
             method: "POST",
             headers: {
                 Authorization: `Bearer ${key}`,
@@ -31,10 +31,36 @@ export async function askHuggingFace(messages, key, options = {}) {
         max_tokens = 1024,
     } = options;
 
-    // Format messages for typical HF instruct models (Mistral/Llama style)
-    const prompt = `<s>[INST] ${systemPrompt}\n\n${messages
-        .map((m) => (m.role === "user" ? m.content : `[/INST] ${m.content} </s><s>[INST]`))
-        .join("\n")} [/INST]`;
+    // Detect model family and apply appropriate prompt template
+    const modelLower = model.toLowerCase();
+    let prompt;
+    if (modelLower.includes("llama") || modelLower.includes("mistral") || modelLower.includes("qwen") || modelLower.includes("mixtral") || modelLower.includes("zephyr")) {
+        // Llama/Mistral style
+        prompt = `<s>[INST] ${systemPrompt}\n\n${messages
+            .map((m) => (m.role === "user" ? m.content : `[/INST] ${m.content} </s><s>[INST]`))
+            .join("\n")} [/INST]`;
+    } else if (modelLower.includes("chatglm") || modelLower.includes("glm")) {
+        // ChatGLM style
+        const parts = messages.map((m, i) =>
+            m.role === "user" ? `[Round ${Math.ceil((i + 1) / 2)}]\n问：${m.content}` : `答：${m.content}`
+        );
+        prompt = `${parts.join("\n")}${messages.length % 2 === 1 ? "\n答：" : ""}`;
+    } else if (modelLower.includes("deepseek")) {
+        // DeepSeek style
+        const parts = messages.map((m) =>
+            m.role === "user" ? `User: ${m.content}` : `Assistant: ${m.content}`
+        );
+        prompt = `${systemPrompt}\n\n${parts.join("\n")}${messages[messages.length - 1]?.role === "user" ? "\nAssistant:" : ""}`;
+    } else if (modelLower.includes("t5") || modelLower.includes("flan") || modelLower.includes("mt0") || modelLower.includes("bloom") || modelLower.includes("gpt2") || modelLower.includes("codegen") || modelLower.includes("gpt-neo")) {
+        // Simple prefix format for T5, BLOOM, GPT-2, etc.
+        const lastUserMsg = [...messages].reverse().find(m => m.role === "user");
+        prompt = `${systemPrompt}\n\n${lastUserMsg ? lastUserMsg.content : ""}`;
+    } else {
+        // Generic chat format for unknown models
+        prompt = messages.map((m) =>
+            m.role === "user" ? `User: ${m.content}` : `Assistant: ${m.content}`
+        ).join("\n");
+    }
 
     const response = await fetch(`https://api-inference.huggingface.co/models/${model}`, {
         method: "POST",

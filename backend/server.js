@@ -8,6 +8,19 @@ import { validateHuggingFaceKey } from "./huggingfaceClient.js";
 import { validateTogetherKey } from "./togetherClient.js";
 import { validateMistralKey } from "./mistralClient.js";
 import { smartRouter, FREE_MODELS, askAI } from "./smartRouter.js";
+import crypto from "crypto";
+
+// ── In-memory session key store ──────────────────────────────
+const keyStore = new Map();
+const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
+const KEY_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+
+setInterval(() => {
+  const now = Date.now();
+  for (const [token, entry] of keyStore) {
+    if (now - entry.createdAt > TOKEN_TTL_MS) keyStore.delete(token);
+  }
+}, KEY_CLEANUP_INTERVAL_MS);
 
 const app = express();
 
@@ -17,8 +30,11 @@ const allowedOrigins = process.env.ALLOWED_ORIGINS
 
 if (process.env.NODE_ENV === "production" && !process.env.ALLOWED_ORIGINS) {
   throw new Error("ALLOWED_ORIGINS environment variable must be set in production");
+} else if (!process.env.ALLOWED_ORIGINS) {
+  console.warn("WARNING: ALLOWED_ORIGINS not set. Using default localhost origins. Set ALLOWED_ORIGINS for production.");
 }
 
+app.set("trust proxy", 1);
 app.use(helmet());
 
 app.use(cors({
@@ -34,7 +50,7 @@ app.use(express.json({ limit: "1mb" }));
 if (process.env.NODE_ENV === "production") {
   app.use((req, res, next) => {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'");
+    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'");
     res.setHeader("X-Content-Type-Options", "nosniff");
     res.setHeader("X-Frame-Options", "DENY");
     res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
@@ -69,27 +85,29 @@ app.use("/api/keys", keysLimiter);
 // POST /api/chat — main chat endpoint  (normal chat)
 // ─────────────────────────────────────────────
 app.post("/api/chat", async (req, res) => {
-  const { userId, messages, skillPrompt, model, parameters, clientKeys } = req.body;
+  const { userId, messages, skillPrompt, model, parameters, token } = req.body;
+
+  if (!token) {
+    return res.status(401).json({ response: "No session token. Please enter your API keys in Settings.", type: "error" });
+  }
+
+  const entry = keyStore.get(token);
+  if (!entry || Date.now() - entry.createdAt > TOKEN_TTL_MS) {
+    keyStore.delete(token);
+    return res.status(401).json({ response: "Session expired or invalid. Please re-enter your keys in Settings.", type: "error" });
+  }
+
+  const clientKeys = entry.keys;
+  entry.createdAt = Date.now();
 
   if (!clientKeys || (!clientKeys.openrouter && !clientKeys.groq && !clientKeys.gemini && !clientKeys.huggingface)) {
+    keyStore.delete(token);
     return res.status(401).json({ response: "No API keys found! Please add at least one key in Settings.", type: "error" });
   }
 
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (userId && !UUID_RE.test(userId)) {
     return res.status(400).json({ response: "Invalid userId format.", type: "error" });
-  }
-
-  const KEY_PATTERNS = {
-    openrouter: /^sk-or-v1-/,
-    groq: /^gsk_/,
-    gemini: /^AIzaSy/,
-    huggingface: /^hf_/,
-  };
-  for (const [provider, key] of Object.entries(clientKeys)) {
-    if (key && KEY_PATTERNS[provider] && !KEY_PATTERNS[provider].test(key)) {
-      return res.status(401).json({ response: `Invalid ${provider} API key format.`, type: "error" });
-    }
   }
 
   if (!Array.isArray(messages) || messages.length === 0) {
@@ -105,9 +123,16 @@ app.post("/api/chat", async (req, res) => {
     return res.status(400).json({ response: "Skill prompt too long (max 50,000 characters).", type: "error" });
   }
 
+  const normalizeNFKC = (s) => typeof s === "string" ? s.normalize("NFKC") : "";
   const INJECTION_PATTERNS = /ignore all previous|forget all|you are free|override.*system|jailbreak|system prompt/i;
-  if (skillPrompt && INJECTION_PATTERNS.test(skillPrompt)) {
+
+  if (skillPrompt && INJECTION_PATTERNS.test(normalizeNFKC(skillPrompt))) {
     return res.status(400).json({ response: "Skill prompt contains prohibited patterns.", type: "error" });
+  }
+
+  const lastUserMsg = messages.filter(m => m.role === "user").pop();
+  if (lastUserMsg?.content && INJECTION_PATTERNS.test(normalizeNFKC(lastUserMsg.content))) {
+    return res.status(400).json({ response: "Message contains prohibited patterns.", type: "error" });
   }
 
   res.setHeader("Content-Type", "text/event-stream");
@@ -299,7 +324,21 @@ app.post("/api/keys", async (req, res) => {
   }
 
   const anyOk = Object.values(results).some(r => r.ok);
-  res.json({ type: anyOk ? "success" : "error", results });
+  let token = null;
+  if (anyOk) {
+    const validatedKeys = {};
+    for (const provider of ["openrouter", "groq", "gemini", "huggingface", "together", "mistral"]) {
+      const rawKey = req.body[provider];
+      if (rawKey && results[provider]?.ok) {
+        validatedKeys[provider] = String(rawKey).replace(/[^\x00-\x7F]/g, "").trim();
+      }
+    }
+    if (Object.keys(validatedKeys).length > 0) {
+      token = crypto.randomBytes(32).toString("hex");
+      keyStore.set(token, { userId, keys: validatedKeys, createdAt: Date.now() });
+    }
+  }
+  res.json({ type: anyOk ? "success" : "error", results, token });
 });
 
 

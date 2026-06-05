@@ -66,6 +66,7 @@ function AppInner() {
   const draftControllersRef = useRef([]);
   const streamCountRef = useRef(0);
   const generationRef = useRef(0);
+  const stopRequestedRef = useRef(false);
   const askAIRef = useRef(null);
   const [isCopied, setIsCopied] = useState({ idMes: 0, state: false });
   const pendingContentRef = useRef(null);
@@ -101,11 +102,12 @@ function AppInner() {
     return () => window.removeEventListener('chatforge:stats', handleStats);
   }, []);
 
-  // ── Clean up RAF on unmount ──
+  // ── Clean up flush timer on unmount ──
   useEffect(() => {
     return () => {
       if (flushRafRef.current) {
         cancelAnimationFrame(flushRafRef.current);
+        clearTimeout(flushRafRef.current);
         flushRafRef.current = null;
       }
     };
@@ -114,6 +116,7 @@ function AppInner() {
   // ── Clear per-session caches on session switch ──
   useEffect(() => {
     batchCacheRef.current = {};
+    ContextBuilder.clearContextCache();
     if (summarizeAbortRef.current) {
       summarizeAbortRef.current.abort();
       summarizeAbortRef.current = null;
@@ -293,13 +296,15 @@ function AppInner() {
         if (flushRafRef.current) return;
         const now = Date.now();
         if (now - lastFlushTimeRef.current < 100) {
-          flushRafRef.current = requestAnimationFrame(() => {
+          const fn = document.hidden ? setTimeout : requestAnimationFrame;
+          flushRafRef.current = fn(() => {
             flushRafRef.current = null;
             scheduleFlush();
           });
           return;
         }
-        flushRafRef.current = requestAnimationFrame(() => {
+        const fn = document.hidden ? setTimeout : requestAnimationFrame;
+        flushRafRef.current = fn(() => {
           flushRafRef.current = null;
           lastFlushTimeRef.current = Date.now();
           flushContent();
@@ -396,7 +401,7 @@ function AppInner() {
       // Auto-continuation: if response was truncated, automatically continue
       if (isTruncated && autoContinueCount < MAX_AUTO_CONTINUATIONS) {
         await new Promise(r => setTimeout(r, 500));
-        if (generationRef.current !== myGen) return;
+        if (stopRequestedRef.current || generationRef.current !== myGen) return;
         return startStream(
           'Continue writing from where you left off. Do not repeat what you already wrote. Finish the code.',
           id,
@@ -444,6 +449,7 @@ function AppInner() {
 
   async function askAI(question, id, overrideSkillId = null, draftCount = 1, attachedFiles = []) {
     generationRef.current += 1;
+    stopRequestedRef.current = false;
     if (abortControllerRef.current) abortControllerRef.current.abort();
     draftControllersRef.current.forEach(c => c.abort());
     draftControllersRef.current = [];
@@ -472,6 +478,7 @@ function AppInner() {
 
   // ── Handlers ──
   const handleStopAI = useCallback(() => {
+    stopRequestedRef.current = true;
     abortControllerRef.current?.abort();
     abortControllerRef.current = null;
     draftControllersRef.current.forEach(c => c.abort());
