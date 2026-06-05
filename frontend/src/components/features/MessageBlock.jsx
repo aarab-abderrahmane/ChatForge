@@ -2,7 +2,7 @@ import { useState, useContext, useRef } from "react";
 import {
   CopyIcon, RefreshCcwIcon,
   AlertTriangleIcon, Pencil, Eye, EyeOff, X, Check,
-  Wand2, AlignLeft, Layers, ChevronDown,
+  Wand2, AlignLeft, Layers, ChevronDown, Volume2, VolumeX,
 } from "lucide-react";
 import { Response } from "../ui/shadcn-io/ai/response";
 import { QuizBlock } from "../ui/shadcn-io/ai/quiz-block";
@@ -27,6 +27,7 @@ export function MessageBlock({
   const [editValue, setEditValue] = useState("");
   const [showRaw, setShowRaw] = useState(false);
   const [selectedDrafts, setSelectedDrafts] = useState([]);
+  const [speakingId, setSpeakingId] = useState(null);
   const editRef = useRef(null);
 
   const { settings, editMessage } = useContext(chatsContext);
@@ -54,6 +55,20 @@ export function MessageBlock({
   };
 
   const cancelEdit = () => { setIsEditing(false); setEditValue(""); };
+
+  const speakMessage = (id, text) => {
+    if (speakingId === id) {
+      window.speechSynthesis.cancel();
+      setSpeakingId(null);
+      return;
+    }
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text.replace(/<[^>]*>/g, ""));
+    utterance.onend = () => setSpeakingId(null);
+    utterance.onerror = () => setSpeakingId(null);
+    window.speechSynthesis.speak(utterance);
+    setSpeakingId(id);
+  };
 
   return (
     <article id={`msg-${obj.id}`} className={`border-b border-divider py-5 ${isFirst ? "first-message" : ""}`}>
@@ -173,6 +188,11 @@ export function MessageBlock({
               ) : !obj.isMulti ? (
                 <button className={btnGhost} onClick={() => copyToClipboard(obj.id)} title="Copy response"><CopyIcon size={11} strokeWidth={1.5} /> copy</button>
               ) : null
+            )}
+            {(hasAnswer && !isError && !obj.isMulti) && (
+              <button className={speakingId === obj.id ? btnActiveUp : btnGhost} onClick={() => speakMessage(obj.id, obj.answer)} title={speakingId === obj.id ? "Stop" : "Read aloud"}>
+                {speakingId === obj.id ? <VolumeX size={11} strokeWidth={1.5} /> : <Volume2 size={11} strokeWidth={1.5} />} {speakingId === obj.id ? "stop" : "read"}
+              </button>
             )}
             {(hasAnswer && !isError && !obj.isMulti) && (
               <button className={showRaw ? btnActiveUp : btnGhost} onClick={() => setShowRaw(p => !p)} title={showRaw ? "Show rendered" : "Show raw"}>

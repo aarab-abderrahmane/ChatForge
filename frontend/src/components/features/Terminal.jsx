@@ -12,7 +12,7 @@ import {
   Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil, Wifi, WifiOff,
   Briefcase, Bug, Code, BarChart3, TrendingUp, ChevronUp, ChevronDown,
   RefreshCw, Download, Check, Paperclip, File, Image, FileCode,
-  FileJson, AlertCircle,
+  FileJson, AlertCircle, Mic, MicOff,
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
@@ -211,6 +211,8 @@ export const Terminal = ({
   const [toolbarOpen, setToolbarOpen] = useState(false);
   const [artifactPanelOpen, setArtifactPanelOpen] = useState(false);
   const [inputVisible, setInputVisible] = useState(true);
+  const [voiceListening, setVoiceListening] = useState(false);
+  const recognitionRef = useRef(null);
 
   const textareaRef = useRef(null);
   const searchInputRef = useRef(null);
@@ -322,6 +324,38 @@ export const Terminal = ({
     const files = imageItems.map(i => i.getAsFile()).filter(Boolean);
     handleFileSelect(files);
   }, [handleFileSelect]);
+
+  // ── Voice input ──────────────────────────────────────────────────────
+  const toggleVoiceInput = useCallback(() => {
+    const REC = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!REC) return;
+
+    if (voiceListening) {
+      recognitionRef.current?.stop();
+      recognitionRef.current = null;
+      setVoiceListening(false);
+      return;
+    }
+
+    const recognition = new REC();
+    recognition.lang = settings?.language === "ar" ? "ar" : "en-US";
+    recognition.interimResults = false;
+    recognition.continuous = false;
+
+    recognition.onresult = (e) => {
+      const transcript = e.results[0][0].transcript;
+      setQuery(transcript);
+      setCharCount(transcript.length);
+      setVoiceListening(false);
+    };
+
+    recognition.onerror = () => setVoiceListening(false);
+    recognition.onend = () => setVoiceListening(false);
+
+    recognitionRef.current = recognition;
+    recognition.start();
+    setVoiceListening(true);
+  }, [voiceListening, settings]);
 
   // Drag-and-drop on the whole input area
   const handleDragOver = (e) => { e.preventDefault(); };
@@ -873,6 +907,22 @@ export const Terminal = ({
                       className="hidden"
                       onChange={e => { handleFileSelect(e.target.files); e.target.value = ""; }}
                     />
+
+                    {/* Voice input */}
+                    {(window.SpeechRecognition || window.webkitSpeechRecognition) && (
+                      <button
+                        type="button"
+                        title={voiceListening ? "Stop recording" : "Voice input"}
+                        onClick={toggleVoiceInput}
+                        className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-all duration-150 ${
+                          voiceListening
+                            ? "border-red bg-red text-white animate-pulse"
+                            : "border-ink text-ink hover:bg-muted-100"
+                        }`}
+                      >
+                        {voiceListening ? <MicOff size={16} strokeWidth={1.5} /> : <Mic size={16} strokeWidth={1.5} />}
+                      </button>
+                    )}
 
                     {/* Draft variants */}
                     <div ref={draftRef} className="relative">
