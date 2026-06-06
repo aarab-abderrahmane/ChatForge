@@ -665,6 +665,7 @@ function AppInner() {
           answers: draftCount > 1 ? Array(draftCount).fill('') : undefined,
           isMulti: draftCount > 1,
           timestamp: new Date().toISOString(),
+          files: attachedFiles?.length > 0 ? attachedFiles.map(f => ({ name: f.name, sizeKB: f.sizeKB, type: f.type })) : undefined,
         };
         setChats((prev) => [...prev, newMsg]);
         askAIRef.current(transformed.question, newId, transformed.skillId, draftCount, attachedFiles);
@@ -679,6 +680,7 @@ function AppInner() {
         answers: draftCount > 1 ? Array(draftCount).fill('') : undefined,
         isMulti: draftCount > 1,
         timestamp: new Date().toISOString(),
+        files: attachedFiles?.length > 0 ? attachedFiles.map(f => ({ name: f.name, sizeKB: f.sizeKB, type: f.type })) : undefined,
       };
 
       setChats((prev) => [...prev, newMsg]);

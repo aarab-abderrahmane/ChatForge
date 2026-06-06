@@ -2,7 +2,7 @@ import { useState, useContext, useRef } from "react";
 import {
   CopyIcon, RefreshCcwIcon,
   AlertTriangleIcon, Pencil, Eye, EyeOff, X, Check,
-  Wand2, AlignLeft, Layers, ChevronDown, Volume2, VolumeX,
+  Wand2, AlignLeft, Layers, ChevronDown, Volume2, VolumeX, Paperclip,
 } from "lucide-react";
 import { Response } from "../ui/shadcn-io/ai/response";
 import { QuizBlock } from "../ui/shadcn-io/ai/quiz-block";
@@ -28,7 +28,11 @@ export function MessageBlock({
   const [showRaw, setShowRaw] = useState(false);
   const [selectedDrafts, setSelectedDrafts] = useState([]);
   const [speakingId, setSpeakingId] = useState(null);
+  const [expanded, setExpanded] = useState(false);
   const editRef = useRef(null);
+  const MAX_QUESTION_CHARS = 200;
+  const shouldTruncate = obj.question?.length > MAX_QUESTION_CHARS;
+  const displayQuestion = shouldTruncate && !expanded ? obj.question.slice(0, MAX_QUESTION_CHARS) + "..." : obj.question;
 
   const { settings, editMessage } = useContext(chatsContext);
 
@@ -96,9 +100,30 @@ export function MessageBlock({
               </div>
             </div>
           ) : (
-            <div dir="auto" className={`font-serif font-bold text-ink ${isFirst ? "drop-cap" : "text-lg"}`}>
-              {obj.question}
-            </div>
+            <>
+              <div dir="auto" className={`font-serif font-bold text-ink ${isFirst ? "drop-cap" : "text-lg"}`}>
+                {displayQuestion}
+                {shouldTruncate && (
+                  <button
+                    onClick={() => setExpanded(!expanded)}
+                    className="ml-2 font-mono text-[10px] uppercase tracking-widest text-muted-500 hover:text-green transition-colors align-baseline"
+                  >
+                    {expanded ? "Show less" : "Show more"}
+                  </button>
+                )}
+              </div>
+              {obj.files?.length > 0 && (
+                <div className="flex flex-wrap gap-1 mt-1.5">
+                  {obj.files.map(f => (
+                    <span key={f.name} className="inline-flex items-center gap-1 px-1.5 py-0.5 border border-ink/30 font-mono text-[10px] text-muted-500">
+                      <Paperclip size={10} strokeWidth={1.5} />
+                      {f.name}
+                      <span className="text-muted-400 ml-0.5">({f.sizeKB}KB)</span>
+                    </span>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
