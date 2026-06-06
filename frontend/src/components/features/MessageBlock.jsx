@@ -5,6 +5,7 @@ import {
   Wand2, AlignLeft, Layers, ChevronDown, Volume2, VolumeX, Paperclip,
 } from "lucide-react";
 import { Response } from "../ui/shadcn-io/ai/response";
+import { BlockErrorBoundary } from "../ui/shadcn-io/ai/response";
 import { QuizBlock } from "../ui/shadcn-io/ai/quiz-block";
 import { FlashcardBlock } from "../ui/shadcn-io/ai/flashcard-block";
 import { MindmapBlock } from "../ui/shadcn-io/ai/mindmap-block";
@@ -198,8 +199,8 @@ export function MessageBlock({
             <div dir="auto" className="font-body text-base leading-relaxed [&_p]:text-justify">
               {showRaw ? (
                 <pre className="font-mono text-xs whitespace-pre-wrap break-words text-muted-600">{obj.answer}</pre>
-              ) : isQuiz ? <QuizBlock code={obj.answer} /> :
-                isFlashcards ? <FlashcardBlock code={obj.answer} /> :
+              ) : isQuiz ? <BlockErrorBoundary code={obj.answer}><QuizBlock code={obj.answer} /></BlockErrorBoundary> :
+                isFlashcards ? <BlockErrorBoundary code={obj.answer}><FlashcardBlock code={obj.answer} /></BlockErrorBoundary> :
                   isMindmap ? <MindmapBlock code={obj.answer} /> :
                     <Response dir="auto">{obj.answer}</Response>}
             </div>

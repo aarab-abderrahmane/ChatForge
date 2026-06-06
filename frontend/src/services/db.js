@@ -39,7 +39,7 @@ export const openDB = () => {
 // ── Write-ahead log ──────────────────────────────────────────────
 const batchQueue = [];
 let batchTimer = null;
-const BATCH_FLUSH_MS = 5_000;
+const BATCH_FLUSH_MS = 1_000;
 
 if (typeof window !== 'undefined') {
     window.addEventListener('pagehide', () => { flushBatch(); });

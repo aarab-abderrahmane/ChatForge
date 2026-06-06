@@ -14,17 +14,34 @@ import { spawn } from "child_process";
 import { fileURLToPath } from "url";
 import path from "path";
 
-// ── In-memory session key store ──────────────────────────────
-const keyStore = new Map();
-const TOKEN_TTL_MS = 24 * 60 * 60 * 1000;
-const KEY_CLEANUP_INTERVAL_MS = 60 * 60 * 1000;
+// ── JWT Session Token ───────────────────────────────────────
+const JWT_SECRET = process.env.JWT_SECRET || crypto.randomBytes(32).toString('hex');
+if (!process.env.JWT_SECRET) {
+  console.warn('WARNING: JWT_SECRET not set. Session tokens invalidated on restart. Set JWT_SECRET env var for persistence.');
+}
 
-setInterval(() => {
-  const now = Date.now();
-  for (const [token, entry] of keyStore) {
-    if (now - entry.createdAt > TOKEN_TTL_MS) keyStore.delete(token);
-  }
-}, KEY_CLEANUP_INTERVAL_MS);
+function createToken(payload) {
+  const header = { alg: 'HS256', typ: 'JWT' };
+  const now = Math.floor(Date.now() / 1000);
+  const body = { ...payload, iat: now, exp: now + 86400 };
+  const enc = (o) => Buffer.from(JSON.stringify(o)).toString('base64url');
+  const data = `${enc(header)}.${enc(body)}`;
+  const sig = crypto.createHmac('sha256', JWT_SECRET).update(data).digest('base64url');
+  return `${data}.${sig}`;
+}
+
+function verifyToken(token) {
+  try {
+    const parts = token.split('.');
+    if (parts.length !== 3) return null;
+    const data = `${parts[0]}.${parts[1]}`;
+    const sig = crypto.createHmac('sha256', JWT_SECRET).update(data).digest('base64url');
+    if (sig !== parts[2]) return null;
+    const body = JSON.parse(Buffer.from(parts[1], 'base64url').toString());
+    if (body.exp < Math.floor(Date.now() / 1000)) return null;
+    return body;
+  } catch { return null; }
+}
 
 // ── Self-hosted SearXNG ──────────────────────────────
 const SEARXNG_PORT = 8888;
@@ -36,7 +53,11 @@ function startSearXNG() {
     const __dirname = path.dirname(fileURLToPath(import.meta.url));
     const settingsPath = path.join(__dirname, "searxng-settings.yml");
     searxngProcess = spawn("python3", ["-m", "searx.webapp"], {
-      env: { ...process.env, SEARXNG_SETTINGS_PATH: settingsPath },
+      env: {
+        ...process.env,
+        SEARXNG_SETTINGS_PATH: settingsPath,
+        SEARXNG_SECRET_KEY: process.env.SEARXNG_SECRET_KEY || crypto.randomBytes(16).toString('hex'),
+      },
       stdio: ["ignore", "pipe", "pipe"],
     });
 
@@ -127,16 +148,31 @@ app.use(cors({
 
 app.use(express.json({ limit: "1mb" }));
 
-if (process.env.NODE_ENV === "production") {
-  app.use((req, res, next) => {
+// Scrub API keys from req.body so no middleware/route accidentally logs them
+app.use((req, res, next) => {
+  if (req.body && typeof req.body === 'object') {
+    const keyFields = ['openrouter', 'groq', 'gemini', 'huggingface', 'together', 'mistral'];
+    req._providerKeys = {};
+    for (const field of keyFields) {
+      if (field in req.body) {
+        req._providerKeys[field] = String(req.body[field]).trim();
+        req.body[field] = '[REDACTED]';
+      }
+    }
+  }
+  next();
+});
+
+app.use((req, res, next) => {
+  if (process.env.NODE_ENV === "production") {
     res.setHeader("Strict-Transport-Security", "max-age=31536000; includeSubDomains");
-    res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'");
-    res.setHeader("X-Content-Type-Options", "nosniff");
-    res.setHeader("X-Frame-Options", "DENY");
-    res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
-    next();
-  });
-}
+  }
+  res.setHeader("Content-Security-Policy", "default-src 'self'; script-src 'self'; style-src 'self'; style-src-attr 'unsafe-inline'");
+  res.setHeader("X-Content-Type-Options", "nosniff");
+  res.setHeader("X-Frame-Options", "DENY");
+  res.setHeader("Referrer-Policy", "strict-origin-when-cross-origin");
+  next();
+});
 
 const chatLimiter = rateLimit({
   windowMs: 60 * 1000,
@@ -171,17 +207,14 @@ app.post("/api/chat", async (req, res) => {
     return res.status(401).json({ response: "No session token. Please enter your API keys in Settings.", type: "error" });
   }
 
-  const entry = keyStore.get(token);
-  if (!entry || Date.now() - entry.createdAt > TOKEN_TTL_MS) {
-    keyStore.delete(token);
+  const session = verifyToken(token);
+  if (!session) {
     return res.status(401).json({ response: "Session expired or invalid. Please re-enter your keys in Settings.", type: "error" });
   }
 
-  const clientKeys = entry.keys;
-  entry.createdAt = Date.now();
+  const clientKeys = session.keys || {};
 
-  if (!clientKeys || (!clientKeys.openrouter && !clientKeys.groq && !clientKeys.gemini && !clientKeys.huggingface)) {
-    keyStore.delete(token);
+  if (!clientKeys.openrouter && !clientKeys.groq && !clientKeys.gemini && !clientKeys.huggingface && !clientKeys.together && !clientKeys.mistral) {
     return res.status(401).json({ response: "No API keys found! Please add at least one key in Settings.", type: "error" });
   }
 
@@ -346,9 +379,8 @@ app.post("/api/search", searchLimiter, async (req, res) => {
     return res.status(401).json({ response: "No session token." });
   }
 
-  const entry = keyStore.get(token);
-  if (!entry || Date.now() - entry.createdAt > TOKEN_TTL_MS) {
-    keyStore.delete(token);
+  const session = verifyToken(token);
+  if (!session) {
     return res.status(401).json({ response: "Session expired." });
   }
 
@@ -414,7 +446,8 @@ app.post("/api/search", searchLimiter, async (req, res) => {
 // POST /api/keys — save all provider keys
 // ─────────────────────────────────────────────
 app.post("/api/keys", async (req, res) => {
-  const { userId, openrouter, groq, gemini, huggingface, together, mistral } = req.body;
+  const { userId } = req.body;
+  const { openrouter, groq, gemini, huggingface, together, mistral } = req._providerKeys || {};
   if (!userId) return res.status(400).json({ type: "error", response: "userId is required." });
   const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
   if (!UUID_RE.test(userId)) {
@@ -535,14 +568,13 @@ app.post("/api/keys", async (req, res) => {
   if (anyOk) {
     const validatedKeys = {};
     for (const provider of ["openrouter", "groq", "gemini", "huggingface", "together", "mistral"]) {
-      const rawKey = req.body[provider];
+      const rawKey = req._providerKeys?.[provider];
       if (rawKey && results[provider]?.ok) {
         validatedKeys[provider] = String(rawKey).replace(/[^\x00-\x7F]/g, "").trim();
       }
     }
     if (Object.keys(validatedKeys).length > 0) {
-      token = crypto.randomBytes(32).toString("hex");
-      keyStore.set(token, { userId, keys: validatedKeys, createdAt: Date.now() });
+      token = createToken({ userId, keys: validatedKeys, ip: req.ip });
     }
   }
   res.json({ type: anyOk ? "success" : "error", results, token });
@@ -562,13 +594,17 @@ async function startServer() {
   try {
     const port = process.env.PORT || 5000;
 
-    console.log("[Server] Starting SearXNG search backend...");
-    try {
-      await startSearXNG();
-      console.log("[Server] SearXNG ready on port 8888");
-    } catch (err) {
-      console.error("[Server] Failed to start SearXNG:", err.message);
-      console.error("[Server] Search will fall back to remote providers");
+    if (process.env.SEARXNG_ENABLED !== 'false') {
+      console.log("[Server] Starting SearXNG search backend...");
+      try {
+        await startSearXNG();
+        console.log("[Server] SearXNG ready on port 8888");
+      } catch (err) {
+        console.error("[Server] Failed to start SearXNG:", err.message);
+        console.error("[Server] Search will fall back to remote providers");
+      }
+    } else {
+      console.log("[Server] SearXNG disabled (SEARXNG_ENABLED=false)");
     }
 
     app.listen(port, () => {

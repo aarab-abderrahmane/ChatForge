@@ -1,5 +1,5 @@
 import { askGroq } from "./groqClient.js";
-import { askGeminiStream, askGeminiSync } from "./geminiClient.js";
+import { askGeminiStream } from "./geminiClient.js";
 import { askHuggingFace } from "./huggingfaceClient.js";
 import { askTogether } from "./togetherClient.js";
 import { askMistral } from "./mistralClient.js";
@@ -146,21 +146,27 @@ export async function askAI(messages, key, options = {}) {
 
 // ─── Task type detection ─────────────────────────────────────
 const CODE_KEYWORDS = [
-  "function ", "class ", "const ", "let ", "var ", "import ", "export ",
-  "debug", "error", "bug", "fix ", "refactor", "optimize",
+  "import ", "export ",
+  "debug", "error", "bug", "refactor", "optimize",
   "react", "component", "api", "sql", "json", "html", "css",
-  "code", "script", "algorithm", "compile", "syntax", "type ",
+  "code", "script", "algorithm", "compile", "syntax",
   // Arabic
   "دالة", "كود", "برمجة", "تصحيح", "خطأ", "متغير", "وظيفة",
   // French
   "fonction", "classe", "déboguer", "erreur", "code", "variable", "composant",
 ];
 
+const CODE_WORD_PATTERNS = [
+  /\bclass\b/i, /\blet\b/i, /\bvar\b/i, /\bconst\b/i,
+  /\bfunction\b/i, /\bfix\b/i, /\btype\b/i,
+];
+
 export function detectTaskType(messages) {
   const lastMsg = messages[messages.length - 1]?.content || "";
   const lower = lastMsg.toLowerCase();
 
-  const hasCodeKeywords = CODE_KEYWORDS.some(kw => lower.includes(kw));
+  const hasCodeKeywords = CODE_KEYWORDS.some(kw => lower.includes(kw)) ||
+    CODE_WORD_PATTERNS.some(p => p.test(lower));
 
   // Math detection — equations, calculations
   const mathPattern = /\d+\s*[+\-*/^=]\s*\d+/;
@@ -243,12 +249,6 @@ export async function smartRouter(messages, keys, options = {}) {
       }
 
       if (provider === "gemini") {
-        const useStream = options.stream !== false;
-        if (!useStream) {
-          const res = await askGeminiSync(messages, key, { ...options, model });
-          resetProvider(provider);
-          return { stream: res, provider: "gemini", isGenerator: false };
-        }
         const gen = askGeminiStream(messages, key, { ...options, model });
         // Eagerly validate Gemini — consume first chunk to catch quota/network
         // errors at router time so fallback to next provider works

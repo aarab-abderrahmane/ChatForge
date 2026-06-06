@@ -26,7 +26,7 @@ function hasBase64Instructions(text) {
   if (!matches) return false;
   for (const match of matches) {
     try {
-      const decoded = atob(match);
+      const decoded = Buffer.from(match, 'base64').toString('utf8');
       if (/ignore|instructions|system|prompt/i.test(decoded)) return true;
     } catch {}
   }

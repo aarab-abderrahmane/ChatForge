@@ -77,6 +77,7 @@ function AppInner() {
   const batchCacheRef = useRef({});
   const summarizeAbortRef = useRef(null);
   const loadingTimeoutRef = useRef(null);
+  const timedOutRef = useRef(false);
 
   // All skills (built-in + custom)
   const allSkills = useMemo(() => [...SKILLS, ...(customSkills || [])], [customSkills]);
@@ -132,10 +133,12 @@ function AppInner() {
   // ════════════════════════════════════════════
   async function startStream(question, id, skillId, draftIndex, signal, autoContinueCount = 0, seedContent = '', attachedFiles = [], searchEnabled = false) {
     const myGen = generationRef.current;
+    timedOutRef.current = false;
     streamCountRef.current += 1;
     setLoading(true);
     if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
     loadingTimeoutRef.current = setTimeout(() => {
+      timedOutRef.current = true;
       streamCountRef.current -= 1;
       if (streamCountRef.current <= 0) {
         streamCountRef.current = 0;
@@ -479,11 +482,13 @@ function AppInner() {
         loadingTimeoutRef.current = null;
       }
       setSearchStage(null);
-      streamCountRef.current -= 1;
-      if (streamCountRef.current <= 0) {
-        streamCountRef.current = 0;
-        setLoading(false);
-        setAutoContinuationProgress(null);
+      if (!timedOutRef.current) {
+        streamCountRef.current -= 1;
+        if (streamCountRef.current <= 0) {
+          streamCountRef.current = 0;
+          setLoading(false);
+          setAutoContinuationProgress(null);
+        }
       }
     }
   }

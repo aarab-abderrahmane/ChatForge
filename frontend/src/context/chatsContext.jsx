@@ -649,7 +649,7 @@ export function ChatsProvider({ children }) {
   }, [activeSession?.id]);
 
   // ── Session helpers ─────────────────────────────────────────────────
-  const createNewSession = useCallback(() => {
+  const createNewSession = useCallback(async () => {
     const emptySession = sessions.find(
       s => s.messages.filter(m => m.type === "ch").length === 0
     );
@@ -657,7 +657,9 @@ export function ChatsProvider({ children }) {
       setActiveSessionId(emptySession.id);
       return emptySession.id;
     }
-    const s = makeSession({ userFacts: { ...personalInfo } });
+    const info = await PersonalInfoService.get().catch(() => ({}));
+    const facts = info && Object.keys(info).length > 0 ? info : personalInfo;
+    const s = makeSession({ userFacts: { ...facts } });
     setSessions((prev) => [s, ...prev]);
     setActiveSessionId(s.id);
     return s.id;

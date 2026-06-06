@@ -5,6 +5,7 @@ const CHUNK_OVERLAP = 80;
 const TOP_K = 3;
 
 let db = null;
+let indexedFiles = new Map();
 
 function chunkText(text, filename) {
   const chunks = [];
@@ -53,6 +54,9 @@ export async function indexFiles(files) {
   const textFiles = files.filter(f => !f.isImage);
   if (!textFiles.length) return;
 
+  const unchanged = textFiles.every(f => indexedFiles.get(f.name) === f.content);
+  if (unchanged && db) return;
+
   db = await create({
     schema: {
       filename: 'string',
@@ -61,7 +65,10 @@ export async function indexFiles(files) {
     },
   });
 
+  indexedFiles = new Map();
+
   for (const file of textFiles) {
+    indexedFiles.set(file.name, file.content);
     const chunks = chunkText(file.content, file.name);
     for (const chunk of chunks) {
       await insert(db, chunk);
@@ -91,6 +98,7 @@ export async function searchRelevant(query, topK = TOP_K) {
 
 export function clearRAGIndex() {
   db = null;
+  indexedFiles = new Map();
 }
 
 export async function buildRAGBlock(files, question) {

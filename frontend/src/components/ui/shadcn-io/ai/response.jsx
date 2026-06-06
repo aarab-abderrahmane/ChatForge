@@ -196,7 +196,7 @@ const shouldAutoPromoteToFile = (language, code) => {
 };
 
 // ─── Error boundary for streaming blocks (prevents one bad diagram from crashing all messages) ──
-class BlockErrorBoundary extends Component {
+export class BlockErrorBoundary extends Component {
   constructor(props) {
     super(props);
     this.state = { error: null };
