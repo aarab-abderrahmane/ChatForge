@@ -5,14 +5,14 @@ const CHUNK_OVERLAP = 80;
 const TOP_K = 3;
 
 let db = null;
-let currentFileDigest = null;
 
 function chunkText(text, filename) {
   const chunks = [];
   let start = 0;
   let index = 0;
+  let safety = 10000;
 
-  while (start < text.length) {
+  while (start < text.length && safety-- > 0) {
     let end = Math.min(start + CHUNK_SIZE, text.length);
 
     if (end < text.length) {
@@ -30,14 +30,10 @@ function chunkText(text, filename) {
 
     index++;
     start = end - CHUNK_OVERLAP;
-    if (start >= text.length || end - start <= 1) break;
+    if (start >= text.length || text.length - start <= 1 || text.length - start <= CHUNK_OVERLAP) break;
   }
 
   return chunks;
-}
-
-function computeDigest(files) {
-  return files.map(f => `${f.name}:${f.content.length}`).join('|');
 }
 
 async function getDb() {
@@ -57,9 +53,6 @@ export async function indexFiles(files) {
   const textFiles = files.filter(f => !f.isImage);
   if (!textFiles.length) return;
 
-  const digest = computeDigest(textFiles);
-  if (digest === currentFileDigest) return;
-
   db = await create({
     schema: {
       filename: 'string',
@@ -75,7 +68,6 @@ export async function indexFiles(files) {
     }
   }
 
-  currentFileDigest = digest;
 }
 
 export async function searchRelevant(query, topK = TOP_K) {
@@ -99,7 +91,6 @@ export async function searchRelevant(query, topK = TOP_K) {
 
 export function clearRAGIndex() {
   db = null;
-  currentFileDigest = null;
 }
 
 export async function buildRAGBlock(files, question) {
