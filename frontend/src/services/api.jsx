@@ -325,5 +325,27 @@ export const api = {
     }
   },
 
+  searchWeb: async (query) => {
+    const token = getStoredToken();
+    if (!token) return [];
+    try {
+      const res = await fetch(`${BASE_URL}/search`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ query, token }),
+      });
+      if (!res.ok) {
+        console.warn(`Search API returned ${res.status}`);
+        return [];
+      }
+      const data = await res.json();
+      console.log(`Search results: ${data.results?.length || 0} items`);
+      return data.results || [];
+    } catch (e) {
+      console.warn("Search fetch failed:", e);
+      return [];
+    }
+  },
+
 
 };

@@ -75,6 +75,7 @@ function AppInner() {
   const lastFlushTimeRef = useRef(0);
   const batchCacheRef = useRef({});
   const summarizeAbortRef = useRef(null);
+  const loadingTimeoutRef = useRef(null);
 
   // All skills (built-in + custom)
   const allSkills = useMemo(() => [...SKILLS, ...(customSkills || [])], [customSkills]);
@@ -128,10 +129,19 @@ function AppInner() {
   // ════════════════════════════════════════════
   //  CORE AI STREAM
   // ════════════════════════════════════════════
-  async function startStream(question, id, skillId, draftIndex, signal, autoContinueCount = 0, seedContent = '', attachedFiles = []) {
+  async function startStream(question, id, skillId, draftIndex, signal, autoContinueCount = 0, seedContent = '', attachedFiles = [], searchEnabled = false) {
     const myGen = generationRef.current;
     streamCountRef.current += 1;
     setLoading(true);
+    if (loadingTimeoutRef.current) clearTimeout(loadingTimeoutRef.current);
+    loadingTimeoutRef.current = setTimeout(() => {
+      streamCountRef.current -= 1;
+      if (streamCountRef.current <= 0) {
+        streamCountRef.current = 0;
+        setLoading(false);
+        setAutoContinuationProgress(null);
+      }
+    }, 90000);
     if (autoContinueCount > 0) {
       setAutoContinuationProgress({ current: autoContinueCount, total: MAX_AUTO_CONTINUATIONS });
     } else {
@@ -203,6 +213,25 @@ function AppInner() {
       const codeSkill = SKILLS.find((s) => s.id === 'code');
       finalSystemPrompt = `MODAL IDENTITY: ${codeSkill.systemPrompt}\n\n${finalSystemPrompt}`;
     }
+
+    if (searchEnabled && question) {
+      try {
+        const searchResults = await api.searchWeb(question);
+        if (searchResults?.length > 0) {
+          finalSystemPrompt += "\n\n--- Web Search Results ---\nThe user requested a web search — these results are current and should be treated as authoritative for facts, dates, and versions. If they contain the answer, use them over your training data.\n";
+          searchResults.forEach((r, i) => {
+            finalSystemPrompt += `\n[${i + 1}] ${r.title}\n${r.url}\n${r.snippet}\n`;
+          });
+          finalSystemPrompt += "\n--- End of Search Results ---";
+        } else {
+          finalSystemPrompt += "\n\nNote: The user requested a web search but no results were returned. Answer based on your own knowledge.";
+        }
+      } catch (e) {
+        console.error("Search failed:", e);
+      }
+    }
+
+    finalSystemPrompt += `\n\nCurrent date: ${new Date().toISOString().split('T')[0]}`;
 
     if (isContinuation) {
       finalSystemPrompt +=
@@ -440,6 +469,10 @@ function AppInner() {
         })
       );
     } finally {
+      if (loadingTimeoutRef.current) {
+        clearTimeout(loadingTimeoutRef.current);
+        loadingTimeoutRef.current = null;
+      }
       streamCountRef.current -= 1;
       if (streamCountRef.current <= 0) {
         streamCountRef.current = 0;
@@ -449,7 +482,7 @@ function AppInner() {
     }
   }
 
-  async function askAI(question, id, overrideSkillId = null, draftCount = 1, attachedFiles = []) {
+  async function askAI(question, id, overrideSkillId = null, draftCount = 1, attachedFiles = [], searchEnabled = false) {
     generationRef.current += 1;
     stopRequestedRef.current = false;
     if (abortControllerRef.current) abortControllerRef.current.abort();
@@ -469,11 +502,11 @@ function AppInner() {
       draftControllersRef.current = controllers;
       await Promise.all(
         controllers.map((ctrl, i) =>
-          startStream(question, id, overrideSkillId, i, ctrl.signal, 0, '', attachedFiles).catch(() => {})
+          startStream(question, id, overrideSkillId, i, ctrl.signal, 0, '', attachedFiles, searchEnabled).catch(() => {})
         )
       );
     } else {
-      startStream(question, id, overrideSkillId, -1, abortControllerRef.current.signal, 0, '', attachedFiles);
+      startStream(question, id, overrideSkillId, -1, abortControllerRef.current.signal, 0, '', attachedFiles, searchEnabled);
     }
   }
   askAIRef.current = askAI;
@@ -485,6 +518,10 @@ function AppInner() {
     abortControllerRef.current = null;
     draftControllersRef.current.forEach(c => c.abort());
     draftControllersRef.current = [];
+    if (loadingTimeoutRef.current) {
+      clearTimeout(loadingTimeoutRef.current);
+      loadingTimeoutRef.current = null;
+    }
     setLoading(false);
     setAutoContinuationProgress(null);
     const lastMsg = [...chats].reverse().find(m => m.type === 'ch');
@@ -599,7 +636,7 @@ function AppInner() {
 
   // ── Send handler ──
   const handleSend = useCallback(
-    (e, draftCount = 1, attachedFiles = []) => {
+    (e, draftCount = 1, attachedFiles = [], searchEnabled = false) => {
       const newId = crypto.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
       const text = (e.target?.value ?? e.target?.innerText ?? query).trim();
       if (!text) return;
@@ -653,7 +690,8 @@ function AppInner() {
         newId,
         null,
         draftCount,
-        attachedFiles
+        attachedFiles,
+        searchEnabled
       );
     },
     [query, transformCommand]

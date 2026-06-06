@@ -212,6 +212,7 @@ export const Terminal = ({
   const [artifactPanelOpen, setArtifactPanelOpen] = useState(false);
   const [inputVisible, setInputVisible] = useState(true);
   const [voiceListening, setVoiceListening] = useState(false);
+  const [searchEnabled, setSearchEnabled] = useState(false);
   const recognitionRef = useRef(null);
 
   const textareaRef = useRef(null);
@@ -370,7 +371,8 @@ export const Terminal = ({
     if (val?.trim()) addToPromptHistory(val.trim());
     setQuery(""); setCharCount(0); setPromptHistIdx(-1);
     // Pass attached files alongside the message
-    handleSend(e, draftCount, attachedFiles);
+    handleSend(e, draftCount, attachedFiles, searchEnabled);
+    if (searchEnabled) setSearchEnabled(false);
     setAttachedFiles([]);
     setFileError("");
   };
@@ -923,6 +925,20 @@ export const Terminal = ({
                         {voiceListening ? <MicOff size={16} strokeWidth={1.5} /> : <Mic size={16} strokeWidth={1.5} />}
                       </button>
                     )}
+
+                    {/* Web search toggle */}
+                    <button
+                      type="button"
+                      title={searchEnabled ? "Web search on — click to disable" : "Web search off — click to enable"}
+                      onClick={() => setSearchEnabled(p => !p)}
+                      className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-all duration-150 ${
+                        searchEnabled
+                          ? "border-ink bg-ink text-paper"
+                          : "border-ink text-ink hover:bg-muted-100"
+                      }`}
+                    >
+                      <span className="text-base">{searchEnabled ? "🌐" : "🌍"}</span>
+                    </button>
 
                     {/* Draft variants */}
                     <div ref={draftRef} className="relative">

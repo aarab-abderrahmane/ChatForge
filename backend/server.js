@@ -9,6 +9,9 @@ import { validateTogetherKey } from "./togetherClient.js";
 import { validateMistralKey } from "./mistralClient.js";
 import { smartRouter, FREE_MODELS, askAI } from "./smartRouter.js";
 import crypto from "crypto";
+import { spawn } from "child_process";
+import { fileURLToPath } from "url";
+import path from "path";
 
 // ── In-memory session key store ──────────────────────────────
 const keyStore = new Map();
@@ -21,6 +24,82 @@ setInterval(() => {
     if (now - entry.createdAt > TOKEN_TTL_MS) keyStore.delete(token);
   }
 }, KEY_CLEANUP_INTERVAL_MS);
+
+// ── Self-hosted SearXNG ──────────────────────────────
+const SEARXNG_PORT = 8888;
+const SEARXNG_BASE = `http://127.0.0.1:${SEARXNG_PORT}`;
+let searxngProcess = null;
+
+function startSearXNG() {
+  return new Promise((resolve, reject) => {
+    const __dirname = path.dirname(fileURLToPath(import.meta.url));
+    const settingsPath = path.join(__dirname, "searxng-settings.yml");
+    searxngProcess = spawn("python3", ["-m", "searx.webapp"], {
+      env: { ...process.env, SEARXNG_SETTINGS_PATH: settingsPath },
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+
+    let started = false;
+    const timeout = setTimeout(() => {
+      if (!started) {
+        searxngProcess.kill();
+        reject(new Error("SearXNG startup timed out"));
+      }
+    }, 30000);
+
+    searxngProcess.stdout.on("data", (data) => {
+      const text = data.toString();
+      if (text.includes("Serving Flask") && !started) {
+        started = true;
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+
+    searxngProcess.stderr.on("data", (data) => {
+      const text = data.toString();
+      if (text.includes("Serving Flask") && !started) {
+        started = true;
+        clearTimeout(timeout);
+        resolve();
+      }
+    });
+
+    // Fallback: poll health endpoint if string detection fails
+    const healthCheck = setInterval(async () => {
+      if (started) { clearInterval(healthCheck); return; }
+      try {
+        const resp = await fetch(`http://127.0.0.1:${SEARXNG_PORT}/healthz`, { signal: AbortSignal.timeout(2000) });
+        if (resp.ok && !started) {
+          started = true;
+          clearTimeout(timeout);
+          clearInterval(healthCheck);
+          resolve();
+        }
+      } catch {}
+    }, 2000);
+
+    searxngProcess.on("error", (err) => {
+      clearTimeout(timeout);
+      clearInterval(healthCheck);
+      reject(err);
+    });
+
+    searxngProcess.on("exit", (code) => {
+      clearTimeout(timeout);
+      clearInterval(healthCheck);
+      if (!started) reject(new Error(`SearXNG exited with code ${code}`));
+      searxngProcess = null;
+    });
+  });
+}
+
+function stopSearXNG() {
+  if (searxngProcess) {
+    searxngProcess.kill("SIGTERM");
+    searxngProcess = null;
+  }
+}
 
 const app = express();
 
@@ -204,6 +283,89 @@ app.post("/api/chat", async (req, res) => {
 
 
 // ─────────────────────────────────────────────
+// POST /api/search — web search via SearXNG
+// ─────────────────────────────────────────────
+const searchLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 15,
+  keyGenerator: ipKeyGenerator,
+  message: { error: "Too many searches, please try again later." },
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.post("/api/search", searchLimiter, async (req, res) => {
+  const { query, token } = req.body;
+
+  if (!token) {
+    return res.status(401).json({ response: "No session token." });
+  }
+
+  const entry = keyStore.get(token);
+  if (!entry || Date.now() - entry.createdAt > TOKEN_TTL_MS) {
+    keyStore.delete(token);
+    return res.status(401).json({ response: "Session expired." });
+  }
+
+  if (!query || typeof query !== "string" || query.length > 500) {
+    return res.status(400).json({ response: "Invalid query." });
+  }
+
+  let lastError;
+
+  // Primary: Self-hosted SearXNG
+  if (searxngProcess) {
+    console.log(`[Search] Trying local SearXNG`);
+    try {
+      const searchRes = await fetch(
+        `${SEARXNG_BASE}/search?q=${encodeURIComponent(query)}&format=json&language=en`,
+        {
+          signal: AbortSignal.timeout(10000),
+          headers: { "Accept": "application/json" },
+        }
+      );
+      if (searchRes.ok) {
+        const data = await searchRes.json();
+        if (data.results?.length > 0) {
+          const results = data.results.slice(0, 8).map(r => ({ title: r.title || "", url: r.url || "", snippet: r.content || "" }));
+          console.log(`[Search] Local SearXNG returned ${results.length} results`);
+          return res.json({ results });
+        }
+      }
+    } catch (e) {
+      console.error(`[Search] Local SearXNG:`, e.message?.slice(0, 80));
+    }
+  }
+
+  // Fallback: Wikipedia API
+  console.log(`[Search] Trying Wikipedia API`);
+  try {
+    const wikiRes = await fetch(
+      `https://en.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(query)}&format=json&srlimit=8&prop=snippet|title`,
+      { signal: AbortSignal.timeout(6000), headers: { "User-Agent": "ChatForge/1.0" } }
+    );
+    if (wikiRes.ok) {
+      const wikiData = await wikiRes.json();
+      const pages = wikiData.query?.search || [];
+      if (pages.length > 0) {
+        const results = pages.map(p => ({
+          title: p.title,
+          url: `https://en.wikipedia.org/wiki/${encodeURIComponent(p.title.replace(/ /g, "_"))}`,
+          snippet: p.snippet.replace(/<[^>]+>/g, ""),
+        }));
+        console.log(`[Search] Wikipedia returned ${results.length} results`);
+        return res.json({ results });
+      }
+    }
+  } catch (e) {
+    console.error("[Search] Wikipedia API:", e.message?.slice(0, 80));
+  }
+
+  return res.status(502).json({ response: "Search failed.", detail: lastError || "No results found" });
+});
+
+
+// ─────────────────────────────────────────────
 // POST /api/keys — save all provider keys
 // ─────────────────────────────────────────────
 app.post("/api/keys", async (req, res) => {
@@ -354,6 +516,16 @@ app.get("/", (_, res) => process.env.NODE_ENV === "production"
 async function startServer() {
   try {
     const port = process.env.PORT || 5000;
+
+    console.log("[Server] Starting SearXNG search backend...");
+    try {
+      await startSearXNG();
+      console.log("[Server] SearXNG ready on port 8888");
+    } catch (err) {
+      console.error("[Server] Failed to start SearXNG:", err.message);
+      console.error("[Server] Search will fall back to remote providers");
+    }
+
     app.listen(port, () => {
       console.log("-----------------------------------------");
       console.log(`🚀 Server running on port ${port}`);
@@ -363,6 +535,9 @@ async function startServer() {
     console.error("Critical server error:", err);
   }
 }
+
+process.on("SIGINT", () => { stopSearXNG(); process.exit(0); });
+process.on("SIGTERM", () => { stopSearXNG(); process.exit(0); });
 
 // ─────────────────────────────────────────────
 // Global Error Handler

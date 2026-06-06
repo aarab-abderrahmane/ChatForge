@@ -1,0 +1,2 @@
+# SearXNG bot detection / rate limiter config
+# Disabled since we rate-limit at the Node.js proxy level
