@@ -42,6 +42,7 @@ const COMMANDS = {
 function AppInner() {
   const [query, setQuery] = useState('');
   const [autoContinuationProgress, setAutoContinuationProgress] = useState(null);
+  const [searchStage, setSearchStage] = useState(null);
 
   const {
     chats,
@@ -215,6 +216,7 @@ function AppInner() {
     }
 
     if (searchEnabled && question) {
+      setSearchStage("searching");
       try {
         const searchResults = await api.searchWeb(question);
         if (searchResults?.length > 0) {
@@ -229,6 +231,7 @@ function AppInner() {
       } catch (e) {
         console.error("Search failed:", e);
       }
+      setSearchStage("thinking");
     }
 
     finalSystemPrompt += `\n\nCurrent date: ${new Date().toISOString().split('T')[0]}`;
@@ -341,6 +344,8 @@ function AppInner() {
           flushContent();
         });
       }
+
+      setSearchStage("generating");
 
       while (true) {
         const { done, value } = await reader.read();
@@ -473,6 +478,7 @@ function AppInner() {
         clearTimeout(loadingTimeoutRef.current);
         loadingTimeoutRef.current = null;
       }
+      setSearchStage(null);
       streamCountRef.current -= 1;
       if (streamCountRef.current <= 0) {
         streamCountRef.current = 0;
@@ -523,6 +529,7 @@ function AppInner() {
       loadingTimeoutRef.current = null;
     }
     setLoading(false);
+    setSearchStage(null);
     setAutoContinuationProgress(null);
     const lastMsg = [...chats].reverse().find(m => m.type === 'ch');
     if (lastMsg) {
@@ -777,6 +784,7 @@ function AppInner() {
           chats={chats}
           handleSend={handleSend}
           loading={loading}
+          searchStage={searchStage}
           query={query}
           setQuery={setQuery}
           messagesEndRef={messagesEndRef}
