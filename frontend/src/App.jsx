@@ -770,8 +770,8 @@ function AppInner() {
   // ── Render ──
   if (!isReady) {
     return (
-      <div className="w-screen h-screen flex items-center justify-center bg-dark text-muted-400 font-mono text-sm">
-        <span>Loading...</span>
+      <div className="w-screen h-screen flex items-center justify-center bg-paper text-muted-400 font-body text-lg dot-grid-bg">
+        <span className="animate-pulse">Loading...</span>
       </div>
     );
   }

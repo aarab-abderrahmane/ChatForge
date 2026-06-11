@@ -5,20 +5,21 @@ import { useEffect, useRef, useState, useContext, useCallback } from "react";
 import { MessageBlock } from "./MessageBlock";
 import { Sidebar } from "./Sidebar";
 import { GuidePage } from "../../pages/guidePage";
+import { Header } from "./Header";
 
 import {
-  Settings, Trash2, Plus, SendHorizonal, FileText,
-  Search, X as XIcon, Menu, Sparkles,
-  Layers, ChevronLeft, ChevronRight, Lightbulb, Pencil, Wifi, WifiOff,
+  Trash2, SendHorizonal, FileText,
+  Search, X as XIcon, Sparkles,
+  Layers, Lightbulb, Pencil, Wifi,
   Briefcase, Bug, Code, BarChart3, TrendingUp, ChevronUp, ChevronDown,
-  RefreshCw, Download, Check, Paperclip, File, Image, FileCode,
+  Check, Paperclip, File, Image, FileCode,
   FileJson, AlertCircle, Mic, MicOff,
 } from "lucide-react";
 
 import { chatsContext, SKILLS, MODELS } from "../../context/chatsContext";
-import { useArtifacts } from "../../context/artifactContext";
 import { ArtifactPanel } from "./ArtifactPanel";
 import { ChatNavigation } from "./ChatNavigation";
+import { radius } from "../../lib/design-tokens";
 
 const COMMANDS = [
   { cmd: "/quiz", desc: "Generate a quiz (e.g. /quiz React)", icon: Lightbulb, color: "#FF9500" },
@@ -128,8 +129,11 @@ function AttachedFileChip({ file, onRemove }) {
   const visuals = getFileVisuals(file);
   const Icon = visuals.icon;
   return (
-    <div className="flex items-center gap-1.5 px-2 py-1 border border-ink bg-paper font-mono text-[10px] group relative">
-      <Icon size={11} strokeWidth={1.5} style={{ color: visuals.color }} />
+    <div
+      className="flex items-center gap-1.5 px-2.5 py-1.5 border-2 border-ink bg-white font-body text-sm group relative shadow-hard-sm hover:-rotate-1 transition-transform duration-100"
+      style={{ borderRadius: radius.wobblySm }}
+    >
+      <Icon size={13} strokeWidth={2.5} style={{ color: visuals.color }} />
       <span className="text-ink max-w-[120px] truncate" title={file.name}>{file.name}</span>
       <span className="text-muted-400">{file.sizeKB}KB</span>
       <button
@@ -168,9 +172,7 @@ export const Terminal = ({
   const [showDraftMenu, setShowDraftMenu] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 768);
   const [showSkillDropdown, setShowSkillDropdown] = useState(false);
-  const [showModelDropdown, setShowModelDropdown] = useState(false);
   const skillRef = useRef(null);
-  const modelRef = useRef(null);
   const scrollRef = useRef(null);
   const draftRef = useRef(null);
 
@@ -262,7 +264,6 @@ export const Terminal = ({
   useEffect(() => {
     const handleClick = (e) => {
       if (skillRef.current && !skillRef.current.contains(e.target)) setShowSkillDropdown(false);
-      if (modelRef.current && !modelRef.current.contains(e.target)) setShowModelDropdown(false);
     };
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
@@ -562,98 +563,36 @@ export const Terminal = ({
 
         <div className="flex flex-col flex-1 min-w-0 h-full">
 
-          {/* ── Masthead ─────────────────────────────── */}
-          <header className="border-b border-ink bg-paper shrink-0">
-            <div className="flex items-center justify-between px-4 py-3 border-b border-ink">
-              <div className="flex items-center gap-3">
-                {!sidebarOpen && (
-                  <button onClick={() => setSidebarOpen(true)} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors">
-                    <Menu size={18} className="text-ink" strokeWidth={1.5} />
-                  </button>
-                )}
-                <div>
-                  <h1 className="font-serif text-lg font-black uppercase tracking-tight leading-none">ChatForge</h1>
-                  <p className="font-mono text-[10px] text-muted-500 uppercase tracking-widest">Digital Edition</p>
-                </div>
-              </div>
-
-              <div className="hidden md:flex items-center gap-4">
-                <div className={`flex items-center gap-1.5 font-mono text-[10px] uppercase tracking-widest ${isOnline ? "text-ink" : "text-red"}`}>
-                  {isOnline ? <Wifi size={12} strokeWidth={1.5} /> : <WifiOff size={12} strokeWidth={1.5} />}
-                  <span>{isOnline ? "Connected" : "Offline"}</span>
-                </div>
-                <div ref={skillRef} className="relative">
-                  <button
-                    onClick={() => { setShowSkillDropdown(p => !p); setShowModelDropdown(false); }}
-                    className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4 hover:text-ink transition-colors"
-                  >
-                    {activeSkill.icon} {activeSkill.name}
-                  </button>
-                  {showSkillDropdown && (
-                    <div className="absolute top-full left-4 mt-1 min-w-[180px] bg-paper border border-ink shadow-lg z-50">
-                      {allSkills.map(skill => (
-                        <button
-                          key={skill.id}
-                          onClick={() => { setSettings({ ...settings, activeSkillId: skill.id }); setShowSkillDropdown(false); }}
-                          className={`w-full text-left px-3 py-2 font-mono text-[10px] flex items-center gap-2 hover:bg-muted-100 transition-colors ${skill.id === settings.activeSkillId ? 'bg-muted-100 font-bold' : ''}`}
-                        >
-                          {skill.icon} {skill.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div ref={modelRef} className="relative">
-                  <button
-                    onClick={() => { setShowModelDropdown(p => !p); setShowSkillDropdown(false); }}
-                    className="font-mono text-[9px] text-muted-500 uppercase tracking-widest border-l border-ink pl-4 hover:text-ink transition-colors"
-                  >
-                    {activeModel.icon} {activeModel.name.replace(" Instruct", "").replace(" instruct", "")}
-                  </button>
-                  {showModelDropdown && (
-                    <div className="absolute top-full left-4 mt-1 min-w-[200px] bg-paper border border-ink shadow-lg z-50 max-h-[300px] overflow-y-auto">
-                      {MODELS.map(model => (
-                        <button
-                          key={model.id}
-                          onClick={() => { setSettings({ ...settings, activeModelId: model.id }); setShowModelDropdown(false); }}
-                          className={`w-full text-left px-3 py-2 font-mono text-[10px] flex items-center gap-2 hover:bg-muted-100 transition-colors ${model.id === settings.activeModelId ? 'bg-muted-100 font-bold' : ''}`}
-                        >
-                          {model.icon} {model.name}
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex items-center gap-1">
-                {preferences.currentPage === "chat" && (
-                  <ChatActions
-                    createNewSession={createNewSession}
-                    onClear={() => setShowClearConfirm(true)}
-                    onSearch={() => { setShowSearch(p => !p); if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50); }}
-                    onExport={exportTxt}
-                  />
-                )}
-                <ArtifactCountButton isOpen={artifactPanelOpen} onToggle={() => setArtifactPanelOpen(p => !p)} />
-                <button onClick={() => setPreferences(prev => ({ ...prev, currentPage: "docs" }))} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Documentation">
-                  <FileText size={16} strokeWidth={1.5} />
-                </button>
-                <button onClick={() => setPreferences(prev => ({ ...prev, currentPage: "settings" }))} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Settings">
-                  <Settings size={16} strokeWidth={1.5} />
-                </button>
-              </div>
-            </div>
-          </header>
+          <Header
+            sidebarOpen={sidebarOpen}
+            onToggleSidebar={() => setSidebarOpen(p => !p)}
+            isOnline={isOnline}
+            activeSkill={activeSkill}
+            allSkills={allSkills}
+            showSkillDropdown={showSkillDropdown}
+            setShowSkillDropdown={setShowSkillDropdown}
+            skillRef={skillRef}
+            settings={settings}
+            setSettings={setSettings}
+            preferences={preferences}
+            setPreferences={setPreferences}
+            createNewSession={createNewSession}
+            onClearChat={() => setShowClearConfirm(true)}
+            onSearch={() => { setShowSearch(p => !p); if (!showSearch) setTimeout(() => searchInputRef.current?.focus(), 50); }}
+            onExport={exportTxt}
+            artifactPanelOpen={artifactPanelOpen}
+            onToggleArtifactPanel={() => setArtifactPanelOpen(p => !p)}
+          />
 
           {/* ── Search Bar ──────────────────────────── */}
           {showSearch && (
-            <div className="border-b border-ink bg-muted-100">
+            <div className="border-b-2 border-dashed border-ink/30 bg-yellow/20">
               <div className="flex items-center gap-3 px-4 py-2.5">
-                <Search size={14} strokeWidth={1.5} className="text-muted-500 shrink-0" />
+                <Search size={16} strokeWidth={2.5} className="text-muted-500 shrink-0" />
                 <input
                   ref={searchInputRef}
-                  className="flex-1 bg-transparent border-none outline-none font-mono text-sm text-ink placeholder:text-muted-400"
+                  className="flex-1 bg-white border-2 border-ink font-body text-base text-ink placeholder:text-muted-400/60 input-sketch"
+                  style={{ borderRadius: radius.wobblySm }}
                   placeholder="Search in this chat..."
                   value={searchQuery}
                   onChange={e => setSearchQuery(e.target.value)}
@@ -677,7 +616,8 @@ export const Terminal = ({
                 {showScrollDown && (
                   <button
                     onClick={scrollToBottom}
-                    className="sticky bottom-2 z-10 ml-auto mr-2 w-8 h-8 border border-ink bg-paper flex items-center justify-center hover:bg-ink hover:text-paper transition-colors shadow-sm"
+                    className="sticky bottom-2 z-10 ml-auto mr-2 w-10 h-10 border-2 border-ink bg-white flex items-center justify-center hover:bg-red hover:text-white transition-all duration-100 shadow-hard hover:translate-x-0.5 hover:translate-y-0.5"
+                    style={{ borderRadius: radius.wobblySm }}
                     title="Scroll to bottom"
                   >
                     <ChevronDown size={14} strokeWidth={1.5} />
@@ -758,9 +698,9 @@ export const Terminal = ({
                       </div>
                       <button
                         onClick={onStopAI}
-                        className="min-h-[44px] px-4 border border-ink bg-ink text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-paper hover:text-ink transition-colors"
+                        className="btn-sketch btn-sketch-sm bg-red text-white border-red"
                       >
-                        <XIcon size={12} strokeWidth={1.5} className="inline mr-1" /> Stop
+                        <XIcon size={14} strokeWidth={2.5} className="inline mr-1" /> Stop
                       </button>
                     </div>
                   )}
@@ -792,7 +732,8 @@ export const Terminal = ({
                               <button
                                 key={tool.id}
                                 onClick={() => handleToolClick(tool)}
-                                className="font-[-apple-system,BlinkMacSystemFont,system-ui,sans-serif] text-[10px] flex justify-between items-center text-ink uppercase tracking-widest px-3 py-1.5 border border-ink hover:bg-ink hover:text-paper transition-colors"
+                                className="font-body text-[10px] flex justify-between items-center text-ink uppercase tracking-widest px-3 py-1.5 border-2 border-ink hover:bg-ink hover:text-paper transition-all duration-100 hover:-rotate-1"
+                                style={{ borderRadius: radius.wobblySm }}
                                 title={tool.prompt ? `Prompt: ${tool.prompt}` : `Command: ${tool.cmd}`}
                               >
                                 <ToolIcon tool={tool} />
@@ -807,8 +748,8 @@ export const Terminal = ({
 
                   {/* Command palette */}
                   {showCmdMenu && (
-                    <div className="border border-ink bg-paper mb-2 max-h-64 overflow-y-auto">
-                      <div className="font-mono text-[10px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b border-ink bg-muted-100">
+                    <div className="border-2 border-ink bg-paper mb-2 max-h-64 overflow-y-auto shadow-hard-sm" style={{ borderRadius: radius.wobblyMd }}>
+                      <div className="font-mono text-[10px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b-2 border-ink bg-muted-100">
                         Available Commands
                       </div>
                       {(() => {
@@ -829,7 +770,7 @@ export const Terminal = ({
                             <button
                               key={c.cmd}
                               onClick={() => handleCmdSelect(c.cmd)}
-                              className="w-full flex items-center justify-between px-3 py-2 text-left font-mono text-xs hover:bg-muted-100 transition-colors border-b border-divider last:border-b-0"
+                              className="w-full flex items-center justify-between px-3 py-2 text-left font-body text-sm hover:bg-yellow/30 transition-all duration-100 border-b-2 border-dashed border-ink/20 last:border-b-0 hover:-translate-x-0.5"
                             >
                               <span className="font-semibold text-ink flex items-center gap-2">
                                 <Icon size={14} strokeWidth={1.5} style={{ color: c.color }} />
@@ -854,11 +795,11 @@ export const Terminal = ({
 
                   {/* ── File error ── */}
                   {fileError && (
-                    <div className="flex items-center gap-2 mb-2 px-2 py-1 border border-red-300 bg-red-50 font-mono text-[10px] text-red-600">
-                      <AlertCircle size={11} strokeWidth={2} />
+                    <div className="flex items-center gap-2 mb-2 px-3 py-1.5 border-2 border-red bg-red/5 font-body text-sm text-red shadow-hard-sm" style={{ borderRadius: radius.wobblySm }}>
+                      <AlertCircle size={13} strokeWidth={2.5} />
                       {fileError}
-                      <button onClick={() => setFileError("")} className="ml-auto">
-                        <XIcon size={9} strokeWidth={2} />
+                      <button onClick={() => setFileError("")} className="ml-auto hover:text-ink transition-colors">
+                        <XIcon size={10} strokeWidth={2.5} />
                       </button>
                     </div>
                   )}
@@ -869,7 +810,7 @@ export const Terminal = ({
                       <textarea
                         ref={textareaRef}
                         dir="auto"
-                        className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink placeholder:text-muted-400 outline-none resize-none min-h-[44px] max-h-[160px]"
+                        className="input-sketch w-full resize-none min-h-[48px] max-h-[160px] text-base md:text-lg"
                         placeholder={PLACEHOLDER_SUGGESTIONS[placeholderIdx]}
                         value={query}
                         onChange={handleInputChange}
@@ -878,8 +819,6 @@ export const Terminal = ({
                         autoFocus
                         disabled={loading}
                         rows={1}
-                        onFocus={e => e.currentTarget.style.background = "#F5F5F5"}
-                        onBlur={e => e.currentTarget.style.background = "transparent"}
                       />
                       {charCount > 0 && (
                         <span className="absolute bottom-1 right-2 font-mono text-[9px] text-muted-500 bg-paper px-1">
@@ -895,14 +834,15 @@ export const Terminal = ({
                       onClick={() => fileInputRef.current?.click()}
                       disabled={loading || attachedFiles.length >= MAX_FILES}
                       className={cn(
-                        "min-h-[44px] min-w-[44px] flex items-center justify-center border transition-all duration-150",
+                        "min-h-[44px] min-w-[44px] flex items-center justify-center border-2 transition-all duration-100",
                         attachedFiles.length > 0
-                          ? "border-ink bg-ink text-paper"
-                          : "border-ink text-ink hover:bg-muted-100",
+                          ? "border-ink bg-ink text-paper shadow-hard"
+                          : "border-ink text-ink hover:bg-muted-100 shadow-hard-sm hover:-rotate-1 hover:translate-x-0.5 hover:translate-y-0.5",
                         "disabled:opacity-40 disabled:cursor-not-allowed"
                       )}
+                      style={{ borderRadius: radius.wobblySm }}
                     >
-                      <Paperclip size={16} strokeWidth={1.5} />
+                      <Paperclip size={16} strokeWidth={2.5} />
                       {attachedFiles.length > 0 && (
                         <span className="ml-1 font-mono text-[10px]">{attachedFiles.length}</span>
                       )}
@@ -924,13 +864,14 @@ export const Terminal = ({
                         type="button"
                         title={voiceListening ? "Stop recording" : "Voice input"}
                         onClick={toggleVoiceInput}
-                        className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-all duration-150 ${
+                        className={`min-h-[44px] min-w-[44px] flex items-center justify-center border-2 transition-all duration-100 ${
                           voiceListening
-                            ? "border-red bg-red text-white animate-pulse"
-                            : "border-ink text-ink hover:bg-muted-100"
+                            ? "border-red bg-red text-white animate-pulse shadow-hard"
+                            : "border-ink text-ink hover:bg-muted-100 shadow-hard-sm hover:-rotate-1 hover:translate-x-0.5 hover:translate-y-0.5"
                         }`}
+                        style={{ borderRadius: radius.wobblySm }}
                       >
-                        {voiceListening ? <MicOff size={16} strokeWidth={1.5} /> : <Mic size={16} strokeWidth={1.5} />}
+                        {voiceListening ? <MicOff size={16} strokeWidth={2.5} /> : <Mic size={16} strokeWidth={2.5} />}
                       </button>
                     )}
 
@@ -939,11 +880,12 @@ export const Terminal = ({
                       type="button"
                       title={searchEnabled ? "Web search on — click to disable" : "Web search off — click to enable"}
                       onClick={() => setSearchEnabled(p => !p)}
-                      className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-all duration-150 ${
+                      className={`min-h-[44px] min-w-[44px] flex items-center justify-center border-2 transition-all duration-100 ${
                         searchEnabled
-                          ? "border-ink bg-ink text-paper"
-                          : "border-ink text-ink hover:bg-muted-100"
+                          ? "border-ink bg-ink text-paper shadow-hard"
+                          : "border-ink text-ink hover:bg-muted-100 shadow-hard-sm hover:-rotate-1 hover:translate-x-0.5 hover:translate-y-0.5"
                       }`}
+                      style={{ borderRadius: radius.wobblySm }}
                     >
                       <span className="text-base">{searchEnabled ? "🌐" : "🌍"}</span>
                     </button>
@@ -954,36 +896,41 @@ export const Terminal = ({
                         type="button"
                         title="Draft variants"
                         onClick={() => setShowDraftMenu(p => !p)}
-                        className={`min-h-[44px] min-w-[44px] flex items-center justify-center border transition-all duration-150 ${draftCount > 1 ? "border-ink bg-ink text-paper" : "border-ink text-ink hover:bg-muted-100"}`}
+                        className={`min-h-[44px] min-w-[44px] flex items-center justify-center border-2 transition-all duration-100 ${
+                          draftCount > 1
+                            ? "border-ink bg-ink text-paper shadow-hard"
+                            : "border-ink text-ink hover:bg-muted-100 shadow-hard-sm hover:-rotate-1 hover:translate-x-0.5 hover:translate-y-0.5"
+                        }`}
+                        style={{ borderRadius: radius.wobblySm }}
                       >
-                        <Layers size={16} strokeWidth={1.5} />
+                        <Layers size={16} strokeWidth={2.5} />
                         {draftCount > 1 && <span className="ml-1 font-mono text-[10px]">{draftCount}</span>}
                       </button>
 
                       {showDraftMenu && (
-                        <div className="absolute bottom-full right-0 mb-2 w-44 border border-ink bg-paper shadow-sm">
-                          <div className="font-mono text-[9px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b border-divider bg-muted-100">
+                        <div className="absolute bottom-full right-0 mb-2 w-44 border-2 border-ink bg-paper shadow-hard" style={{ borderRadius: radius.wobblyMd }}>
+                          <div className="font-body text-[9px] text-muted-500 uppercase tracking-widest px-3 py-2 border-b-2 border-dashed border-ink/30 bg-muted-100">
                             Draft Variants
                           </div>
                           {[1, 2, 3].map(n => (
                             <button
                               key={n}
                               onClick={() => { setDraftCount(n); setShowDraftMenu(false); }}
-                              className={`w-full flex items-center gap-3 px-3 py-2 font-mono text-xs text-left transition-colors border-b border-divider last:border-b-0 ${
+                              className={`w-full flex items-center gap-3 px-3 py-2 font-body text-sm text-left transition-all duration-100 border-b-2 border-dashed border-ink/20 last:border-b-0 ${
                                 draftCount === n
                                   ? "bg-ink text-paper"
-                                  : "text-ink hover:bg-muted-100"
+                                  : "text-ink hover:bg-yellow/30 hover:-translate-x-0.5"
                               }`}
                             >
-                              <span className={`w-5 h-5 flex items-center justify-center border text-[10px] font-bold ${
+                              <span className={`w-6 h-6 flex items-center justify-center border-2 text-[10px] font-bold ${
                                 draftCount === n
                                   ? "border-paper text-paper"
                                   : "border-ink text-ink"
-                              }`}>
+                              }`} style={{ borderRadius: radius.wobblySm }}>
                                 {n}
                               </span>
                               <span className="flex-1">
-                                <span className="block text-[11px] font-semibold">
+                                <span className="block text-sm font-semibold">
                                   {n === 1 ? "Single" : n === 2 ? "Double" : "Triple"}
                                 </span>
                                 <span className="block text-[9px] text-muted-500 uppercase tracking-widest">
@@ -991,7 +938,7 @@ export const Terminal = ({
                                 </span>
                               </span>
                               {draftCount === n && (
-                                <Check size={12} strokeWidth={2} />
+                                <Check size={13} strokeWidth={2.5} />
                               )}
                             </button>
                           ))}
@@ -1007,10 +954,14 @@ export const Terminal = ({
                         executeCommand(query) || doSend({ target: { value: query } });
                       }}
                       disabled={!loading && !query.trim() && attachedFiles.length === 0}
-                      className="min-h-[44px] min-w-[44px] flex items-center justify-center border border-ink transition-colors bg-ink text-paper hover:bg-paper hover:text-ink disabled:opacity-40 disabled:cursor-not-allowed"
+                      className={cn(
+                        "btn-sketch btn-sketch-icon",
+                        loading && "bg-red text-white border-red"
+                      )}
+                      style={{ borderRadius: radius.wobblyMd }}
                       title={loading ? "Stop Generation" : "Send Message"}
                     >
-                      {loading ? <XIcon size={18} strokeWidth={1.5} /> : <SendHorizonal size={18} strokeWidth={1.5} />}
+                      {loading ? <XIcon size={20} strokeWidth={2.5} /> : <SendHorizonal size={20} strokeWidth={2.5} />}
                     </button>
                   </div>
 
@@ -1036,12 +987,15 @@ export const Terminal = ({
         {/* ── Clear Confirm Dialog ─────────────────── */}
         {showClearConfirm && (
           <div className="absolute inset-0 z-50 flex items-center justify-center bg-black/30">
-            <div className="border border-ink bg-paper p-6 max-w-sm w-full mx-4">
-              <p className="font-serif text-xl font-bold text-ink mb-2">Clear Chat?</p>
-              <p className="font-body text-sm text-muted-600 mb-6">This will wipe the current session's history. This action cannot be undone.</p>
+            <div
+              className="card-sketch card-sketch-tape p-6 max-w-sm w-full mx-4 bg-white shadow-hard"
+              style={{ borderRadius: radius.wobblyMd }}
+            >
+              <p className="font-serif text-2xl font-bold text-ink mb-2 -rotate-1">Clear Chat?</p>
+              <p className="font-body text-lg text-muted-600 mb-6">This will wipe the current session&apos;s history. This action cannot be undone.</p>
               <div className="flex gap-3">
-                <button onClick={() => { clearCurrentChat(); setShowClearConfirm(false); setQuery(""); }} className="flex-1 min-h-[44px] border border-ink bg-ink text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-paper hover:text-ink transition-colors">Clear</button>
-                <button onClick={() => setShowClearConfirm(false)} className="flex-1 min-h-[44px] border border-ink text-ink font-mono text-[10px] uppercase tracking-widest hover:bg-muted-100 transition-colors">Cancel</button>
+                <button onClick={() => { clearCurrentChat(); setShowClearConfirm(false); setQuery(""); }} className="btn-sketch btn-sketch-sm flex-1">Clear</button>
+                <button onClick={() => setShowClearConfirm(false)} className="btn-sketch btn-sketch-sm btn-sketch-secondary flex-1">Cancel</button>
               </div>
             </div>
           </div>
@@ -1049,45 +1003,6 @@ export const Terminal = ({
       </div>
   );
 };
-
-function ChatActions({ createNewSession, onClear, onSearch, onExport }) {
-  const { clearFiles, sessionId } = useArtifacts();
-  return (
-    <>
-      <button onClick={() => { clearFiles(sessionId); createNewSession(); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="New chat">
-        <Plus size={16} strokeWidth={1.5} />
-      </button>
-      <button onClick={() => { clearFiles(sessionId); onClear(); }} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Clear chat">
-        <Trash2 size={16} strokeWidth={1.5} />
-      </button>
-      <button onClick={onSearch} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Search (Ctrl+F)">
-        <Search size={16} strokeWidth={1.5} />
-      </button>
-      <button onClick={onExport} className="min-h-[44px] min-w-[44px] flex items-center justify-center hover:bg-muted-100 transition-colors" title="Export as .txt">
-        <Download size={16} strokeWidth={1.5} />
-      </button>
-    </>
-  );
-}
-
-function ArtifactCountButton({ isOpen, onToggle }) {
-  const { getFiles, sessionId } = useArtifacts();
-  const sessionFiles = getFiles(sessionId);
-  return (
-    <button
-      onClick={onToggle}
-      className={`relative min-h-[44px] min-w-[44px] flex items-center justify-center transition-colors ${isOpen ? "bg-muted-100" : "hover:bg-muted-100"}`}
-      title={`Files (${sessionFiles.length})`}
-    >
-      <FileText size={16} strokeWidth={1.5} />
-      {sessionFiles.length > 0 && (
-        <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-[16px] flex items-center justify-center bg-ink text-paper font-mono text-[8px] font-bold leading-none px-1">
-          {sessionFiles.length > 9 ? "9+" : sessionFiles.length}
-        </span>
-      )}
-    </button>
-  );
-}
 
 function ConversationStarters({ onSelect }) {
   const categories = [
@@ -1110,28 +1025,29 @@ function ConversationStarters({ onSelect }) {
   ];
 
   return (
-    <div className="mx-auto max-w-2xl py-8">
-      <h2 className="font-serif text-2xl font-bold text-center mb-2" style={{ animation: "fadeInUp 0.4s ease-out forwards" }}>
-        Hi, I&apos;m ChatForge.
+    <div className="mx-auto max-w-2xl py-8 relative">
+      <div className="hidden md:block absolute -right-8 top-16 text-red font-serif text-4xl rotate-12 animate-sketch-bounce">→</div>
+      <h2 className="font-serif text-3xl md:text-4xl font-bold text-center mb-2 -rotate-1" style={{ animation: "fadeInUp 0.4s ease-out forwards" }}>
+        Hi, I&apos;m ChatForge!
       </h2>
-      <p className="font-body text-base text-center text-muted-500 mb-8" style={{ animation: "fadeInUp 0.4s ease-out 0.15s forwards", opacity: 0 }}>
-        Your AI assistant for anything.
+      <p className="font-body text-lg md:text-xl text-center text-muted-500 mb-8 rotate-1" style={{ animation: "fadeInUp 0.4s ease-out 0.15s forwards", opacity: 0 }}>
+        Your AI assistant — scribble anything below.
       </p>
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:gap-8">
         {categories.map((cat, ci) => (
           <div
             key={cat.title}
-            className="border border-divider p-4"
-            style={{ animation: `fadeInUp 0.4s ease-out ${0.3 + ci * 0.12}s forwards`, opacity: 0 }}
+            className={`card-sketch p-4 md:p-5 ${ci % 2 === 0 ? '-rotate-1' : 'rotate-1'} hover:rotate-0 hover:shadow-hard transition-all duration-100 ${ci === 0 ? 'card-sketch-tape' : ci === 2 ? 'card-sketch-postit' : ''}`}
+            style={{ animation: `fadeInUp 0.4s ease-out ${0.3 + ci * 0.12}s forwards`, opacity: 0, borderRadius: radius.wobblyMd }}
           >
-            <h3 className="font-mono text-xs uppercase tracking-widest mb-3 text-muted-500">
+            <h3 className="font-serif text-lg font-bold mb-3 text-ink">
               {cat.title}
             </h3>
             {cat.items.map((item, ii) => (
               <button
                 key={item}
                 onClick={() => onSelect(item)}
-                className="w-full text-left text-sm font-body text-ink py-1.5 hover:text-red transition-colors block"
+                className="w-full text-left text-base md:text-lg font-body text-ink py-1.5 hover:text-red hover:translate-x-1 transition-all duration-100 block"
                 style={{ animation: `fadeInUp 0.35s ease-out ${0.5 + ci * 0.12 + ii * 0.1}s forwards`, opacity: 0 }}
               >
                 {item} →

@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from "react";
+import { radius, shadows } from "../../lib/design-tokens";
 
 export function ChatNavigation({ chats, scrollRef }) {
   const [isHovered, setIsHovered] = useState(false);
@@ -138,18 +139,19 @@ export function ChatNavigation({ chats, scrollRef }) {
     >
       {/* ── Outline Popup ── */}
       <div
-        className={`absolute right-[82px] top-0 w-56 max-h-[75vh] overflow-y-auto bg-paper border border-ink z-50 shadow-[2px_2px_0_0_#111111] transition-all duration-200 ease-in-out ${
+        className={`absolute right-[82px] top-0 w-56 max-h-[75vh] overflow-y-auto bg-paper border-2 border-ink z-50 shadow-hard-sm transition-all duration-200 ease-in-out ${
           showPopup ? "opacity-100 translate-x-0 pointer-events-auto" : "opacity-0 translate-x-2 pointer-events-none"
         }`}
+        style={{ borderRadius: radius.wobblyMd }}
         onMouseEnter={() => setPopupHovered(true)}
         onMouseLeave={() => setPopupHovered(false)}
       >
-        <div className="flex items-center gap-2 px-3 py-2 border-b border-divider bg-muted-100">
-          <div className="w-2 h-2 bg-ink" />
-          <span className="font-mono text-[9px] font-semibold uppercase tracking-widest text-ink">
+        <div className="flex items-center gap-2 px-3 py-2 border-b-2 border-dashed border-ink/30 bg-muted-100">
+          <div className="w-2 h-2 bg-ink -rotate-3" />
+          <span className="font-body text-[10px] font-bold uppercase tracking-widest text-ink">
             Chat Outline
           </span>
-          <span className="font-mono text-[8px] text-muted-500 ml-auto">
+          <span className="font-body text-[9px] text-muted-500 ml-auto">
             {items.length} msgs
           </span>
         </div>
@@ -159,16 +161,16 @@ export function ChatNavigation({ chats, scrollRef }) {
               key={msg.id}
               onClick={() => scrollToMessage(msg.id)}
               onMouseEnter={() => setHoveredIndex(i)}
-              className={`w-full text-left group flex items-start gap-2 px-3 py-1.5 transition-all duration-150 border-l-2 ${
+              className={`w-full text-left group flex items-start gap-2 px-3 py-1.5 transition-all duration-100 border-l-[3px] ${
                 hoveredIndex === i
-                  ? "bg-muted-100 border-ink text-ink"
-                  : "border-transparent hover:bg-muted-100 hover:border-ink text-muted-600"
+                  ? "bg-yellow/30 border-ink text-ink"
+                  : "border-transparent hover:bg-muted-100 hover:border-ink/50 text-muted-600"
               }`}
             >
-              <span className="font-mono text-[9px] text-muted-400 tabular-nums mt-[2px] shrink-0 w-[18px]">
+              <span className="font-body text-[9px] text-muted-400 tabular-nums mt-[2px] shrink-0 w-[18px]">
                 {i + 1}
               </span>
-              <span className="font-mono text-[11px] group-hover:text-ink transition-colors leading-snug line-clamp-2">
+              <span className="font-body text-sm group-hover:text-ink transition-colors leading-snug line-clamp-2">
                 {getLabel(msg)}
               </span>
             </button>
@@ -179,7 +181,7 @@ export function ChatNavigation({ chats, scrollRef }) {
       {/* ── Minimap Track ── */}
       <div
         ref={trackRef}
-        className="absolute right-0 top-0 bottom-0 w-[76px] cursor-pointer overflow-hidden bg-black/[0.03] border-l border-divider hover:bg-black/[0.05] transition-colors"
+        className="absolute right-0 top-0 bottom-0 w-[76px] cursor-pointer overflow-hidden bg-paper border-l-2 border-dashed border-ink/20 hover:bg-muted-100/50 transition-colors"
         onClick={handleTrackClick}
       >
         {/* Micro-lines Indicators */}
@@ -210,13 +212,13 @@ export function ChatNavigation({ chats, scrollRef }) {
 
         {/* Viewport Slider */}
         <div
-          className={`absolute left-0 right-0 bg-white/15 border-l-2 border-ink cursor-grab
-            ${isDragging ? "bg-white/25 cursor-grabbing" : "hover:bg-white/[0.08]"}
+          className={`absolute left-0 right-0 bg-muted-200/30 border-l-[3px] border-ink cursor-grab
+            ${isDragging ? "bg-muted-200/50 cursor-grabbing" : "hover:bg-muted-200/40"}
             transition-colors`}
           style={{ top: sliderTop, height: sliderHeight }}
           onMouseDown={handleMouseDown}
         >
-          <div className="absolute inset-0 border-t border-b border-ink/5 mx-[2px]" />
+          <div className="absolute inset-0 border-t border-b border-ink/10 mx-[2px]" />
         </div>
       </div>
     </div>

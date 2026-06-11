@@ -10,14 +10,15 @@ import { QuizBlock } from "../ui/shadcn-io/ai/quiz-block";
 import { FlashcardBlock } from "../ui/shadcn-io/ai/flashcard-block";
 import { MindmapBlock } from "../ui/shadcn-io/ai/mindmap-block";
 import { chatsContext } from "../../context/chatsContext";
+import { radius } from "../../lib/design-tokens";
 
 function formatTime(isoString) {
   if (!isoString) return "";
   try { return new Date(isoString).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }); } catch { return ""; }
 }
 
-const btnGhost = "inline-flex items-center gap-1.5 px-2.5 py-1 font-mono text-[10px] uppercase tracking-widest text-muted-500 hover:text-green transition-colors";
-const btnActiveUp = `${btnGhost} text-green`;
+const btnGhost = "inline-flex items-center gap-1.5 px-3 py-1.5 font-body text-base text-muted-500 border-2 border-ink/0 hover:border-ink hover:text-ink hover:-rotate-1 hover:shadow-hard-sm transition-all duration-100";
+const btnActiveUp = `${btnGhost} text-red border-ink rotate-1 shadow-hard-sm`;
 
 export function MessageBlock({
   obj, index, isLast, isCopied, copyToClipboard, onRetry,
@@ -76,8 +77,7 @@ export function MessageBlock({
   };
 
   return (
-    <article id={`msg-${obj.id}`} className={`border-b border-divider py-5 ${isFirst ? "first-message" : ""}`}>
-      {/* Question — as a serif subheading */}
+    <article id={`msg-${obj.id}`} className={`border-b-2 border-dashed border-ink/20 py-6 ${isFirst ? "first-message" : ""}`}>
       <header className="flex items-start gap-4 mb-3">
         <div className="flex-1 min-w-0">
           {isEditing ? (
@@ -85,29 +85,29 @@ export function MessageBlock({
               <textarea
                 ref={editRef}
                 dir="auto"
-                className="w-full bg-transparent border-b-2 border-ink px-2 py-2 font-mono text-sm text-ink outline-none resize-none min-h-[80px]"
+                className="input-sketch w-full resize-none min-h-[80px] text-base"
                 value={editValue}
                 onChange={e => setEditValue(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); commitEdit(); } if (e.key === "Escape") cancelEdit(); }}
                 rows={3}
               />
               <div className="flex gap-2">
-                <button onClick={commitEdit} className="min-h-[44px] px-4 border border-green bg-green text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-green/90 transition-colors">
-                  <Check size={12} strokeWidth={1.5} className="inline mr-1" /> Save & Re-send
+                <button onClick={commitEdit} className="btn-sketch btn-sketch-sm">
+                  <Check size={14} strokeWidth={2.5} className="inline mr-1" /> Save & Re-send
                 </button>
-                <button onClick={cancelEdit} className="min-h-[44px] px-4 border border-ink text-ink font-mono text-[10px] uppercase tracking-widest hover:bg-muted-100 transition-colors">
-                  <X size={12} strokeWidth={1.5} className="inline mr-1" /> Cancel
+                <button onClick={cancelEdit} className="btn-sketch btn-sketch-sm btn-sketch-secondary">
+                  <X size={14} strokeWidth={2.5} className="inline mr-1" /> Cancel
                 </button>
               </div>
             </div>
           ) : (
             <>
-              <div dir="auto" className={`font-serif font-bold text-ink ${isFirst ? "drop-cap" : "text-lg"}`}>
+              <div dir="auto" className={`font-serif font-bold text-ink ${isFirst ? "drop-cap text-2xl md:text-3xl" : "text-xl md:text-2xl"}`}>
                 {displayQuestion}
                 {shouldTruncate && (
                   <button
                     onClick={() => setExpanded(!expanded)}
-                    className="ml-2 font-mono text-[10px] uppercase tracking-widest text-muted-500 hover:text-green transition-colors align-baseline"
+                    className="ml-2 font-body text-base text-muted-500 hover:text-red transition-colors align-baseline wavy-underline"
                   >
                     {expanded ? "Show less" : "Show more"}
                   </button>
@@ -116,7 +116,7 @@ export function MessageBlock({
               {obj.files?.length > 0 && (
                 <div className="flex flex-wrap gap-1 mt-1.5">
                   {obj.files.map(f => (
-                    <span key={f.name} className="inline-flex items-center gap-1 px-1.5 py-0.5 border border-ink/30 font-mono text-[10px] text-muted-500">
+                    <span key={f.name} className="inline-flex items-center gap-1 px-2 py-0.5 border-2 border-dashed border-ink/40 font-body text-sm text-muted-500 wobbly-sm">
                       <Paperclip size={10} strokeWidth={1.5} />
                       {f.name}
                       <span className="text-muted-400 ml-0.5">({f.sizeKB}KB)</span>
@@ -130,13 +130,13 @@ export function MessageBlock({
 
         <div className="flex items-center gap-2 shrink-0">
           {obj.provider && (
-            <span className={`font-mono text-[9px] uppercase tracking-widest border px-1.5 py-0.5 ${prevProvider && prevProvider !== obj.provider ? "border-yellow text-yellow" : "border-ink text-muted-500"}`}>
+            <span className={`font-body text-sm border-2 px-2 py-0.5 wobbly-sm ${prevProvider && prevProvider !== obj.provider ? "border-yellow bg-yellow text-ink" : "border-ink text-muted-500"}`}>
               {prevProvider && prevProvider !== obj.provider ? "⇄ " : ""}
               {obj.provider === "groq" ? "GROQ" : obj.provider === "gemini" ? "GEMINI" : obj.provider === "huggingface" ? "HUGGINGFACE" : obj.provider === "together" ? "TOGETHER" : obj.provider === "mistral" ? "MISTRAL" : "OPENROUTER"}
             </span>
           )}
           {obj.timestamp && settings?.showTimestamps && (
-            <time className="font-mono text-[9px] text-muted-500 tabular-nums">{formatTime(obj.timestamp)}</time>
+            <time className="font-body text-sm text-muted-500">{formatTime(obj.timestamp)}</time>
           )}
         </div>
       </header>
@@ -144,7 +144,11 @@ export function MessageBlock({
       {/* Answer content */}
       {(hasAnswer || obj.isMulti) && (
         <div className="flex gap-4">
-          <div className="shrink-0 w-8 h-8 border border-ink flex items-center justify-center font-mono text-[10px] uppercase tracking-widest mt-0.5" title="AI">
+          <div
+            className="shrink-0 w-10 h-10 border-2 border-ink bg-yellow flex items-center justify-center font-serif text-sm font-bold mt-0.5 -rotate-2 hover:rotate-1 transition-transform duration-100"
+            style={{ borderRadius: radius.wobblySm }}
+            title="AI"
+          >
             AI
           </div>
           <div className="flex-1 min-w-0">
@@ -159,14 +163,15 @@ export function MessageBlock({
                 {obj.answers?.map((ans, idx) => (
                   <div
                     key={idx}
-                    className={`relative shrink-0 w-[320px] snap-center border border-ink p-4 flex flex-col min-h-[200px] max-h-[450px] ${
-                      selectedDrafts.includes(idx) ? "bg-ink text-paper" : "bg-paper"
+                    className={`relative shrink-0 w-[320px] snap-center border-2 border-ink p-4 flex flex-col min-h-[200px] max-h-[450px] shadow-hard-sm hover:rotate-1 transition-transform duration-100 ${
+                      selectedDrafts.includes(idx) ? "bg-ink text-paper shadow-hard" : "bg-white"
                     }`}
+                    style={{ borderRadius: radius.wobblyMd }}
                   >
-                    <div className="flex justify-between items-center mb-3 border-b border-ink pb-2 shrink-0">
-                      <span className="font-mono text-[10px] uppercase tracking-widest"><Layers size={12} strokeWidth={1.5} className="inline mr-1" /> Draft {idx + 1}</span>
+                    <div className="flex justify-between items-center mb-3 border-b-2 border-dashed border-ink/30 pb-2 shrink-0">
+                      <span className="font-serif text-base font-bold"><Layers size={14} strokeWidth={2.5} className="inline mr-1" /> Draft {idx + 1}</span>
                       <div className="flex items-center gap-3">
-                        <button onClick={() => onKeepDraft(obj.id, idx)} className="font-mono text-[9px] uppercase tracking-widest underline underline-offset-4 decoration-red hover:text-red transition-colors">Keep</button>
+                        <button onClick={() => onKeepDraft(obj.id, idx)} className="font-body text-sm underline underline-offset-4 decoration-wavy decoration-red hover:text-red transition-colors">Keep</button>
                         <input type="checkbox" className="w-4 h-4 accent-ink cursor-pointer" checked={selectedDrafts.includes(idx)} onChange={e => { if (e.target.checked) setSelectedDrafts(p => [...p, idx]); else setSelectedDrafts(p => p.filter(x => x !== idx)); }} />
                       </div>
                     </div>
@@ -184,13 +189,13 @@ export function MessageBlock({
               </div>
 
               {selectedDrafts.length > 0 && (
-                <div className="flex flex-wrap gap-2 items-center border border-ink p-3 bg-muted-100">
-                  <span className="font-mono text-[9px] uppercase tracking-widest text-muted-500">{selectedDrafts.length} Selected</span>
-                  <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="min-h-[44px] px-4 border border-green bg-green text-paper font-mono text-[10px] uppercase tracking-widest hover:bg-green/90 transition-colors">
-                    <Wand2 size={12} strokeWidth={1.5} className="inline mr-1" /> Merge via AI
+                <div className="flex flex-wrap gap-2 items-center border-2 border-ink p-3 bg-muted-100 shadow-hard-sm hover:rotate-1 transition-transform duration-100" style={{ borderRadius: radius.wobblyMd }}>
+                  <span className="font-body text-sm text-muted-500">{selectedDrafts.length} Selected</span>
+                  <button onClick={() => onMergeDrafts(obj.id, selectedDrafts)} className="btn-sketch btn-sketch-sm">
+                    <Wand2 size={14} strokeWidth={2.5} className="inline mr-1" /> Merge via AI
                   </button>
-                  <button onClick={() => onSummarizeDrafts(obj.id, selectedDrafts)} className="min-h-[44px] px-4 border border-ink text-ink font-mono text-[10px] uppercase tracking-widest hover:bg-muted-100 transition-colors">
-                    <AlignLeft size={12} strokeWidth={1.5} className="inline mr-1" /> Summarize
+                  <button onClick={() => onSummarizeDrafts(obj.id, selectedDrafts)} className="btn-sketch btn-sketch-sm btn-sketch-secondary">
+                    <AlignLeft size={14} strokeWidth={2.5} className="inline mr-1" /> Summarize
                   </button>
                 </div>
               )}
@@ -207,7 +212,7 @@ export function MessageBlock({
           )}
 
           {/* Actions bar */}
-          <div className="flex flex-wrap items-center gap-1 mt-4 pt-3 border-t border-divider">
+          <div className="flex flex-wrap items-center gap-1 mt-4 pt-3 border-t-2 border-dashed border-ink/20">
             {((hasAnswer || obj.isMulti) && !isError) && (
               isCopied.state && isCopied.idMes === obj.id ? (
                 <span className={btnActiveUp}><CopyIcon size={11} strokeWidth={1.5} /> copied</span>
@@ -229,7 +234,7 @@ export function MessageBlock({
               <button className={btnGhost} onClick={startEdit} title="Edit & re-send"><Pencil size={11} strokeWidth={1.5} /> edit</button>
             )}
             {obj.isTruncated && onContinue && (
-              <button className="font-mono text-[10px] uppercase tracking-widest text-red underline underline-offset-4 hover:text-ink transition-colors" onClick={() => onContinue(obj.id)} title="Continue generating">
+              <button className="font-body text-base text-red underline decoration-wavy underline-offset-4 hover:text-ink transition-colors" onClick={() => onContinue(obj.id)} title="Continue generating">
                 <ChevronDown size={11} strokeWidth={1.5} className="inline" /> continue
               </button>
             )}
@@ -247,7 +252,8 @@ export function MessageBlock({
                 <button
                   key={i}
                   onClick={() => onEditSubmit(s)}
-                  className="px-2 py-0.5 text-[10px] font-mono border border-divider text-muted-400 hover:text-ink hover:border-ink transition-colors"
+                  className="px-3 py-1 text-base font-body border-2 border-dashed border-ink/40 text-muted-500 hover:text-ink hover:border-ink hover:bg-yellow/50 hover:-rotate-1 hover:shadow-hard-sm transition-all duration-100"
+                  style={{ borderRadius: radius.wobblySm }}
                 >
                   {s} →
                 </button>
