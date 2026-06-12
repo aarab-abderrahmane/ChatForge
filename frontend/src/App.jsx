@@ -39,6 +39,12 @@ const COMMANDS = {
   },
 };
 
+// ── Keyword map for smart skill auto-detection ──
+const SKILL_KEYWORDS = {
+  code: ['code', 'programming', 'javascript', 'python', 'react', 'vue', 'angular', 'node', 'html', 'css', 'debug', 'bug', 'api', 'software', 'app', 'function', 'algorithm', 'database', 'sql', 'nosql', 'git', 'terminal', 'bash', 'docker'],
+  summarizer: ['summarize', 'summary', 'condense', 'key points', 'tl;dr', 'brief', 'recap', 'sum up'],
+};
+
 function AppInner() {
   const [query, setQuery] = useState('');
   const [autoContinuationProgress, setAutoContinuationProgress] = useState(null);
@@ -79,8 +85,42 @@ function AppInner() {
   const loadingTimeoutRef = useRef(null);
   const timedOutRef = useRef(false);
 
-  // All skills (built-in + custom)
-  const allSkills = useMemo(() => [...SKILLS, ...(customSkills || [])], [customSkills]);
+  // All skills (built-in + custom, filtered by hidden)
+  const allSkills = useMemo(() => {
+    const hidden = settings.hiddenSkillIds || [];
+    return [...SKILLS, ...(customSkills || [])].filter(s => !hidden.includes(s.id));
+  }, [customSkills, settings.hiddenSkillIds]);
+
+  // Resolve which skill ID to use (force or smart)
+  const getActiveSkillId = useCallback((question) => {
+    if (settings.skillSelectionMode === 'manual') {
+      return settings.activeSkillId;
+    }
+
+    // Smart mode: auto-detect from keywords
+    const lower = question.toLowerCase();
+    let bestMatch = null;
+    let bestScore = 0;
+
+    for (const skill of allSkills) {
+      const keywords = [...(SKILL_KEYWORDS[skill.id] || [])];
+      if (skill.isCustom) {
+        const words = skill.name.toLowerCase().split(/\s+/).filter(Boolean);
+        keywords.push(...words, skill.name.toLowerCase());
+        if (skill.description) {
+          keywords.push(...skill.description.toLowerCase().split(/\s+/).filter(Boolean));
+        }
+      }
+
+      const score = keywords.filter(kw => lower.includes(kw)).length;
+      if (score > bestScore) {
+        bestScore = score;
+        bestMatch = skill.id;
+      }
+    }
+
+    return bestMatch || settings.activeSkillId;
+  }, [settings.skillSelectionMode, settings.activeSkillId, allSkills]);
 
   // ── Auto-scroll to bottom on new messages ──
   useEffect(() => {
@@ -212,11 +252,6 @@ function AppInner() {
     let finalSystemPrompt =
       (prefix ? `${contextSystemPrompt}\n\n[User context]: ${prefix}` : contextSystemPrompt) ||
       basePrompt;
-
-    if (isCodeTask) {
-      const codeSkill = SKILLS.find((s) => s.id === 'code');
-      finalSystemPrompt = `MODAL IDENTITY: ${codeSkill.systemPrompt}\n\n${finalSystemPrompt}`;
-    }
 
     if (searchEnabled && question) {
       setSearchStage("searching");
@@ -697,18 +732,23 @@ function AppInner() {
         lowerText === 'كمل' ||
         lowerText === 'continue code';
 
+      const resolvedSkillId = getActiveSkillId(text);
+
+      // Save the resolved skill on the message so retry/continue reuses it
+      newMsg.skillId = resolvedSkillId;
+
       askAIRef.current(
         isContinue
           ? `Continue from exactly this point (do not repeat the text below):\n\n${(([...chats].reverse().find(c => c.type === 'ch' && c.answer) || {}).answer || '').slice(-500)}\n\nContinue:`
           : text,
         newId,
-        null,
+        resolvedSkillId,
         draftCount,
         attachedFiles,
         searchEnabled
       );
     },
-    [query, transformCommand]
+    [query, transformCommand, getActiveSkillId]
   );
 
   const handleEditSubmit = useCallback((newQuestion) => {
@@ -733,7 +773,7 @@ function AppInner() {
     const newId = crypto.randomUUID?.() || Date.now().toString(36) + Math.random().toString(36).slice(2, 9);
     const newMsg = { id: newId, type: 'ch', question: text, isEphemeral: true, timestamp: new Date().toISOString() };
     setChats((prev) => [...prev, newMsg]);
-    askAIRef.current(text, newId, null, 1);
+    askAIRef.current(text, newId, getActiveSkillId(text), 1);
   }, [chats]);
 
   const handleKeepDraft = useCallback((msgId, index) => {

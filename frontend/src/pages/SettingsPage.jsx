@@ -191,7 +191,7 @@ export function SettingsPage() {
     e.target.value = "";
   };
 
-  const allSkills = [...SKILLS, ...customSkills];
+  const allSkills = [...SKILLS, ...customSkills].filter(s => !(settings.hiddenSkillIds || []).includes(s.id));
 
   const totalMessages = sessions.reduce((acc, s) => acc + s.messages.filter((m) => m.type === "ch").length, 0);
   const totalWords = sessions.reduce((acc, s) => acc + s.messages.filter((m) => m.type === "ch").reduce((a, m) => a + ((m.question || "") + " " + (m.answer || "")).split(" ").length, 0), 0);
@@ -221,6 +221,27 @@ export function SettingsPage() {
 
           {/* ═══ AI SKILLS ═══ */}
           <SectionCard title="AI Personality / Skill" icon={Bot} colSpan="md:col-span-2">
+            {/* Skill selection mode toggle */}
+            <div className="flex items-center gap-3 mb-3 p-2 border-2 border-ink/30 bg-white shadow-hard-sm" style={{ borderRadius: radius.wobblySm }}>
+              <span className="font-mono text-xs text-muted-400 uppercase tracking-wider">Mode</span>
+              <div className="flex gap-1">
+                {['manual', 'smart'].map((mode) => (
+                  <button key={mode} onClick={() => setSettings({ ...settings, skillSelectionMode: mode })}
+                    className={`px-2.5 py-1 text-xs font-body uppercase tracking-widest border-2 transition-all duration-100 ${
+                      settings.skillSelectionMode === mode
+                        ? 'border-ink bg-ink text-paper'
+                        : 'border-ink/40 text-muted-500 hover:border-ink hover:text-ink'
+                    }`}
+                    style={{ borderRadius: radius.wobblySm }}>
+                    {mode === 'manual' ? 'Force Select' : 'Smart'}
+                  </button>
+                ))}
+              </div>
+              <span className="font-mono text-[10px] text-muted-400 ml-auto">
+                {settings.skillSelectionMode === 'manual' ? 'Your choice always used' : 'Auto-detected from keywords'}
+              </span>
+            </div>
+
             <div className="flex items-center justify-between mb-3">
               <span className="font-mono text-xs text-muted-400">Select or create a skill</span>
               <button onClick={() => setShowSkillForm((p) => !p)} className="flex items-center gap-1.5 px-3 py-1.5 text-sm font-body uppercase tracking-widest border-2 border-ink bg-white text-ink hover:bg-ink hover:text-paper transition-all duration-100 shadow-hard-sm hover:shadow-hard"
@@ -236,19 +257,41 @@ export function SettingsPage() {
             <div className="grid grid-cols-3 sm:grid-cols-4 gap-2">
                   {allSkills.map((skill) => {
                     const isActive = settings.activeSkillId === skill.id;
+                    const isHidden = (settings.hiddenSkillIds || []).includes(skill.id);
                     return (
-                      <div key={skill.id} onClick={() => setSettings({ ...settings, activeSkillId: skill.id })}
-                        className={`relative flex flex-col items-center gap-1.5 p-3 border-2 cursor-pointer transition-all duration-100 bg-white hover:-rotate-1 hover:shadow-hard-sm ${isActive ? "border-ink shadow-hard bg-yellow/30" : "border-ink/40 shadow-hard-sm"}`}
+                      <div key={skill.id} onClick={() => { if (!isHidden) setSettings({ ...settings, activeSkillId: skill.id }); }}
+                        className={`relative flex flex-col items-center gap-1.5 p-3 border-2 cursor-pointer transition-all duration-100 bg-white ${
+                          isHidden ? 'opacity-30 pointer-events-none border-ink/20' : 'hover:-rotate-1 hover:shadow-hard-sm'
+                        } ${isActive && !isHidden ? "border-ink shadow-hard bg-yellow/30" : "border-ink/40 shadow-hard-sm"}`}
                         style={{ borderRadius: radius.wobblySm }}
                         title={skill.description}>
                         {skill.isCustom && <span className="absolute top-1 right-1 font-body text-[10px] uppercase text-muted-400">custom</span>}
                         <span className="text-lg">{skill.icon}</span>
-                        <span className={`font-body text-sm text-center ${isActive ? "text-ink font-bold" : "text-muted-500"}`}>{skill.name}</span>
-                        {skill.isCustom && <button onClick={(e) => { e.stopPropagation(); deleteCustomSkill(skill.id); }} className="absolute bottom-1 right-1 text-muted-400 hover:text-red transition-colors"><X size={10} strokeWidth={2.5} /></button>}
+                        <span className={`font-body text-sm text-center ${isActive && !isHidden ? "text-ink font-bold" : "text-muted-500"}`}>{skill.name}</span>
+                        {skill.isCustom ? (
+                          <button onClick={(e) => { e.stopPropagation(); deleteCustomSkill(skill.id); }} className="absolute bottom-1 right-1 text-muted-400 hover:text-red transition-colors"><X size={10} strokeWidth={2.5} /></button>
+                        ) : (
+                          <button onClick={(e) => {
+                            e.stopPropagation();
+                            const current = settings.hiddenSkillIds || [];
+                            const next = current.includes(skill.id)
+                              ? current.filter(id => id !== skill.id)
+                              : [...current, skill.id];
+                            setSettings({ ...settings, hiddenSkillIds: next });
+                          }} className="absolute bottom-1 right-1 text-muted-400 hover:text-ink transition-colors" title={isHidden ? 'Show skill' : 'Hide skill'}>
+                            {isHidden ? <Eye size={10} strokeWidth={2.5} /> : <EyeOff size={10} strokeWidth={2.5} />}
+                          </button>
+                        )}
                       </div>
                     );
                   })}
             </div>
+            {(settings.hiddenSkillIds || []).length > 0 && (
+              <button onClick={() => setSettings({ ...settings, hiddenSkillIds: [] })}
+                className="mt-2 font-mono text-[11px] text-muted-400 hover:text-ink underline underline-offset-2 transition-colors">
+                Restore all hidden skills
+              </button>
+            )}
           </SectionCard>
 
           {/* ═══ ROUTING STRATEGY ═══ */}
