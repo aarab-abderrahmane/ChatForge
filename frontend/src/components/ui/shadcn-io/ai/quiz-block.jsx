@@ -1,5 +1,6 @@
 import { useState, useMemo, useCallback } from 'react';
 import { CheckCircle2, XCircle, Trophy, HelpCircle } from 'lucide-react';
+import { radius } from '../../../../lib/design-tokens';
 
 function safeParseJSON(code) {
   if (!code) return null;
@@ -59,9 +60,9 @@ export function QuizBlock({ code }) {
   const perfectScore = score === total;
 
   return (
-    <div className="my-4 border border-divider bg-paper">
+    <div className="my-4 border-2 border-ink bg-paper wobbly-sm shadow-hard-sm">
       {/* ── Header ── */}
-      <div className="quiz-header flex items-center justify-between px-4 py-3 border-b border-divider bg-muted-100">
+      <div className="quiz-header flex items-center justify-between px-4 py-3 border-b border-divider bg-muted-100 wobbly-sm" style={{ borderRadius: 0, borderBottomLeftRadius: 0, borderBottomRightRadius: 0 }}>
         <div className="flex items-center gap-2">
           <Trophy size={14} className="text-red" />
           <h3 className="font-serif text-xs font-bold tracking-[0.15em] uppercase text-ink">
@@ -89,7 +90,7 @@ export function QuizBlock({ code }) {
           <div key={qIdx} className="quiz-question flex flex-col gap-2.5 transition-all duration-150">
             {/* Question text */}
             <p className="font-body text-sm leading-relaxed flex items-start gap-2 text-ink">
-              <span className="quiz-q-number flex-shrink-0 w-5 h-5 flex items-center justify-center text-[10px] font-bold mt-0.5 border border-ink bg-muted-100 text-ink">
+              <span className="quiz-q-number flex-shrink-0 w-5 h-5 flex items-center justify-center text-[10px] font-bold mt-0.5 border-2 border-ink bg-muted-100 text-ink" style={{ borderRadius: radius.wobblySm }}>
                 {qIdx + 1}
               </span>
               {q.q}
@@ -101,8 +102,8 @@ export function QuizBlock({ code }) {
                 const isSelected = selectedAnswers[qIdx] === oIdx;
                 const isCorrect = q.answer === oIdx;
 
-                let optionClasses = 'quiz-option text-left px-3 py-2.5 text-xs border transition-all duration-150 flex items-center gap-2';
-                let labelClasses = 'flex-shrink-0 w-5 h-5 flex items-center justify-center text-[9px] font-bold border';
+                let optionClasses = 'quiz-option text-left px-3 py-2.5 text-xs border-2 transition-all duration-150 flex items-center gap-2 wobbly-sm';
+                let labelClasses = 'flex-shrink-0 w-5 h-5 flex items-center justify-center text-[9px] font-bold border-2';
                 let iconEl = null;
 
                 if (isSubmitted) {
@@ -173,7 +174,7 @@ export function QuizBlock({ code }) {
           {isSubmitted && (
             <button
               onClick={handleReset}
-              className="font-mono text-[10px] px-3 py-1.5 font-semibold uppercase tracking-[0.08em] transition-all duration-150 cursor-pointer border border-ink text-ink hover:bg-muted-100"
+              className="btn-sketch-sm font-mono text-[10px]"
             >
               Retry
             </button>
@@ -181,7 +182,7 @@ export function QuizBlock({ code }) {
           <button
             disabled={isSubmitted || !allAnswered}
             onClick={handleSubmit}
-            className="font-mono text-[10px] px-4 py-1.5 font-bold uppercase tracking-[0.1em] transition-all duration-150 border border-ink text-ink hover:bg-muted-100 disabled:opacity-30 disabled:cursor-not-allowed"
+            className="btn-sketch-sm font-mono text-[10px] disabled:opacity-30 disabled:cursor-not-allowed"
           >
             {isSubmitted ? 'Completed' : 'Submit'}
           </button>

@@ -350,6 +350,19 @@ kbd {
   box-shadow: 2px 2px 0px 0px #2d2d2d;
 }
 
+/* ── Compact mode ── */
+.compact-mode [class*="py-6"] {
+  padding-top: 0.75rem !important;
+  padding-bottom: 0.75rem !important;
+}
+.compact-mode [class*="py-4"] {
+  padding-top: 0.5rem !important;
+  padding-bottom: 0.5rem !important;
+}
+.compact-mode [class*="mb-6"] {
+  margin-bottom: 0.5rem !important;
+}
+
 /* ── Responsive ── */
 @media (max-width: 767px) {
   .drop-cap::first-letter,

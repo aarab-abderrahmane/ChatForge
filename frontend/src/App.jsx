@@ -37,13 +37,29 @@ const COMMANDS = {
     question: `List all available ChatForge commands and keyboard shortcuts in a formatted markdown table. Include: ///>clear, ///>new, ///>summarize, ///>translate, ///>retry, ///>stats, ///>export, ///>help, ///>skill, ///>model, ///>quiz [topic], ///>flashcards [topic], and ///>mindmap [topic]. Also mention: Enter to send, Shift+Enter for newline.`,
     skillId: 'general',
   },
+  quiz: { dynamic: true },
+  flashcards: { dynamic: true },
+  mindmap: { dynamic: true },
 };
+
+// Commands with `dynamic: true` are handled inline in transformCommand
+// (they require parsing the user's topic argument at runtime).
 
 // ── Keyword map for smart skill auto-detection ──
 const SKILL_KEYWORDS = {
+  general: ['explain', 'what', 'how', 'why', 'tell', 'write', 'help', 'suggest', 'recommend', 'idea', 'question', 'think', 'opinion', 'advice', 'example'],
   code: ['code', 'programming', 'javascript', 'python', 'react', 'vue', 'angular', 'node', 'html', 'css', 'debug', 'bug', 'api', 'software', 'app', 'function', 'algorithm', 'database', 'sql', 'nosql', 'git', 'terminal', 'bash', 'docker'],
   summarizer: ['summarize', 'summary', 'condense', 'key points', 'tl;dr', 'brief', 'recap', 'sum up'],
 };
+
+const STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'but', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'by', 'from',
+  'is', 'it', 'as', 'be', 'are', 'was', 'were', 'been', 'being', 'have', 'has', 'had', 'do', 'does',
+  'did', 'will', 'would', 'can', 'could', 'shall', 'should', 'may', 'might', 'this', 'that', 'these',
+  'those', 'i', 'you', 'he', 'she', 'we', 'they', 'not', 'no', 'so', 'if', 'about', 'up', 'out',
+  'just', 'very', 'also', 'more', 'some', 'any', 'each', 'every', 'all', 'both', 'into', 'over',
+  'after', 'before', 'between', 'under', 'again', 'further', 'then', 'once',
+]);
 
 function AppInner() {
   const [query, setQuery] = useState('');
@@ -105,10 +121,10 @@ function AppInner() {
     for (const skill of allSkills) {
       const keywords = [...(SKILL_KEYWORDS[skill.id] || [])];
       if (skill.isCustom) {
-        const words = skill.name.toLowerCase().split(/\s+/).filter(Boolean);
-        keywords.push(...words, skill.name.toLowerCase());
+        const words = skill.name.toLowerCase().split(/\s+/).filter(w => w && !STOPWORDS.has(w));
+        keywords.push(...words);
         if (skill.description) {
-          keywords.push(...skill.description.toLowerCase().split(/\s+/).filter(Boolean));
+          keywords.push(...skill.description.toLowerCase().split(/\s+/).filter(w => w && !STOPWORDS.has(w)));
         }
       }
 
@@ -119,7 +135,7 @@ function AppInner() {
       }
     }
 
-    return bestMatch || settings.activeSkillId;
+    return bestMatch || 'general';
   }, [settings.skillSelectionMode, settings.activeSkillId, allSkills]);
 
   // ── Auto-scroll to bottom on new messages ──
@@ -249,9 +265,13 @@ function AppInner() {
     const apiRoutingMode = settings.routingMode === 'smart' ? 'smart' : finalRoutingMode;
 
     // ── Build final system prompt ──
-    let finalSystemPrompt =
-      (prefix ? `${contextSystemPrompt}\n\n[User context]: ${prefix}` : contextSystemPrompt) ||
-      basePrompt;
+    let finalSystemPrompt = basePrompt;
+    if (contextSystemPrompt) {
+      finalSystemPrompt += `\n\n${contextSystemPrompt}`;
+    }
+    if (prefix) {
+      finalSystemPrompt += `\n\n[User context]: ${prefix}`;
+    }
 
     if (searchEnabled && question) {
       setSearchStage("searching");
@@ -642,7 +662,9 @@ function AppInner() {
 
       // Dynamic model command
       if (cmd === '//> model' || cmd === '//>model') {
-        const model = MODELS.find((m) => m.id === settings.activeModelId) || MODELS[0];
+        const model = settings.isCustomModel
+          ? { name: settings.customModelId || "Custom", provider: "OpenRouter" }
+          : (MODELS.find((m) => m.id === settings.activeModelId) || MODELS[0]);
         return {
           question: `You are currently running as "${model.name}" by ${model.provider}. Briefly introduce yourself: your strengths, ideal use cases, and one fun fact about your architecture.`,
           skillId: 'general',

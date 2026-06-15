@@ -132,7 +132,7 @@ export function MessageBlock({
           {obj.provider && (
             <span className={`font-body text-sm border-2 px-2 py-0.5 wobbly-sm ${prevProvider && prevProvider !== obj.provider ? "border-yellow bg-yellow text-ink" : "border-ink text-muted-500"}`}>
               {prevProvider && prevProvider !== obj.provider ? "⇄ " : ""}
-              {obj.provider === "groq" ? "GROQ" : obj.provider === "gemini" ? "GEMINI" : obj.provider === "huggingface" ? "HUGGINGFACE" : obj.provider === "together" ? "TOGETHER" : obj.provider === "mistral" ? "MISTRAL" : "OPENROUTER"}
+              {obj.provider === "groq" ? "GROQ" : obj.provider === "gemini" ? "GEMINI" : obj.provider === "huggingface" ? "HF" : obj.provider === "together" ? "TOGETHER" : obj.provider === "mistral" ? "MISTRAL" : "OPENROUTER"}
             </span>
           )}
           {obj.timestamp && settings?.showTimestamps && (

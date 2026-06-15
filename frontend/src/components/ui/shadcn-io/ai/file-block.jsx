@@ -2,6 +2,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { FileText, FileCode, FileImage, Table, Copy, Download, Check, ChevronDown, ChevronUp, Loader2 } from "lucide-react";
 import { useArtifacts } from "../../../../context/artifactContext";
+import { radius } from "../../../../lib/design-tokens";
 let _jspdfPromise = null;
 function getJspdf() {
   if (!_jspdfPromise) {
@@ -50,7 +51,7 @@ function GeneratingAnimation({ filename }) {
   const ext = getExt(filename);
   const Icon = EXT_ICON[ext] || FileText;
   return (
-    <div className="border border-ink my-3 overflow-hidden">
+    <div className="border-2 border-ink my-3 overflow-hidden wobbly-sm shadow-hard-sm">
       <div className="flex items-center gap-3 px-4 py-3 bg-muted-100">
         <Icon size={16} strokeWidth={1.5} className="shrink-0 text-muted-500" />
         <div className="flex-1 min-w-0">
@@ -143,7 +144,7 @@ export function FileBlock({ code, filename, messageId }) {
   }
 
   return (
-    <div className="border border-ink my-3 overflow-hidden">
+    <div className="border-2 border-ink my-3 overflow-hidden wobbly-sm shadow-hard-sm">
       <div className="flex items-center justify-between px-3 py-2 bg-muted-100 border-b border-divider">
         <div className="flex items-center gap-2 min-w-0">
           <Icon size={14} strokeWidth={1.5} className="shrink-0 text-ink" />
@@ -156,7 +157,7 @@ export function FileBlock({ code, filename, messageId }) {
           {size < 50000 && (
             <button
               onClick={() => setShowPreview(p => !p)}
-              className="min-h-[28px] min-w-[28px] flex items-center justify-center hover:bg-muted-200 transition-colors"
+              className="btn-sketch-icon"
               title={showPreview ? "Hide preview" : "Show preview"}
             >
               {showPreview ? <ChevronUp size={12} strokeWidth={1.5} /> : <ChevronDown size={12} strokeWidth={1.5} />}
@@ -164,14 +165,14 @@ export function FileBlock({ code, filename, messageId }) {
           )}
           <button
             onClick={handleCopy}
-            className="min-h-[28px] min-w-[28px] flex items-center justify-center hover:bg-muted-200 transition-colors"
+            className="btn-sketch-icon"
             title={copied ? "Copied!" : "Copy content"}
           >
             {copied ? <Check size={12} strokeWidth={1.5} /> : <Copy size={12} strokeWidth={1.5} />}
           </button>
           <button
             onClick={handleDownload}
-            className="min-h-[28px] min-w-[28px] flex items-center justify-center hover:bg-muted-200 transition-colors"
+            className="btn-sketch-icon"
             title="Download"
           >
             <Download size={12} strokeWidth={1.5} />

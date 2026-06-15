@@ -1,6 +1,7 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { Copy, Check } from 'lucide-react';
 import DOMPurify from 'dompurify';
+import { radius } from '../../../../lib/design-tokens';
 
 // We use one promise to make sure Mermaid only loads exactly once
 let mermaidInitPromise = null;
@@ -130,23 +131,15 @@ export function MermaidBlock({ code }) {
   return (
     <div
       ref={containerRef}
-      className="my-6 border overflow-hidden rounded shadow-xs"
-      style={{
-        background: '#F9F9F7', 
-        borderColor: '#999494' 
-      }}
+      className="my-6 border-2 border-ink bg-paper overflow-hidden shadow-hard-sm wobbly-md"
     >
       {/* ── Toolbar ── */}
       <div
-        className="flex items-center justify-between px-4 py-2"
-        style={{
-          borderBottom: '1px solid #E5E5E0', 
-          background: '#FFFFFF', 
-        }}
+        className="flex items-center justify-between px-4 py-2 bg-muted-100 border-b border-divider"
       >
         <div className="flex items-center gap-2">
-          <div className="w-6 h-6 rounded flex items-center justify-center" style={{ backgroundColor: '#F5F5F5' }}>
-            <span className="text-xs font-bold" style={{ color: '#111111' }}>⬡</span>
+          <div className="w-6 h-6 border-2 border-ink flex items-center justify-center bg-white shadow-hard-sm" style={{ borderRadius: radius.wobblySm }}>
+            <span className="text-xs font-bold text-ink">⬡</span>
           </div>
           <span
             className="text-xs font-bold font-mono tracking-wider uppercase"
@@ -158,8 +151,8 @@ export function MermaidBlock({ code }) {
         
         <button
           onClick={handleCopy}
-          className="flex items-center gap-1.5 px-2 py-1 rounded text-xs font-mono transition-colors hover:bg-neutral-100 active:bg-neutral-200"
-          style={{ color: copied ? '#1A7A3A' : '#525252' }}
+          className="btn-sketch-sm font-mono text-xs"
+          style={{ color: copied ? '#1A7A3A' : undefined }}
           title="Copy diagram code"
         >
           {copied ? <Check size={14} /> : <Copy size={14} />}
@@ -179,11 +172,11 @@ export function MermaidBlock({ code }) {
         )}
 
         {error && (
-          <div className="w-full bg-white p-4 rounded border border-red-200">
-            <p className="text-sm font-mono mb-2 flex items-center gap-1.5 font-bold" style={{ color: '#CC0000' }}>
+          <div className="w-full bg-paper p-4 border-2 border-red wobbly-sm shadow-hard-sm">
+            <p className="text-sm font-mono mb-2 flex items-center gap-1.5 font-bold text-red">
               ✗ Diagram Error
             </p>
-            <pre className="text-sm whitespace-pre-wrap mb-4 font-mono leading-relaxed bg-neutral-50 p-3 rounded border border-neutral-200" style={{ color: '#525252' }}>
+            <pre className="text-sm whitespace-pre-wrap mb-4 font-mono leading-relaxed bg-muted-100 p-3 border-2 border-ink/20 wobbly-sm text-muted-500">
               {error}
             </pre>
           </div>

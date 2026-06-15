@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useContext } from "react";
-import { chatsContext } from "../context/chatsContext";
+import { chatsContext, SKILLS, MODELS } from "../context/chatsContext";
 import { radius, shadows } from "../lib/design-tokens";
 import {
     ArrowLeft,
@@ -27,7 +27,6 @@ import {
     AlignLeft,
     LayoutList,
     Layers,
-    Smile,
     Sparkles,
     Gauge,
     ChevronRight,
@@ -44,25 +43,7 @@ const pic = (w, h, seed) => {
   return `data:image/svg+xml,${encodeURIComponent(svg)}`;
 };
 
-// ── Data mirrors from chatsContext ────────────────────────────
-const SKILLS = [
-    { id: "general", name: "General", icon: "🤖", description: "Balanced for general tasks and conversation." },
-    { id: "code", name: "Code Master", icon: "💻", description: "Expert in 50+ languages and debugging." },
-    { id: "creative", name: "Creative", icon: "✍️", description: "Unleash imagination and storytelling." },
-    { id: "security", name: "Cyber Security", icon: "🛡️", description: "Specialized in security and audit tasks." },
-    { id: "translator", name: "Translator", icon: "🌍", description: "Expert multilingual translator for any language." },
-    { id: "summarizer", name: "Summarizer", icon: "📋", description: "Condenses content into clear bullet-point summaries." },
-];
-
-const MODELS = [
-    { icon: "🦙", name: "Llama 3.3 70B", provider: "Meta", description: "Powerful open-source reasoning model. Primary recommendation." },
-    { icon: "🌪️", name: "Mistral Small", provider: "Mistral", description: "Fast and efficient European model. Great for general tasks." },
-    { icon: "🏛️", name: "Hermes 3 405B", provider: "Nous", description: "Massive 405B model. Best for complex reasoning." },
-    { icon: "🦙", name: "Llama 3.1 405B", provider: "Meta", description: "Meta's largest open model. Excellent for hard problems." },
-    { icon: "⚡", name: "Step 3.5 Flash", provider: "StepFun", description: "Ultra-fast Chinese model. Great for quick responses." },
-    { icon: "🔱", name: "Trinity Large", provider: "Arcee", description: "Arcee's large preview model. Diverse capabilities." },
-    { icon: "🐇", name: "Llama 3.2 3B", provider: "Meta", description: "Tiny but fast. Best for simple, quick queries." },
-];
+// ── Skills and Models imported from chatsContext ─────────────
 
 const THEMES = [
     { icon: "🟢", name: "Matrix Green", primary: "#39ff14", secondary: "#00f5ff", accent: "#ff2d78" },
@@ -387,11 +368,10 @@ export function DocsPage() {
                             {[
                                 { icon: <Edit3 size={16} />, title: "Edit Prompt", desc: "Opens a large inline textarea. Fix your prompt and click 'Save & Re-send' to regenerate the AI response from that point." },
                                 { icon: <RotateCcw size={16} />, title: "Retry", desc: "Wipes the current AI response and re-sends the exact same prompt to get a fresh answer." },
-                                { icon: <Star size={16} />, title: "Star Message", desc: "Adds a glowing neon border to the message, making it easy to spot when scrolling through long conversations." },
+
                                 { icon: <Eye size={16} />, title: "Raw Markdown", desc: "Toggle between rendered Markdown and the raw source text. Useful when the renderer mangles tables or code." },
                                 { icon: <Copy size={16} />, title: "Copy Response", desc: "Instantly copies the full AI response text to your clipboard. A ✓ flash confirms the copy." },
                                 { icon: <Layers size={16} />, title: "Multi-Drafts", desc: "Toggle multiple drafts above the input to generate 3 AI responses simultaneously. Choose the best, or use AI to merge and summarize them." },
-                                { icon: <Terminal size={16} />, title: "Avatars", desc: "Enable 'Message avatars' in Settings → Interface to show user and AI avatar icons on every message block." },
                             ].map(({ icon, title, desc }) => (
                                 <div key={title} className="bg-white border-2 border-ink shadow-hard-sm p-4 hover:shadow-hard hover:-translate-y-0.5 transition-all duration-100 flex flex-col gap-2"
                                     style={{ borderRadius: radius.wobblySm }}>
@@ -517,11 +497,6 @@ export function DocsPage() {
                         <div className="flex flex-col gap-2 my-3">
                             <div className="flex items-start gap-3 p-3 bg-white border-2 border-ink shadow-hard-sm"
                                 style={{ borderRadius: radius.wobblySm }}>
-                                <span className="font-body text-sm font-bold text-ink shrink-0 w-[130px]">✦ Scanlines effect</span>
-                                <span className="font-body text-xs text-muted-500 leading-relaxed">Overlays retro CRT scan lines on the entire UI for that classic terminal feel.</span>
-                            </div>
-                            <div className="flex items-start gap-3 p-3 bg-white border-2 border-ink shadow-hard-sm"
-                                style={{ borderRadius: radius.wobblySm }}>
                                 <span className="font-body text-sm font-bold text-ink shrink-0 w-[130px]">≡ Compact mode</span>
                                 <span className="font-body text-xs text-muted-500 leading-relaxed">Reduces padding and spacing in message blocks for a denser view.</span>
                             </div>
@@ -597,7 +572,6 @@ export function DocsPage() {
                             {[
                                 { icon: <LayoutList size={16} />, label: "Show AI toolbar", desc: "Toggles the skill/model toolbar that appears above the chat input." },
                                 { icon: <AlignLeft size={16} />, label: "Show keyboard hints", desc: "Toggles the hint bar below the input showing Enter/Shift+Enter shortcuts." },
-                                { icon: <Smile size={16} />, label: "Message avatars", desc: "Shows circular avatar icons next to each message for visual distinction." },
                             ].map(({ icon, label, desc }) => (
                                 <div key={label} className="flex items-start gap-3 p-3 bg-white border-2 border-ink shadow-hard-sm"
                                     style={{ borderRadius: radius.wobblySm }}>

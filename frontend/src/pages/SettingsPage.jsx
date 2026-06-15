@@ -30,7 +30,7 @@ const PROVIDERS = [
   { id: "gemini", label: "Gemini", icon: "🧠", required: false, placeholder: "AIza...", hint: "Optional. Used for code & programming tasks.", link: "https://aistudio.google.com/app/apikey" },
   { id: "huggingface", label: "Hugging Face", icon: "🤗", required: false, placeholder: "hf_...", hint: "Optional. Specialized open source models.", link: "https://huggingface.co/settings/tokens" },
   { id: "together", label: "Together AI", icon: "🤝", required: false, placeholder: "tgp-...", hint: "Optional. 200M tokens/month free tier. Fast fallback.", link: "https://api.together.xyz/settings/api-keys" },
-  { id: "mistral", label: "Mistral AI", icon: "🌪️", required: false, placeholder: "Enter Mistral API key...", hint: "Optional. 1B tokens free trial. Great for generation.", link: "https://console.mistral.ai/api-keys" },
+  { id: "mistral", label: "Mistral AI", icon: "🌪️", required: false, placeholder: "q1a2b3c4...", hint: "Optional. 1B tokens free trial. Great for generation.", link: "https://console.mistral.ai/api-keys" },
 ];
 
 const PARAMS = [
@@ -268,6 +268,7 @@ export function SettingsPage() {
                         {skill.isCustom && <span className="absolute top-1 right-1 font-body text-[10px] uppercase text-muted-400">custom</span>}
                         <span className="text-lg">{skill.icon}</span>
                         <span className={`font-body text-sm text-center ${isActive && !isHidden ? "text-ink font-bold" : "text-muted-500"}`}>{skill.name}</span>
+                        {skill.description && <span className="font-body text-[10px] text-muted-400 text-center truncate max-w-full leading-tight">{skill.description}</span>}
                         {skill.isCustom ? (
                           <button onClick={(e) => { e.stopPropagation(); deleteCustomSkill(skill.id); }} className="absolute bottom-1 right-1 text-muted-400 hover:text-red transition-colors"><X size={10} strokeWidth={2.5} /></button>
                         ) : (
@@ -292,6 +293,18 @@ export function SettingsPage() {
                 Restore all hidden skills
               </button>
             )}
+
+            {/* ── Additional Context (merged from Context Prefix) ── */}
+            <div className="mt-4 pt-4 border-t-2 border-dashed border-ink/30">
+              <label className="font-mono text-xs text-muted-400 uppercase tracking-wider block mb-2">Additional Context</label>
+              <p className="font-body text-xs text-muted-400 mb-2 leading-relaxed">
+                Prepended to every AI skill prompt. Use it for persistent context (e.g. your name, project, language preference).
+              </p>
+              <textarea className="input-sketch w-full resize-none min-h-[80px] text-base"
+                rows={3} placeholder="e.g. Always respond in French. My project uses React and Node.js..."
+                value={settings.systemPromptPrefix || ""}
+                onChange={(e) => setSettings({ ...settings, systemPromptPrefix: e.target.value })} />
+            </div>
           </SectionCard>
 
           {/* ═══ ROUTING STRATEGY ═══ */}
@@ -355,36 +368,59 @@ export function SettingsPage() {
                 </div>
               </div>
             )}
-          </SectionCard>
 
-          {/* ═══ AI MODEL ═══ */}
-          <SectionCard title="OpenRouter Model" icon={Wifi}>
-            <p className="font-body text-xs text-muted-400 mb-2 leading-relaxed">Model used when OpenRouter is the active provider. Other providers use their own default models.</p>
-            <button onClick={() => setShowModels((p) => !p)} className="w-full flex items-center justify-between py-2 hover:bg-yellow/20 hover:-rotate-1 transition-all duration-100 px-2 -mx-2">
-              <div className="flex items-center gap-2">
-                <span className="text-base">{MODELS.find((m) => m.id === settings.activeModelId)?.icon || "🧠"}</span>
-                <span className="font-body text-sm text-ink font-bold">{MODELS.find((m) => m.id === settings.activeModelId)?.name || "Select model"}</span>
+            {/* ── Model selector (merged from OpenRouter Model) ── */}
+            <div className="border-t border-divider pt-3 mt-3">
+              <div className="flex items-center gap-2 mb-2">
+                <Wifi size={13} className="text-muted-400" strokeWidth={2.5} />
+                <span className="font-body text-sm text-ink font-bold">Model</span>
               </div>
-              {showModels ? <ChevronUp size={12} className="text-muted-400" strokeWidth={2.5} /> : <ChevronDown size={12} className="text-muted-400" strokeWidth={2.5} />}
-            </button>
-            {showModels && (
-              <div className="flex flex-col gap-1 mt-1 max-h-48 overflow-y-auto">
-                  {MODELS.map((model) => {
-                    const isActive = settings.activeModelId === model.id;
-                    return (
-                      <div key={model.id} onClick={() => { setSettings({ ...settings, activeModelId: model.id }); setShowModels(false); }}
-                        className={`flex items-center gap-2 p-2.5 border-2 cursor-pointer transition-all duration-100 bg-white hover:-rotate-1 hover:shadow-hard-sm ${isActive ? "border-ink shadow-hard bg-yellow/20" : "border-ink/40 shadow-hard-sm"}`}
-                        style={{ borderRadius: radius.wobblySm }}>
-                        <span className="text-sm">{model.icon}</span>
-                        <div className="flex-1 min-w-0">
-                          <div className={`font-body text-sm font-bold ${isActive ? "text-ink" : "text-muted-500"}`}>{model.name}</div>
-                          <div className="font-body text-sm text-muted-400">{model.provider}</div>
+              <p className="font-body text-xs text-muted-400 mb-2 leading-relaxed">Used when OpenRouter is the active provider. Other providers use their own default models.</p>
+              <button onClick={() => setShowModels((p) => !p)} className="w-full flex items-center justify-between py-2 hover:bg-yellow/20 hover:-rotate-1 transition-all duration-100 px-2 -mx-2">
+                <div className="flex items-center gap-2">
+                  <span className="text-base">{settings.isCustomModel ? "⭐" : (MODELS.find((m) => m.id === settings.activeModelId)?.icon || "🧠")}</span>
+                  <span className="font-body text-sm text-ink font-bold">{settings.isCustomModel ? settings.customModelId || "Custom" : (MODELS.find((m) => m.id === settings.activeModelId)?.name || "Select model")}</span>
+                </div>
+                {showModels ? <ChevronUp size={12} className="text-muted-400" strokeWidth={2.5} /> : <ChevronDown size={12} className="text-muted-400" strokeWidth={2.5} />}
+              </button>
+              {showModels && (
+                <div className="flex flex-col gap-1 mt-1 max-h-48 overflow-y-auto">
+                    {MODELS.map((model) => {
+                      const isActive = !settings.isCustomModel && settings.activeModelId === model.id;
+                      return (
+                        <div key={model.id} onClick={() => { setSettings({ ...settings, activeModelId: model.id, isCustomModel: false, customModelId: "" }); setShowModels(false); }}
+                          className={`flex items-center gap-2 p-2.5 border-2 cursor-pointer transition-all duration-100 bg-white hover:-rotate-1 hover:shadow-hard-sm ${isActive ? "border-ink shadow-hard bg-yellow/20" : "border-ink/40 shadow-hard-sm"}`}
+                          style={{ borderRadius: radius.wobblySm }}>
+                          <span className="text-sm">{model.icon}</span>
+                          <div className="flex-1 min-w-0">
+                            <div className={`font-body text-sm font-bold ${isActive ? "text-ink" : "text-muted-500"}`}>{model.name}</div>
+                            <div className="font-body text-sm text-muted-400">{model.provider}</div>
+                          </div>
                         </div>
+                      );
+                    })}
+                    <div onClick={() => { setSettings({ ...settings, isCustomModel: true, activeModelId: settings.customModelId || "" }); }}
+                      className={`flex items-center gap-2 p-2.5 border-2 cursor-pointer transition-all duration-100 bg-white hover:-rotate-1 hover:shadow-hard-sm ${settings.isCustomModel ? "border-ink shadow-hard bg-yellow/20" : "border-ink/40 shadow-hard-sm"}`}
+                      style={{ borderRadius: radius.wobblySm }}>
+                      <span className="text-sm">⭐</span>
+                      <div className="flex-1 min-w-0">
+                        <div className={`font-body text-sm font-bold ${settings.isCustomModel ? "text-ink" : "text-muted-500"}`}>Custom Model</div>
+                        <div className="font-body text-sm text-muted-400">Enter any OpenRouter model ID</div>
                       </div>
-                    );
-                  })}
-              </div>
-            )}
+                    </div>
+                </div>
+              )}
+              {settings.isCustomModel && (
+                <div className="mt-3 p-3 border-2 border-ink bg-yellow/20 shadow-hard-sm" style={{ borderRadius: radius.wobblySm }}>
+                  <label className="font-mono text-xs text-muted-400 uppercase tracking-wider block mb-1">Custom Model ID</label>
+                  <input type="text" placeholder="e.g. openai/gpt-4o:free"
+                    value={settings.customModelId || ""}
+                    onChange={(e) => setSettings({ ...settings, customModelId: e.target.value, activeModelId: e.target.value })}
+                    className="input-sketch w-full text-base" />
+                  <p className="font-mono text-[10px] text-muted-400 mt-1">Enter a valid OpenRouter model slug (e.g. <code className="text-ink">openai/gpt-4o:free</code>).</p>
+                </div>
+              )}
+            </div>
           </SectionCard>
 
           {/* ═══ RESPONSE LENGTH ═══ */}
@@ -420,17 +456,6 @@ export function SettingsPage() {
                 </div>
               ))}
             </div>
-          </SectionCard>
-
-          {/* ═══ CONTEXT PREFIX ═══ */}
-          <SectionCard title="Context Prefix" icon={MessageSquare} colSpan="md:col-span-2">
-            <p className="font-body text-xs text-muted-400 mb-2 leading-relaxed">
-              Prepended to every AI skill prompt. Use it for persistent context (e.g. your name, project, language preference).
-            </p>
-            <textarea className="input-sketch w-full resize-none min-h-[80px] text-base"
-              rows={3} placeholder="e.g. Always respond in French. My project uses React and Node.js..."
-              value={settings.systemPromptPrefix || ""}
-              onChange={(e) => setSettings({ ...settings, systemPromptPrefix: e.target.value })} />
           </SectionCard>
 
           {/* ═══ AI TOOLS ═══ */}
@@ -506,7 +531,6 @@ export function SettingsPage() {
               {[
                 { key: "showToolbar", icon: LayoutList, label: "AI toolbar" },
                 { key: "showHintBar", icon: Wand2, label: "Keyboard hints" },
-                { key: "showAvatars", icon: MessageSquare, label: "Message avatars" },
               ].map((item) => (
                 <div key={item.key} className="flex items-center justify-between py-1.5 hover:bg-yellow/20 hover:-rotate-1 px-2 -mx-2 transition-all duration-100 cursor-pointer" onClick={() => toggle(item.key)}>
                   <div className="flex items-center gap-2">
@@ -514,22 +538,6 @@ export function SettingsPage() {
                     <span className="font-body text-sm text-ink">{item.label}</span>
                   </div>
                   <Toggle value={settings[item.key]} onToggle={() => toggle(item.key)} />
-                </div>
-              ))}
-            </div>
-          </SectionCard>
-
-          {/* ═══ KEYBOARD SHORTCUTS ═══ */}
-          <SectionCard title="Keyboard Shortcuts" icon={MessageSquare}>
-            <div className="flex flex-col gap-1.5">
-              {[
-                { label: "Send", key: "Enter" }, { label: "New Line", key: "Shift+Enter" },
-                { label: "Command Menu", key: "///>" }, { label: "Search", key: "Ctrl+F" },
-                { label: "History", key: "↑ / ↓" },
-              ].map((s) => (
-                <div key={s.label} className="flex justify-between items-center py-1">
-                  <span className="font-body text-xs text-muted-500">{s.label}</span>
-                  <kbd className="font-mono text-[11px] px-1.5 py-0.5 border border-divider text-muted-400">{s.key}</kbd>
                 </div>
               ))}
             </div>

@@ -129,7 +129,7 @@ export function ChatNavigation({ chats, scrollRef }) {
   return (
     <div
       className="relative w-0 shrink-0 hidden md:block select-none"
-      onMouseEnter={() => setIsHovered(true)}
+      onMouseEnter={() => { setIsHovered(true); }}
       onMouseLeave={() => {
         if (!isDragging) {
           setIsHovered(false);
@@ -181,7 +181,11 @@ export function ChatNavigation({ chats, scrollRef }) {
       {/* ── Minimap Track ── */}
       <div
         ref={trackRef}
-        className="absolute right-0 top-0 bottom-0 w-[76px] cursor-pointer overflow-hidden bg-paper border-l-2 border-dashed border-ink/20 hover:bg-muted-100/50 transition-colors"
+        className={`absolute right-0 top-0 bottom-0 cursor-pointer overflow-hidden bg-paper border-l-2 border-dashed transition-all duration-200 ease-in-out ${
+          isHovered
+            ? "w-[76px] border-ink/20 hover:bg-muted-100/50"
+            : "w-[8px] border-transparent hover:bg-muted-100/80"
+        }`}
         onClick={handleTrackClick}
       >
         {/* Micro-lines Indicators */}

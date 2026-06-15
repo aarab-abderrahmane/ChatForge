@@ -25,7 +25,7 @@ export async function validateHuggingFaceKey(key) {
  */
 export async function askHuggingFace(messages, key, options = {}) {
     const {
-        model = "gpt2",
+        model = "mistralai/Mistral-7B-Instruct-v0.3",
         systemPrompt = "You are a helpful AI assistant.",
         temperature = 0.7,
         max_tokens = 1024,

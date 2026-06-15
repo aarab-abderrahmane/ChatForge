@@ -163,7 +163,9 @@ export const Terminal = ({
 
   const allSkills = [...SKILLS, ...(customSkills || [])];
   const activeSkill = allSkills.find(s => s.id === settings.activeSkillId) || SKILLS[0];
-  const activeModel = MODELS.find(m => m.id === settings.activeModelId) || MODELS[0];
+  const activeModel = settings.isCustomModel
+    ? { id: settings.activeModelId, name: settings.customModelId || "Custom", icon: "⭐", provider: "OpenRouter", description: "Custom model" }
+    : (MODELS.find(m => m.id === settings.activeModelId) || MODELS[0]);
 
   const [placeholderIdx, setPlaceholderIdx] = useState(0);
   const [showCmdMenu, setShowCmdMenu] = useState(false);
@@ -351,7 +353,18 @@ export const Terminal = ({
       setVoiceListening(false);
     };
 
-    recognition.onerror = () => setVoiceListening(false);
+    recognition.onerror = (e) => {
+      setVoiceListening(false);
+      if (e.error === 'not-allowed') {
+        alert('Microphone access denied. Please allow microphone permissions in your browser settings.');
+      } else if (e.error === 'no-speech') {
+        setQuery('No speech detected — try again.');
+        setCharCount(0);
+      } else {
+        setQuery(`Voice error: ${e.error}`);
+        setCharCount(0);
+      }
+    };
     recognition.onend = () => setVoiceListening(false);
 
     recognitionRef.current = recognition;
@@ -612,7 +625,7 @@ export const Terminal = ({
             <div className="flex flex-col flex-1 min-h-0">
               {/* ── Messages ─────────────────────────── */}
               <div className="flex flex-1 min-h-0">
-              <div ref={scrollRef} onScroll={handleScroll} onClick={() => { if (!isMobile) setInputVisible(false); }} className="relative flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 py-4 dot-grid-bg">
+              <div ref={scrollRef} onScroll={handleScroll} onClick={() => { if (!isMobile) setInputVisible(false); }} className={`relative flex-1 overflow-y-auto overflow-x-hidden px-4 md:px-6 py-4 dot-grid-bg ${settings.compactMode ? 'compact-mode' : ''}`}>
                 {showScrollDown && (
                   <button
                     onClick={scrollToBottom}

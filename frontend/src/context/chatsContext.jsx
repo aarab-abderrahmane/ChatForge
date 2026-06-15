@@ -199,6 +199,8 @@ const defaultSettings = {
   showHintBar: true,
   activeSkillId: "general",
   activeModelId: DEFAULT_MODEL_ID,
+  isCustomModel: false,
+  customModelId: "",
   responseLength: "balanced",
   temperature: 7,
   topP: 10,
@@ -266,7 +268,16 @@ export function ChatsProvider({ children }) {
           if (typeof parsed.frequencyPenalty === 'number' && Math.abs(parsed.frequencyPenalty) < 5) parsed.frequencyPenalty = Math.round(parsed.frequencyPenalty * 10);
           if (typeof parsed.presencePenalty === 'number' && Math.abs(parsed.presencePenalty) < 5) parsed.presencePenalty = Math.round(parsed.presencePenalty * 10);
           parsed._settingsVersion = SETTINGS_VERSION;
+          localStorage.setItem("ChatForge_Settings", JSON.stringify({ ...defaultSettings, ...parsed }));
         }
+
+        // Auto-migrate any defunct model IDs to the default
+        const liveModelIds = MODELS.map((m) => m.id);
+        const storedModelId = parsed.activeModelId || defaultSettings.activeModelId;
+        if (!parsed.isCustomModel && !liveModelIds.includes(storedModelId)) {
+          parsed.activeModelId = DEFAULT_MODEL_ID;
+        }
+
         return { ...defaultSettings, ...parsed };
       }
       return defaultSettings;
@@ -274,31 +285,6 @@ export function ChatsProvider({ children }) {
       return defaultSettings;
     }
   });
-
-  useEffect(() => {
-    try {
-      const stored = localStorage.getItem("ChatForge_Settings");
-      if (stored) {
-        const parsed = JSON.parse(stored);
-        if (parsed._settingsVersion !== SETTINGS_VERSION) {
-          if (typeof parsed.temperature === 'number' && parsed.temperature < 2) parsed.temperature = Math.round(parsed.temperature * 10);
-          if (typeof parsed.topP === 'number' && parsed.topP < 2) parsed.topP = Math.round(parsed.topP * 10);
-          if (typeof parsed.frequencyPenalty === 'number' && Math.abs(parsed.frequencyPenalty) < 5) parsed.frequencyPenalty = Math.round(parsed.frequencyPenalty * 10);
-          if (typeof parsed.presencePenalty === 'number' && Math.abs(parsed.presencePenalty) < 5) parsed.presencePenalty = Math.round(parsed.presencePenalty * 10);
-          parsed._settingsVersion = SETTINGS_VERSION;
-          localStorage.setItem("ChatForge_Settings", JSON.stringify({ ...defaultSettings, ...parsed }));
-          setSettings((prev) => ({ ...defaultSettings, ...parsed }));
-        }
-
-        // Auto-migrate any defunct model IDs to the default (reads from stored, not state)
-        const liveModelIds = MODELS.map((m) => m.id);
-        const storedModelId = parsed.activeModelId || defaultSettings.activeModelId;
-        if (!liveModelIds.includes(storedModelId)) {
-          setSettings((prev) => ({ ...prev, activeModelId: DEFAULT_MODEL_ID }));
-        }
-      }
-    } catch { /* ignore */ }
-  }, []);
 
   // ── Custom Skills ────────────────────────────────────────────────────
   const [customSkills, setCustomSkills] = useState(() => {
@@ -320,8 +306,9 @@ export function ChatsProvider({ children }) {
       isCustom: true,
     };
     setCustomSkills((prev) => [...prev, newSkill]);
+    setSettings((prev) => ({ ...prev, activeSkillId: newSkill.id }));
     return newSkill.id;
-  }, []);
+  }, [setSettings]);
 
   const deleteCustomSkill = useCallback((id) => {
     setCustomSkills((prev) => prev.filter((s) => s.id !== id));
@@ -371,22 +358,6 @@ export function ChatsProvider({ children }) {
     setPinnedSessions((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
-      return next;
-    });
-  }, []);
-
-  // ── Starred Messages ────────────────────────────────────────────────
-  const [starredMessages, setStarredMessages] = useState(() => {
-    try {
-      const stored = localStorage.getItem("ChatForge_Starred");
-      return stored ? new Set(JSON.parse(stored)) : new Set();
-    } catch { return new Set(); }
-  });
-
-  const toggleStarMessage = useCallback((msgId) => {
-    setStarredMessages((prev) => {
-      const next = new Set(prev);
-      if (next.has(msgId)) next.delete(msgId); else next.add(msgId);
       return next;
     });
   }, []);
@@ -555,13 +526,13 @@ export function ChatsProvider({ children }) {
         customSkills,
         aiTools,
         pinned: [...pinnedSessions],
-        starred: [...starredMessages],
+
       });
     }, 2000);
     return () => {
       if (statePersistTimerRef.current) clearTimeout(statePersistTimerRef.current);
     };
-  }, [settings, customSkills, aiTools, pinnedSessions, starredMessages, persistAllState]);
+  }, [settings, customSkills, aiTools, pinnedSessions, persistAllState]);
 
   // ── Current session's chats ─────────────────────────────────────────
   const activeSession = sessions.find((s) => s.id === activeSessionId) || sessions[0];
@@ -747,9 +718,7 @@ export function ChatsProvider({ children }) {
         // pinned sessions
         pinnedSessions,
         pinSession,
-        // starred messages
-        starredMessages,
-        toggleStarMessage,
+
         // prompt history
         promptHistory,
         addToPromptHistory,

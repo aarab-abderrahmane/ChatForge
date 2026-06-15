@@ -15,16 +15,16 @@
  */
 
 'use client';;
-import { Button } from '../../button';
 import { cn } from '../../../../lib/utils';
 import { CheckIcon, CopyIcon } from 'lucide-react';
 import { createContext, useContext, useState, lazy, Suspense } from 'react';
+import { radius } from '../../../../lib/design-tokens';
 
 const LazySyntaxHighlighter = lazy(() => import('./syntax-highlighter').then(m => ({ default: m.default })));
 
 function SyntaxHighlighterFallback({ code }) {
   return (
-    <pre className="font-mono text-xs p-4 overflow-x-auto whitespace-pre-wrap" style={{ background: '#F5F5F5', margin: 0 }}>
+    <pre className="font-mono text-xs p-4 overflow-x-auto whitespace-pre-wrap bg-muted-100" style={{ margin: 0 }}>
       <code>{code}</code>
     </pre>
   );
@@ -48,24 +48,18 @@ export const CodeBlock = ({
 }) => (
   <CodeBlockContext.Provider value={{ code }}>
     <div
-      className={cn('relative w-full overflow-hidden my-3', className)}
+      className={cn('relative w-full overflow-hidden my-3 border-2 border-ink wobbly-sm shadow-hard-sm', className)}
       style={{
-        border: '1px solid #D4D4D4',
         background: '#F5F5F5',
       }}
       {...props}
     >
       {/* Language label + copy button header */}
       <div
-        className="flex items-center justify-between px-4 py-1.5"
-        style={{
-          borderBottom: '1px solid #D4D4D4',
-          background: '#EEEEEE',
-        }}
+        className="flex items-center justify-between px-4 py-1.5 bg-muted-100 border-b border-divider"
       >
         <span
-          className="text-[10px] tracking-widest uppercase"
-          style={{ color: '#737373', fontFamily: "'JetBrains Mono', 'Courier New', monospace" }}
+          className="text-[10px] tracking-widest uppercase text-muted-500 font-mono"
         >
           {language || 'code'}
         </span>
@@ -114,13 +108,11 @@ export const CodeBlockCopyButton = ({
   const Icon = isCopied ? CheckIcon : CopyIcon;
 
   return (
-    <Button
-      className={cn('shrink-0', className)}
+    <button
+      className={cn('btn-sketch-icon', className)}
       onClick={copyToClipboard}
-      size="icon"
-      variant="ghost"
       {...props}>
       {children ?? <Icon size={14} />}
-    </Button>
+    </button>
   );
 };

@@ -1,6 +1,7 @@
 
 import { useMemo, useState, useRef, useCallback, useLayoutEffect, useEffect } from 'react';
 import { AnimatePresence, motion } from 'motion/react';
+import { radius } from '../../../../lib/design-tokens';
 
 function safeParseJSON(code) {
   if (!code) return null;
@@ -262,22 +263,21 @@ export function MindmapBlock({ code }) {
 
   if (!data) {
     return (
-      <div className="my-6 p-6 rounded border border-dashed border-neutral-300 text-neutral-400 text-sm font-mono text-center bg-[#F9F9F7]">
+      <div className="my-6 p-6 wobbly-md border-2 border-dashed border-ink/30 text-muted-400 text-sm font-mono text-center bg-paper">
         ⬡ Loading mindmap...
       </div>
     );
   }
 
   const wrapperClass = fullscreen
-    ? 'fixed inset-0 z-50 bg-white flex flex-col shadow-xl'
-    : 'my-6 rounded border bg-white flex flex-col shadow-xs overflow-hidden';
+    ? 'fixed inset-0 z-50 bg-paper flex flex-col shadow-hard'
+    : 'my-6 wobbly-md border-2 border-ink bg-paper flex flex-col shadow-hard-sm overflow-hidden';
 
   return (
     <div className={wrapperClass} style={{ borderColor: COLORS.border }}>
       {/* ── Toolbar ── */}
       <div 
-        className="flex items-center justify-between px-4 py-2.5 border-b select-none shrink-0"
-        style={{ backgroundColor: COLORS.surface, borderColor: COLORS.divider }}
+        className="flex items-center justify-between px-4 py-2.5 border-b border-divider select-none shrink-0 bg-muted-100"
       >
         <div className="flex items-center gap-2">
           <div className="w-7 h-7 rounded flex items-center justify-center" style={{ backgroundColor: COLORS.accentLight }}>
@@ -364,8 +364,8 @@ export function MindmapBlock({ code }) {
       </div>
 
       {/* ── Instructions Bar ── */}
-      <div className="px-4 py-2 border-t shrink-0 bg-white" style={{ borderColor: COLORS.divider }}>
-        <span className="text-[10px] font-mono tracking-wider uppercase font-medium" style={{ color: COLORS.textMuted }}>
+      <div className="px-4 py-2 border-t border-divider shrink-0 bg-muted-100">
+        <span className="text-[10px] font-mono tracking-wider uppercase font-medium text-muted-400">
           Scroll to Zoom · Drag canvas to Pan · Click [+/−] to Branch
         </span>
       </div>
@@ -379,8 +379,7 @@ function ToolBtn({ onClick, title, children }) {
     <button
       onClick={onClick}
       title={title}
-      className="w-8 h-8 flex items-center justify-center rounded border bg-white text-sm transition-colors hover:bg-neutral-50 active:bg-neutral-100 shadow-xs"
-      style={{ color: COLORS.textSecondary, borderColor: COLORS.divider }}
+      className="btn-sketch-icon text-sm"
     >
       {children}
     </button>
